@@ -3,18 +3,15 @@ let Schedule = require("../class/Schedule");
 const bundleStructure = require("../services/bundleOperation");
 const responseService = require("../services/responseService");
 let config = require("../config/nodeConfig");
-let scheduleValid = require("../utils/Validator/scheduleAppointment").scheduleValidation;
+let {validateScheduleArray} = require("../utils/Validator/scheduleAppointment");
+const validateRequest = require("../utils/validateRequest");
 
 let setScheduleData = async function (req, res) {
     try {
         let resourceResult = [], errData = [];
         const resType = "Schedule"
+        validateRequest(req, res, validateScheduleArray);
         for (let scheduleData of req.body) {
-            let response = scheduleValid(scheduleData);
-            if (response.error) {
-                console.error(response.error.details)
-                return res.status(422).json({status: 0, response: { data: response.error.details[0] }, message: "Invalid input" })
-            }
             let locationResource = await bundleStructure.searchData(config.baseUrl + "Location", { organization: "Organization/" + scheduleData.orgId, _elements: "id", _total: "accurate" });
             let locationId = locationResource.data.entry[0].resource.id;
             scheduleData.locationId = locationId;

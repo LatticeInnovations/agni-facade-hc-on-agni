@@ -5,22 +5,18 @@ let Appointment = require("../class/Appointment");
 const bundleStructure = require("../services/bundleOperation");
 const responseService = require("../services/responseService");
 const { v4: uuidv4 } = require('uuid');
-let apptValid = require("../utils/Validator/scheduleAppointment").apptValidation;
+let appointmentValidation = require("../utils/Validator/scheduleAppointment").validateAppointmentArray;
 let apptPatchValidation = require("../utils/Validator/scheduleAppointment").apptPatchValidation;
+const {validateRequest} = require("../utils/validateRequest")
 let apptStatus = require("../utils/appointmentStatus.json");
 let config = require("../config/nodeConfig");
 
 let setAppointmentData = async function (req, res) {
     try {
         let resourceResult = [];
-        const resType = "Appointment"
+        const resType = "Appointment";
+        validateRequest(req, res, appointmentValidation);
         for (let apptData of req.body) {
-            let response = apptValid(apptData);
-            if (response.error) {
-                console.error(response.error.details)
-                let errData = { code: "ERR", statusCode: 422, response: { data: response.error.details[0] }, message: "Invalid input" }
-                return Promise.reject(errData);
-            }
             // get location id of the organization sent by app and map it to the appointments
             let locationResource = await bundleStructure.searchData(config.baseUrl + "Location", { organization: "Organization/" + apptData.orgId, _elements: "id", _total: "accurate" });
             let locationId = locationResource.data.entry[0].resource.id;
