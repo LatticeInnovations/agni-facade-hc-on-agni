@@ -1,7 +1,7 @@
 let medData = require("../utils/medtime.json");
 
 //get presection intake timing
-let getMedTiming = async function (req, res, next) {
+let getMedTiming = async function (req, res) {
     try {
         res.status(200).json({status: 1, message: "Data fetched successfully", data: medData});
         

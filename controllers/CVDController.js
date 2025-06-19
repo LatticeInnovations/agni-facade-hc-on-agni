@@ -10,12 +10,6 @@ let axios = require("axios");
 
 const saveCVDData = async (req, res) => {
     try {
-        // let response = resourceValid(req.params);
-        // if (response.error) {
-        //     console.error(response.error.details)
-        //     let errData = { status: 0, response: { data: response.error.details }, message: "Invalid input" }
-        //     return res.status(422).json(errData);
-        // }
         let resourceResult = [];
         for(let cvd of req.body){ 
             let encounterData = await bundleStructure.searchData(config.baseUrl + "Encounter", { "appointment": cvd.appointmentId, _count: 5000 , "_include": "Encounter:appointment" });

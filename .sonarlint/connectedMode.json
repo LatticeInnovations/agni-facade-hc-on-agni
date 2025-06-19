@@ -1,0 +1,4 @@
+{
+    "sonarQubeUri": "https://sonarcube.thelattice.in",
+    "projectKey": "fhir-facade-server"
+}

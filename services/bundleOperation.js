@@ -168,7 +168,7 @@ let getBundleJSON = async function (resourceData) {
     let errData = [];
     console.info(resourceData)
     bundle.entry = resourceData.resourceResult
-    errData = resourceData.errData
+    errData = resourceData?.errData || []
     return { bundle, errData };
 }
 

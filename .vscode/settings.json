@@ -1,6 +1,6 @@
 {
     "sonarlint.connectedMode.project": {
-        "connectionId": "latticeinnovations",
-        "projectKey": "LatticeInnovations_fhir-facade-server"
+        "connectionId": "https-sonarcube-thelattice-in-",
+        "projectKey": "fhir-facade-server"
     }
 }

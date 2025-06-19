@@ -1,6 +1,7 @@
 let ImmunizationRecommendation = require('../class/ImmunizationRecommendation');
 const bundleStructure = require("../services/bundleOperation");
 let config = require("../config/nodeConfig");
+
 let setImmunizationRecommendationData = async function (req, res) {
     try {
         const link = config.baseUrl + "ImmunizationRecommendation";

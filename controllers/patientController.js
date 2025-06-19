@@ -1,5 +1,8 @@
 
 let Person = require("../class/person");
+
+let Patient = require("../class/patient");
+
 let axios = require("axios");
 let config = require("../config/nodeConfig");
 const { v4: uuidv4 } = require('uuid');
@@ -9,36 +12,39 @@ const responseService = require("../services/responseService");
 let ImmunizationRecommendation = require('../class/ImmunizationRecommendation');
 const vaccines = require('../utils/vaccines.json');
 
+
 //  save patient data
 let savePatientData = async function (req, res) {
     try {
         let token = req.token;
-        // let response = resourceValid(req.params);
-        // if (response.error) {
-        //     console.error(response.error.details)
-        //     let errData = { status: 0, response: { data: response.error.details }, message: "Invalid input" }
-        //     return res.status(422).json(errData);
-        // }
+        
         let resourceResult = [];
+        console.log("req body: ", req.body)
         for (let patientData of req.body) {
-            let patient = new Person(patientData, {}, token);
+            let patient = new Patient(patientData, {}, token);
             patient.getJsonToFhirTranslator();
             let patientResource = {};
             patientResource = { ...patient.getFHIRResource() };
             patientResource.resourceType = "Patient";
             let personInput = { patientId: patientData.id };
             let person1 = new Person(personInput, {});
-            person1.setBasicStructure();
-            person1.setLink(patientData.id);
+            patient.setBasicStructure();
+            patient.setLink(patientData.id);
+            patient.setSpouseName(patientData.spouseName);
+            patient.setMothersName(patientData.mothersName);
+            patient.setFathersName(patientData.setFathersName)
             let personResource = { ...person1.getFHIRResource() };
             personResource.identifier = patientResource.identifier;
             personResource.resourceType = "Person";
             personResource.id = uuidv4();            
             let patientBundle = await bundleStructure.setBundlePost(patientResource, patientResource.identifier, patientData.id, "POST", "identifier");
             console.info("patient bundle: ", patientBundle)
-            let personBundle = await bundleStructure.setBundlePost(personResource, patientResource.identifier, personResource.id, "POST", "identifier");
-            let immunizationResources = await createImmunizationData(patientData, token)
-            resourceResult = resourceResult.concat(immunizationResources)
+            let personBundle = await bundleStructure.setBundlePost(personResource, null, personResource.id, "POST", "identifier");
+            if (!('blockImmunization' in patientData)) {
+                let immunizationResources = await createImmunizationData(patientData, token)
+                resourceResult = resourceResult.concat(immunizationResources)
+            }
+                
             resourceResult.push(patientBundle, personBundle);            
         }
         let bundleData = await bundleStructure.getBundleJSON({resourceResult})  

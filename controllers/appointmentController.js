@@ -11,15 +11,23 @@ const {validateRequest} = require("../utils/validateRequest")
 let apptStatus = require("../utils/appointmentStatus.json");
 let config = require("../config/nodeConfig");
 
+
+const fetchLocationResource = async (orgId) => {
+    // get location id of the organization sent by app and map it to the appointments
+    const locationResource = await bundleStructure.searchData(config.baseUrl + "Location", { organization: "Organization/" + orgId, _elements: "id", _total: "accurate" });
+    if (!locationResource.data) {
+        throw new Error("Location not found for the given organization.");
+    }
+    return locationResource.data.entry[0].resource.id;
+}
+
 let setAppointmentData = async function (req, res) {
     try {
         let resourceResult = [];
         const resType = "Appointment";
         validateRequest(req, res, appointmentValidation);
         for (let apptData of req.body) {
-            // get location id of the organization sent by app and map it to the appointments
-            let locationResource = await bundleStructure.searchData(config.baseUrl + "Location", { organization: "Organization/" + apptData.orgId, _elements: "id", _total: "accurate" });
-            let locationId = locationResource.data.entry[0].resource.id;
+            const locationId = await fetchLocationResource(apptData.orgId)
             apptData.locationId = locationId;
             let slotData = apptData.slot;
             // generate slot of  the given schedule
