@@ -81,7 +81,16 @@ class Patient extends Person {
       });
     }
   }
+
+  setFhirId() {
+    if(this.patient_obj?.fhirId) {
+      this.fhir_resource.id = this.patient_obj?.fhirId
+    }
+  }
+
 }
+
+
 
 
 module.exports = Patient;

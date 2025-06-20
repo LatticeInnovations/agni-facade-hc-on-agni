@@ -17,7 +17,11 @@ const vaccines = require('../utils/vaccines.json');
 let savePatientData = async function (req, res) {
     try {
         let token = req.token;
-        
+        req.queueMeta = {
+            data: req.data,
+            entity: "patient",
+            requestType: "post"
+          };
         let resourceResult = [];
         console.log("req body: ", req.body)
         for (let patientData of req.body) {
@@ -80,6 +84,71 @@ let savePatientData = async function (req, res) {
 
 }
 
+let updatePatientData = async function(req, res) {
+    try {
+        let token = req.token;
+        req.queueMeta = {
+            data: req.data,
+            entity: "patient",
+            requestType: "put"
+          };
+        let resourceResult = [];
+        console.log("req body: ", req.body)
+        for (let patientData of req.body) {
+            let patientResource = {};
+            let patient = new Patient(patientData, {}, token);
+            patient.setBasicStructure();
+            patient.getJsonToFhirTranslator(); 
+            console.log("patientResource 1: ", patientResource)
+            patient.setSpouseName(patientData.spouseName);
+            patient.setMothersName(patientData.mothersName);
+            patient.setFathersName(patientData.setFathersName);
+            patient.setFhirId(patientData.id);            
+            patientResource = { ...patient.getFHIRResource() };
+            patientResource.resourceType = "Patient";
+            console.log("patientResource 2: ", patientResource)
+            let patientBundle = await bundleStructure.setBundlePut(patientResource, patientResource.identifier, patientData.fhirId, "put", "identifier");
+            console.info("patient bundle: ", patientBundle)
+            // let personBundle = await bundleStructure.setBundlePost(personResource, null, personResource.id, "put", "identifier");
+            // if (!('blockImmunization' in patientData)) {
+            //     let immunizationResources = await createImmunizationData(patientData, token)
+            //     resourceResult = resourceResult.concat(immunizationResources)
+            // }
+                
+            resourceResult.push(patientBundle);            
+        }
+        let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
+        console.info("main bundle transaction resource: ", bundleData)
+        let response = await axios.post(config.baseUrl, bundleData.bundle); 
+        console.log("get bundle json response: ", response.status)  
+        if (response.status == 200 || response.status == 201) {
+            let resourceResponse = setPatientSaveResponse(bundleData.bundle.entry, response.data.entry, "put");
+            let responseData = [...resourceResponse, ...bundleData.errData];
+            res.status(201).json({ status: 1, message: "Patient data updated.", data: responseData })
+        }
+        else {
+            return res.status(500).json({
+                    status: 0, message: "Unable to process. Please try again.", error: response
+            })
+        }
+    }
+    catch (e) {
+        console.error(e);
+        if (e.code && e.code == "ERR") {
+            let statusCode = e.statusCode ? e.statusCode : 500;
+            return res.status(statusCode).json({
+                status: 0,
+                message: e.message
+            })
+        }
+        return res.status(500).json({
+            status: 0,
+            message: "Unable to process. Please try again.",
+            error: e
+        })
+    }
+}
+
 const createImmunizationData = async function(patientData, token) {
     let immunizationResources = []
     const vaccineCodes = Object.keys(vaccines);
@@ -104,7 +173,7 @@ const setPatientSaveResponse  = (reqBundleData, responseBundleData, type) => {
     let response = [];
     const responseData = bundleStructure.mapBundleService(reqBundleData, responseBundleData)
     filteredData = responseData.filter(e => e.resource.resourceType == "Patient" || (type == "patch" && e.resource.resourceType == "Binary"));
-    response = responseService.setDefaultResponse("Patient", "post", filteredData);
+    response = responseService.setDefaultResponse("Patient", type, filteredData);
     return response;
 }
 
@@ -224,5 +293,6 @@ const immunizationPatch = async function (inputData) {
 module.exports = {
     savePatientData,
     getPatientData,
-    patchPatientData
+    patchPatientData,
+    updatePatientData
 }

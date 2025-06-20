@@ -50,7 +50,7 @@ const getResponseData = (element, reqMethod) => {
   );
   let id = fullUrl.includes("uuid:") ? fullUrl.split("uuid:")[1] : fullUrl;
   data.status = element.response.status;
-  data.id = ["patch", "PATCH"].includes(reqMethod) ? null : id;
+  data.id = ["patch", "PATCH", "put", "PUT"].includes(reqMethod) ? null : id;
   console.info("data is: ", data, "  element is: ", element)
   return data;
 };

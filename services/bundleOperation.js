@@ -53,17 +53,19 @@ let setBundlePost = async function (resourceData, identifier, id, reqMethod, ide
 }
 }
 
-let setBundlePut = async function (resourceData, identifier, id) {
+let setBundlePut = async function (resourceData, identifier, id, identifierType) {
     try {
-    let identifierConcat = "";
-    if (identifier || identifier != null) {
-        identifierConcat = "?";
-        identifier.forEach(element => {
-            identifierConcat += "identifier=" + element.identifierType + "|" + element.identifierNumber + "&"
-        })
-        identifierConcat = identifierConcat.slice(0, -1);
-    }
-
+        let identifierConcat = "";
+        if(identifier || identifier != null) {
+            identifierConcat = "";
+            identifier.forEach(element => {    
+                if(identifierType != "object")       
+                    identifierConcat += identifierType+"=" + element.system + "|" + element.value + "&"
+                else
+                    identifierConcat += element.key+"="+element.value + "&"
+            })
+            identifierConcat = identifierConcat.slice(0, -1);
+        }
     let bundlePostStructure = {
         "fullUrl": resourceData.resourceType + "/" + id,
         "resource": resourceData,
