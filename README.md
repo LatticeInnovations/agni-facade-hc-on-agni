@@ -18,7 +18,7 @@ This guide will help you set up and run the backend server locally.
 
 - Node.js (v20+ recommended)
 - PostgreSQL installed and running
-- A running FHIR server (e.g., [HAPI FHIR](https://github.com/LatticeInnovations/FHIR-server-end))
+- A running FHIR server (e.g., [HAPI FHIR](https://github.com/hapifhir/hapi-fhir-jpaserver-starter/tree/v6.6.0))
 - Setup Twilio sendGrid account and get twilio keys. [click here](https://www.twilio.com/docs/iam/api-keys/keys-in-console)
 
 # 📦 Step-by-Step Setup
