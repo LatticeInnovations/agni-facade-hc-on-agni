@@ -49,13 +49,19 @@ class RelatedPerson {
         this.setRelationData();
         this.setPatientReference();
         this.setRelationship();
-        return this.fhirResource;
     }
 
     getFHIRtoJsonTranslator() {
         this.getPatientReference();
         this.getRelationship();
+    }
+
+    getSimplifiedOutput() {
         return this.relationObject;
+    }
+
+    getFHIRResource() {
+        return this.fhirResource;
     }
 }
 

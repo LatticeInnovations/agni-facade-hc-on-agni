@@ -143,7 +143,7 @@ class DispenseEncounter {
       this.dispenseObj.generatedOn = this.fhirResource.period.start;
   }
 
-  getUserInputToFhir() {
+  getJsonToFhirTranslator() {
     this.setBasicStructure();
     this.setIdentifier();
     this.setPatientReference();
@@ -153,10 +153,9 @@ class DispenseEncounter {
     this.setStatus();
     this.setNote()
     // this.setAppointmentEncounterId();
-    return this.fhirResource;
   }
 
-  getFhirToJson() {
+  getFHIRToTransformedResult() {
     this.getId();
     this.getPatientReference();
     this.getEncounterTime();
@@ -164,10 +163,9 @@ class DispenseEncounter {
     this.getType()
     this.getNote()
     this.getPartOf()
-    return this.dispenseObj;
   }
 
-  getUserResponseFormat() {
+  getSimplifiedOutput() {
     return this.dispenseObj;
   }
 

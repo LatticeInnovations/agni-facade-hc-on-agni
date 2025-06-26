@@ -8,18 +8,18 @@ class ImmunizationRecommendation {
     data;
     constructor(data, fhir_resource) {
         this.fhirResource = fhir_resource;
-        this.data = data;
+        this.immunizationRec = data;
     }
 
     setBasicStructure() {
         this.fhirResource.resourceType = "ImmunizationRecommendation";
         this.fhirResource.id = uuidv4();
         this.fhirResource.patient = {
-            reference: "Patient/" + "urn:uuid:" + this.data.patientId
+            reference: "Patient/" + "urn:uuid:" + this.immunizationRec.patientId
         }
         this.fhirResource.date = new Date().toISOString();
         this.fhirResource.authority = {
-            "reference": "Organization/" + this.data.orgId, // id of practitioner
+            "reference": "Organization/" + this.immunizationRec.orgId, // id of practitioner
         }
     }
 
@@ -86,20 +86,24 @@ class ImmunizationRecommendation {
 
     setRecommendation() {
         this.fhirResource.recommendation = [];
-        let vaccineData = vaccines[this.data.code];
+        let vaccineData = vaccines[this.immunizationRec.code];
         let doses = Object.keys(vaccineData.doses);
         for (let dose of doses) {
-            this.fhirResource.recommendation.push(this.createRecommendationData(this.data.code, this.data.birthDate, dose, doses, vaccineData));
+            this.fhirResource.recommendation.push(this.createRecommendationData(this.immunizationRec.code, this.immunizationRec.birthDate, dose, doses, vaccineData));
         }
     }
 
     getJsonToFhirTranslator() {
         this.setBasicStructure();
         this.setRecommendation();
-        return this.fhirResource;
     }
 
-    getFHIRtoJSON() {
+    getFHIRResource() {
+        return this.fhirResource;
+      }
+    
+
+      getFHIRToTransformedResult() {
         let result = [];
         for(let recommendation of this.fhirResource.recommendation) {
             result.push({
@@ -114,9 +118,13 @@ class ImmunizationRecommendation {
                 vaccineBufferDate : recommendation?.dateCriterion?.filter(e => e.code.coding[0]?.code == "30981-5")[0].value,
                 vaccineDueDate : recommendation?.dateCriterion?.filter(e => e.code.coding[0]?.code == "30980-7")[0].value,
             });
+            this.immunizationRec.result = result
         }
-        return result;
     }
+
+    getSimplifiedOutput() {
+        return this.immunizationRec;
+      }
 
     patchImmunizationRecommendation() {
         let recommendation = [];
@@ -124,7 +132,7 @@ class ImmunizationRecommendation {
         let vaccineData = vaccines[code];
         let doses = Object.keys(vaccineData.doses);
         for (let dose of doses) {
-            recommendation.push(this.createRecommendationData(code, this.data.birthDate, dose, doses, vaccineData));
+            recommendation.push(this.createRecommendationData(code, this.immunizationRec.birthDate, dose, doses, vaccineData));
         }
 
         return [{

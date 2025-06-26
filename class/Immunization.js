@@ -140,7 +140,7 @@ class Immunization {
     }
   }
 
-  getFhirResource() {
+  getJsonToFhirTranslator() {
     this.setBasicStructure();
     this.setIdentifier();
     this.setVaccineCode();
@@ -152,9 +152,10 @@ class Immunization {
     this.setOccuranceTime();
     this.setExpiryDate();
     this.setPerformer();
+  }
 
+  getFHIRResource() {
     return this.fhirResource;
-
   }
 
   getImmunizationObj() {
@@ -168,9 +169,10 @@ class Immunization {
     this.getExpiryDate();
     this.getOccuranceTime();
     this.getPatientReference();
+  }
 
+  getSimplifiedOutput() {
     return this.immunizationObj;
-
   }
 
 }

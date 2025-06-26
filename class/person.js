@@ -436,7 +436,7 @@ class Person {
         return this.fhirResource;
     }
 
-    getPersonResource() {
+    getSimplifiedOutput() {
         return this.personObj;
     }
 

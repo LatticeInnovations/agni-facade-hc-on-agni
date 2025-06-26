@@ -83,31 +83,32 @@ getEncounterTime() {
   }
 
 
-  getUserInputToFhir() {
+  getJsonToFhirTranslator() {
     this.setBasicStructure();
     this.setIdentifier();
     this.setPatientReference();
     this.setPartOf();
     this.setType()
     this.setEncounterTime();
-    return this.fhirResource;
-  }
-
-  getFhirToJson() {
-    this.getId();
-    this.getPatientReference();
-    this.getEncounterTime();
-    this.getPartOf()
-    return this.groupEncounterObj;
-  }
-
-  getUserResponseFormat() {
-    return this.groupEncounterObj;
   }
 
   getFHIRResource() {
     return this.fhirResource;
   }
+  
+
+  getFHIRToTransformedResult() {
+    this.getId();
+    this.getPatientReference();
+    this.getEncounterTime();
+    this.getPartOf()
+  }
+
+  getSimplifiedOutput() {
+    return this.groupEncounterObj;
+  }
+
+  
 
   setBasicStructure() {
     this.fhirResource.identifier = [];

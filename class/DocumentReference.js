@@ -49,15 +49,20 @@ class DocumentReference {
         }
     }
 
-    getJSONtoFhir() {
+    getJsonToFhirTranslator() {
         this.setBasicStructure();
         this.setIdentifier();
         this.setDocumentContent();
         this.setNote();
         this.setContext();
         this.setSubject();
-        return this.fhirResource;
     }
+
+    getFHIRResource() {
+        return this.fhirResource;
+      }
+      
+
 
     setBasicStructure() {
         this.fhirResource.id = this.documentObj.uuid;
@@ -72,13 +77,15 @@ class DocumentReference {
         };
     }
 
-    getFHIRToJSON(){
+    getFHIRToTransformedResult(){
         this.documentObj.documentFhirId = this.fhirResource.id;
         this.documentObj.documentUuid = this?.fhirResource?.identifier?.[0]?.value;
         this.documentObj.note = this?.fhirResource?.description || "";
-        this.documentObj.filename = this?.fhirResource?.content?.[0]?.attachment?.title || "";
-        return this.documentObj;
     }
+
+    getSimplifiedOutput() {
+        return this.documentObj;
+      }
 
     getFHIRToJSONForLabReport(){
         this.documentObj.labDocumentfhirId = this.fhirResource.id;

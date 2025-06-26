@@ -71,11 +71,11 @@ class Schedule {
         this.setPlanningHorizon();
     }
 
-    getInput() {
+    getSimplifiedOutput() {
         return this.scheduleObj;
     }
 
-    getResource() {
+    getFHIRResource() {
         return this.fhirResource;
     }
 

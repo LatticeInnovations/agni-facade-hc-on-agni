@@ -137,11 +137,11 @@ class Appointment {
 
     }
 
-    getInput() {
+    getSimplifiedOutput() {
         return this.apptObj;
     }
 
-    getResource() {
+    getFHIRResource() {
         return this.fhirResource;
     }
 

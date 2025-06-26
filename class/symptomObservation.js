@@ -106,23 +106,30 @@ class Observation {
         this.fhirResource.component = []
     }
 
-    setJsonTOFhir() {
+    getJsonToFhirTranslator() {
         this.setBasicStructure();
         this.setIdentifier();
         this.setPatientReference();
         this.setEncounterReference();
         this.setPatientReference();
-        this.setSymptoms()
-        return this.fhirResource
+        this.setSymptoms();
     }
 
-    getFhirToJson() {
+    getFHIRResource() {
+      return this.fhirResource;
+  }
+
+  getFHIRToTransformedResult() {
       this.getFhirId();
       this.getEncounter();
       this.getPatientId();
-      this.getSymptoms()
-      return this.observationObj
+      this.getSymptoms();
     }
+
+    getSimplifiedOutput() {
+      return this.observationObj;
+  }
+
     patchResource() {
       this.setSymptoms()
       return this.fhirResource

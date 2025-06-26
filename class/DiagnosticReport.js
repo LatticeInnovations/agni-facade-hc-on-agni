@@ -55,12 +55,19 @@ class DiagnosticReport {
         });
     }
 
-    getUserInputToFhir() {
+    getJsonToFhirTranslator() {
         this.setBasicStructure();
         this.setPatientReference();
         this.setEncounterReference();
         this.setExtension();
         this.setIdentifier();
+    }
+
+    getSimplifiedOutput() {
+        return this.reportObj.labReport;
+    }
+
+    getFHIRResource() {
         return this.fhirResource;
     }
 
@@ -78,10 +85,10 @@ class DiagnosticReport {
         this.reportObj.labReport.status = this?.fhirResource?.status == "entered-in-error" ? "deleted" : "saved";
     }
 
-    getFHIRToUserData() {
+    getFHIRToTransformedResult() {
         this.reportObj.labReport = {};
         this.getResourceDetails();
-        return this.reportObj.labReport;
+        
     }
 
     patchDocuments() {

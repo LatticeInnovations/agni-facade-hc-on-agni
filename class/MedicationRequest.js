@@ -163,7 +163,7 @@ getId() {
         });
     }
 
-    getJSONtoFhir() {
+    getJsonToFhirTranslator() {
         this.setBasicStructure();
         this.setIdentifier();
         this.setIntent();
@@ -176,18 +176,18 @@ getId() {
         // this.setDocument();
     }
 
-    getFhirToJson() {
+    getFHIRToTransformedResult() {
         this.getId();
         this.getMedFhirId();
         this.getNote();
         this.getDoseInstruction();
     }
 
-    getMedReqResource() {
+    getSimplifiedOutput() {
         return this.medReqObj;
     }
 
-    getFhirResource() {
+    getFHIRResource() {
         return this.fhirResource;
     }
 

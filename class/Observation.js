@@ -16,6 +16,15 @@ class Observation {
         ];
     }
 
+    getSimplifiedOutput() {
+        return this.observationObj;
+      }
+    
+      getFHIRResource() {
+        return this.fhirResource;
+      }
+
+      
     getUserInputToFhirHeight(){
         this.setBasicStructure();
         this.setEncounterReference();

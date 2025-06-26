@@ -86,11 +86,10 @@ class Condition {
         this.conditionObj.createdOn = this?.fhirResource?.onsetDateTime || null;
     }
 
-    getFHIRToUserResponse() {
+    getFHIRToTransformedResult() {
         // this.getId();
         this.getDiagnosis();
         // this.getCreatedOn();
-        return this.conditionObj.diagnosis;
     }
 
     getJsonToFhirTranslator() {
@@ -101,6 +100,13 @@ class Condition {
         this.setRecorder();
         this.setDiagnosis();
         this.setOnsetDateTime();
+    }
+
+    getSimplifiedOutput() {
+        return this.conditionObj.diagnosis;
+    }
+
+    getFHIRResource() {
         return this.fhirResource;
     }
 

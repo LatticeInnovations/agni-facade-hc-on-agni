@@ -178,9 +178,15 @@ class MedicationDispense {
       this.medDispenseObj.medNote = null
   }
 
+  setBasicStructure() {
+    // this.fhirResource.dosageInstruction = [];
+    this.fhirResource.medicationReference = {};
+    this.fhirResource.subject = {};
+    this.fhirResource.context = {};
+    this.fhirResource.identifier = [];
+  }
 
-
-  getJSONtoFhir() {
+  getJsonToFhirTranslator() {
     this.setBasicStructure();
     this.setIdentifier();
     this.setPatientReference();
@@ -192,10 +198,13 @@ class MedicationDispense {
     this.setMedicationDispenseCategory();
     this.setSubstitution();
     this.setMedicationDispenseNote();
-    return this.fhirResource
   }
 
-  getFhirToJson() {
+  getFHIRResource() {
+    return this.fhirResource;
+  }
+
+  getFHIRToTransformedResult() {
     this.getId();
     this.getIdentifier();
     this.getPatientReference();
@@ -209,21 +218,10 @@ class MedicationDispense {
     return this.medDispenseObj;
   }
 
-  getUserResponseFormat() {
+  getSimplifiedOutput() {
     return this.medDispenseObj;
   }
 
-  getFhirResource() {
-    return this.fhirResource;
-  }
-
-  setBasicStructure() {
-    // this.fhirResource.dosageInstruction = [];
-    this.fhirResource.medicationReference = {};
-    this.fhirResource.subject = {};
-    this.fhirResource.context = {};
-    this.fhirResource.identifier = [];
-  }
 }
 
 module.exports = MedicationDispense;

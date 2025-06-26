@@ -91,11 +91,11 @@ class Slot {
         this.patchSlotTime();
     }
 
-    getInput() {
+    getSimplifiedOutput() {
         return this.slotObj;
     }
 
-    getResource() {
+    getFHIRResource() {
         return this.fhirResource;
     }
 }

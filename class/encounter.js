@@ -70,7 +70,7 @@ class Encounter {
         this.encounterObj.generatedOn = this.fhirResource.period.start;
     }
 
-    getUserInputToFhir() {
+    getJsonToFhirTranslator() {
         this.setBasicStructure();
         this.setuuid();
         this.setPatientReference();
@@ -79,15 +79,9 @@ class Encounter {
         this.setStatus();
     }
 
-    getFhirToJson() {
-        this.getId();
-        this.getAppointmentReference();
-        this.getPatientReference();
-        this.getEncounterTime();
-        return this.encounterObj
-    }
+   
 
-    getEncounterResource() {
+    getSimplifiedOutput() {
         return this.encounterObj;
     }
 
@@ -159,6 +153,12 @@ class Encounter {
         this.encounterObj.cvdUuid = this?.fhirResource?.identifier?.[this?.fhirResource?.identifier?.length - 1]?.value || null;
     }
 
+    getFHIRToTransformedResult() {
+        this.getId();
+        this.getAppointmentReference();
+        this.getPatientReference();
+        this.getEncounterTime();
+    }
 
     getFhirToJsonForVitals() {
         this.getId();

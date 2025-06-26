@@ -55,15 +55,17 @@ class DocumentManifest {
         });
     }
 
-    getUserInputToFhir(){
+    getJsonToFhirTranslator(){
         this.setBasicStructure();
         this.setPatientReference();
         this.setEncounterReference();
         this.setPractitionerReference();
         this.setContent();
         this.setIdentifier();
-        return this.fhirResource;
     }
+
+
+
 
     getResourceDetails() {
         this.reportObj.labReport.medicalRecordFhirId = this.fhirResource.id;
@@ -79,11 +81,20 @@ class DocumentManifest {
         this.reportObj.labReport.status = this?.fhirResource?.status == "entered-in-error" ? "deleted" : "saved";
     }
 
-    getFHIRToUserData() {
+    getFHIRResource() {
+        return this.fhirResource;
+    }
+    
+    getFHIRToTransformedResult() {
         this.reportObj.labReport = {};
         this.getResourceDetails();
+    }
+
+    getSimplifiedOutput() {
         return this.reportObj.labReport;
     }
+
+   
 
     patchDocuments() {
         this.fhirResource.content = [];
