@@ -72,7 +72,7 @@ class Slot {
         this.slotObj.scheduleId = this.fhirResource.id;
     }   
 
-    getFHIRToUserInput() {
+    getFHIRToTransformedResult() {
         this.getId();
         this.getStatus();
         this.getSchedule();

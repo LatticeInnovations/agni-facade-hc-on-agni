@@ -8,7 +8,7 @@ const cookieParser = require("cookie-parser");
 let cronJob= require("./services/cros-jobs/triggerAppointment")
 const config = require("./config/nodeConfig");
 require('./services/deleteDataProcess');
-const queueLoggerMiddleware = require("./middleware/queueLoggerMiddleware")
+// const queueLoggerMiddleware = require("./middleware/queueLoggerMiddleware")
 require('dotenv').config();
 
 let options = {

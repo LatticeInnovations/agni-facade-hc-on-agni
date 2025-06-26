@@ -62,7 +62,7 @@ class Medication {
         }
     }
 
-    getFHIRToUserInput() {
+    getFHIRToTransformedResult() {
         this.getCode();
         this.getIsOTC();
         this.getDoseForm();

@@ -56,7 +56,7 @@ class Schedule {
         this.scheduleObj.uuid = this.fhirResource.identifier[0].value
     }   
 
-    getFHIRToUserInput() {
+    getFHIRToTransformedResult() {
         this.getId();
         this.getPlanningHorizon();
         this.getActor();     

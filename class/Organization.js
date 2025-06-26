@@ -8,6 +8,7 @@ class Organization {
     constructor(orgObj, fhirResource) {
         this.orgObj = orgObj;
         this.fhirResource = fhirResource;
+        this.fhirResource.resourceType = "Organization"
     }
 
     setBasicStructure() {
@@ -333,7 +334,7 @@ class Organization {
         return this.fhirResource;
     }
 
-    getOrgResource() {
+    getSimplifiedOutput() {
         return this.orgObj;
     }
 
@@ -347,10 +348,10 @@ class Organization {
         this.setPhone();
         this.setEmailAddress();
         this.setAddress("work");
-
     }
+    
 
-    getFHIRToUserInput() {
+    getFHIRToTransformedResult() {
         this.getId();
         this.getOrgName();
         this.getIdentifier();

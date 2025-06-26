@@ -111,7 +111,7 @@ class Appointment {
         this.apptObj.appointmentType = this?.fhirResource?.appointmentType?.coding?.[0]?.code || null;
     }
 
-    getFHIRToUserInput() {
+    getFHIRToTransformedResult() {
         this.getId();
         this.getIdentifier();
         this.getStatus();

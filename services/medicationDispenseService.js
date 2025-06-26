@@ -205,7 +205,7 @@ const getMainEncountersForPrescription = async function(reqInput, token, prescri
       let medicationResources = await bundleStructure.searchData(config.baseUrl + "Medication", {_id: Array.from(medicationIds).join(","), _count: 200}, token)
       let medicationData = medicationResources.data.entry.map(element => {
         let medication = new Medication({}, element.resource);
-        medication.getFHIRToUserInput();
+        medication.getFHIRToTransformedResult();
         const medData = medication.getMedicationResource()
         return  medData
       });

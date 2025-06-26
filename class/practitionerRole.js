@@ -6,6 +6,7 @@ class PractitionerRole {
     constructor(location_obj, fhir_resource) {
         this.roleObj = location_obj;
         this.fhirResource = fhir_resource;
+        this.fhirResource.resourceType = "PractitionerRole"
     }
 
     setOrganizationReference() {
@@ -18,35 +19,39 @@ class PractitionerRole {
             this.roleObj.role = result.display
     }
     setPractitionerReference() {
-        this.fhirResource.practitioner.reference = "Practitioner/"+this.roleObj.orgId;
+        this.fhirResource.practitioner.reference = "Practitioner/"+this.roleObj.userId;
     }
 
     setRole() {
         let result = roleJson.find(a => a.code === this.roleObj.roleId);
-        this.fhirResource.code[0].coding = [
-            {
-                "system" : result.system,
-                "code": result.code,
-            }
-        ]
+        this.fhirResource.code[{
+            coding:  [
+
+                {
+                    "system" : result.system,
+                    "code": result.code,
+                }
+            ]
+        }]
+        
     }
 
 
-    getUserInputToFhir() {
+    getJsonToFhirTranslator() {
         this.setBasicStructure();
         this.setOrganizationReference();
         this.setPractitionerReference();
         this.setRole();
     }
 
-    getFhirToJson() {
+    getFHIRToTransformedResult() {
         this.getOrganizationRole();
     }
 
     getFHIRResource() {
         return this.fhirResource;
     }
-    getRoleJson() {
+    getSimplifiedOutput() {
         return this.roleObj;
     }
 

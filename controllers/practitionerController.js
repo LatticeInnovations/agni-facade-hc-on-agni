@@ -88,7 +88,7 @@ let getPractitionerData = async function (req, res) {
             
             for (let i = 0; i < responseData.data.entry.length; i++) {
                 let practitioner = new Practitioner({}, responseData.data.entry[i].resource, req.token);
-                practitioner.getFHIRToUserInput();
+                practitioner.getFHIRToTransformedResult();
                 resourceResult.push(practitioner.getPersonResource())                
             }
         }

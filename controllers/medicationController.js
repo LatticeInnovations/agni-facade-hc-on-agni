@@ -21,7 +21,7 @@ let getMedicationList = async function (req, res) {
         responseData.data.entry.forEach(element => {
             const FHIRData = element.resource;
             let medication = new Medication({}, FHIRData);
-            medication.getFHIRToUserInput();
+            medication.getFHIRToTransformedResult();
             resourceResult.push(medication.getMedicationResource())
         });
         

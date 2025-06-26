@@ -5,10 +5,19 @@ class Location {
     constructor(location_obj, fhir_resource) {
         this.locationObj = location_obj;
         this.fhirResource = fhir_resource;
+        this.fhirResource.resourceType = "Location";
     }
 
+    setLocationName() {
+        if(this.locationObj.name) {
+            this.fhirResource.name = this.locationObj.clinicName;
+        }
+    }
     setOrganizationReference() {
-        this.fhirResource.managingOrganization = this.locationObj.orgUUID;
+        if(this.locationObj.orgUUID)
+            this.fhirResource.managingOrganization = this.locationObj.orgUUID;
+        else if(this.locationObj.orgId)
+            this.fhirResource.managingOrganization = "Organization/" + this.locationObj.orgId
     }
 
     getOrganizationReference() {
@@ -37,21 +46,22 @@ class Location {
     }
    }
   
-    getUserInputToFhir() {
+   getJsonToFhirTranslator() {
         this.setBasicStructure();
+        this.setLocationName();
         this.setOrganizationReference();
         this.setStatus();
         this.setPosition();
     }
 
-    getFhirToJson() {
+    getFHIRToTransformedResult() {
         this.getOrganizationReference();
         this.getStatus();
         this.getPosition();
     }
 
 
-    getLocationResource() {
+    getSimplifiedOutput() {
         return this.locationObj;
     }
 

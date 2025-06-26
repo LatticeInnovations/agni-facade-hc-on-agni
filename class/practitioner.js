@@ -10,6 +10,7 @@ class Practitioner  extends Person{
         super(practitioner_obj, fhir_resource);
         this.practitionerObj = practitioner_obj;
         this.fhirResource = fhir_resource;
+        this.fhirResource.resourceType = "Practitioner";
         console.info('practitioner data: ', practitioner_obj)
 
     }
@@ -110,7 +111,7 @@ class Practitioner  extends Person{
         return this.fhirResource;
     }
 
-    getPersonResource() {
+    getSimplifiedOutput() {
         return this.practitionerObj;
     }
 
@@ -129,7 +130,7 @@ class Practitioner  extends Person{
 
     }
 
-    getFHIRToUserInput() {
+    getFHIRToTransformedResult() {
         this.getId();
         this.getFirstName();
         this.getMiddleName();

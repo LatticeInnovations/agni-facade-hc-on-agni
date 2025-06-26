@@ -197,7 +197,7 @@ let getPatientData = async function (req, res) {
             
             for (let i = 0; i < responseData.data.entry.length; i++) {
                 let patient = new Person({}, responseData.data.entry[i].resource, req.token);
-                patient.getFHIRToUserInput();
+                patient.getFHIRToTransformedResult();
                 resourceResult.push(patient.getPersonResource())                
             }
         }

@@ -28,7 +28,7 @@ let getOrganizationData = async function (req, res) {
             for (let orgData of orgList) { 
                 let locationResource = responseData.data.entry.filter(e => e.resource.resourceType == "Location" && e.resource.managingOrganization.reference == "Organization/" + orgData.id).map(e => e.resource)[0];
                 let organization = new Organization({}, orgData );
-                organization.getFHIRToUserInput();
+                organization.getFHIRToTransformedResult();
                 let organizationData = organization.getOrgResource();
                 let location = new Location({}, locationResource);
                 location.getFhirToJson();
@@ -49,6 +49,7 @@ let getOrganizationData = async function (req, res) {
        
     }
 }
+
 
 
 module.exports = {

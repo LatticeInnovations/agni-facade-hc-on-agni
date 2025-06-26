@@ -72,7 +72,7 @@ const getScheduleData = async function(req, res) {
             let locationIds = new Set(), scheduleIds = new Set(); let scheduleResult = [], resourceSlotResult = [];
             for (let scheduleData of FHIRData) {
                 let schedule = new Schedule({}, scheduleData.resource);
-                schedule.getFHIRToUserInput();
+                schedule.getFHIRToTransformedResult();
                 let scheduleResponse = schedule.getInput();
                 scheduleIds.add(scheduleResponse.scheduleId);
                 let locationId = scheduleData.resource.actor[0].reference.split("/")[1];

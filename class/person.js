@@ -458,7 +458,7 @@ class Person {
         this.setGeneralPractitioner();
     }
 
-    getFHIRToUserInput() {
+    getFHIRToTransformedResult() {
         this.getId();
         this.getFirstName();
         this.getMiddleName();

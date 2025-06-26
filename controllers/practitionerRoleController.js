@@ -26,7 +26,7 @@ let getPractitionerRoleData = async function (req, res) {
             const FHIRData =  responseData.data.entry;      
             let practitioner = FHIRData.find(e => e.resource.resourceType == "Practitioner");
             let practitionerData = new Practitioner({}, practitioner.resource);
-            practitionerData.getFHIRToUserInput();
+            practitionerData.getFHIRToTransformedResult();
             practitionerData = practitionerData.getPersonResource();
             let roleArray = FHIRData.filter(e => e.resource.resourceType == "PractitionerRole");
             for (let i = 0; i < roleArray.length; i++) {                        
@@ -35,7 +35,7 @@ let getPractitionerRoleData = async function (req, res) {
                 let roleObj = roleData.getRoleJson();
                 let orgResource = FHIRData.find(e => e.resource.resourceType == "Organization" && e.fullUrl.includes(roleArray[i].resource.organization.reference));
                 let orgData = new Organization({},orgResource.resource);
-                orgData.getFHIRToUserInput();
+                orgData.getFHIRToTransformedResult();
                 orgData = orgData.getOrgResource();
                 roleObj.orgId = orgData.orgId;
                 roleObj.orgName = orgData.orgName,

@@ -8,6 +8,7 @@ let secretKey = require('../config/nodeConfig').jwtSecretKey;
 //middleware to verify the
 router.use(function (req, res, next) {
     // check header or url parameters or post parameters for token
+    console.log("req.headers: ", req.headers['x-access-token'])
     let tokenData = req.headers['x-access-token'];
 
     // decode token

@@ -103,7 +103,7 @@ const getAppointment = async function(req, res) {
              const FHIRData = responseData.data.entry
              for (let apptData of FHIRData) {
                  let appointment = new Appointment({}, apptData.resource);
-                 appointment.getFHIRToUserInput();
+                 appointment.getFHIRToTransformedResult();
                  let apptResponse = appointment.getInput();
                  console.info(apptResponse)
                  apptIds.add(apptResponse.appointmentId);

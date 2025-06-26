@@ -1,81 +1,40 @@
 
-const bundleStructure = require("../services/bundleOperation")
+const bundleStructure = require("../services/bundleOperation");
+const {validateRequest, buildAndPost, getTransformedResult, handleError} = require("../services/helperFunctions");
 let PractitionerRole = require("../class/practitionerRole");
 let Organization = require("../class/Organization");
 let Practitioner = require("../class/practitioner");
+let Location = require("../class/location");
 let model = require('../models/index');
-let { validationResult } = require('express-validator');
-let response = require("../utils/responseStatus");
 let resourceValid = require("../utils/Validator/validateRsource").validTimestamp;
-const axios = require('axios');
 const config = require("../config/nodeConfig");
 let jwt = require("jsonwebtoken");
 let secretKey = require('../config/nodeConfig').jwtSecretKey;
-let Queue = require('bull');
-const deleteUserDataQueue =  new Queue('userQueue');
 const db = require('../models/index');
 let sendEmail = require("../utils/sendgrid.util").sendEmail;
 let sendSms = require('../utils/twilio.util');
-// { redis: {port: '6379', host: 'localhost'}}
+
 // Get user profile
 let getUserProfile = async function (req, res) {
     try {
         let resourceType = "PractitionerRole";
         req.params.resourceType = resourceType;
         req.query = {practitionerId: req.decoded.userId};
-        let link = config.baseUrl + resourceType;
         let queryParams = {
                 "practitioner" : req.decoded.userId,
                 "_include": "*",
                 "_total": "accurate"
         }
-        let resourceResult = []
-        // let resourceUrlData = { link: link, reqQuery: queryParams, allowNesting: 1, specialOffset: null }
-        let responseData = await bundleStructure.searchData(link, queryParams);
-        let data = {};
+        let responseData = await bundleStructure.searchData(config.baseUrl + resourceType, queryParams);
+        let practitionerData = {};
         if( !responseData.data.entry || responseData.data.total == 0) {
-            return res.status(200).json({ status: 1, message: "Profile detail fetched", total: 0, data: data})
+            return res.status(200).json({ status: 1, message: "Profile detail fetched", total: 0, data: responseData})
         }
         else {
-            let role = [];
-            let practitioner = responseData.data.entry.find(e => e.resource.resourceType == "Practitioner");
-            let practitionerData = new Practitioner({}, practitioner.resource);
-            practitionerData.getFHIRToUserInput();
-            practitionerData = practitionerData.getPersonResource();
-            let roleArray = responseData.data.entry.filter(e => e.resource.resourceType == "PractitionerRole");
-            for (let i = 0; i < roleArray.length; i++) {                        
-                let roleData = new PractitionerRole({}, roleArray[i].resource);
-                roleData.getFhirToJson();
-                let roleObj = roleData.getRoleJson();
-                let orgResource = responseData.data.entry.find(e => e.resource.resourceType == "Organization" && e.fullUrl.includes(roleArray[i].resource.organization.reference));
-                let orgData = new Organization({},orgResource.resource);
-                orgData.getFHIRToUserInput();
-                orgData = orgData.getOrgResource();
-                roleObj.orgId = orgData.orgId;
-                roleObj.orgName = orgData.orgName,
-                roleObj.orgType = orgData.orgType;
-                role.push(roleObj);
-            }
-            let data = {
-                "practitionerId": practitionerData.fhirId,
-                "firstName": practitionerData.firstName,
-                "middleName": practitionerData.middleName,
-                "lastName": practitionerData.lastName,
-                "mobileNumber" : practitionerData.mobileNumber,
-                "email": practitionerData.email,
-                "address": practitionerData.address,
-                "role": role
-            }
-            resourceResult.push(data);
-
-            data.userId = resourceResult[0].practitionerId,
-            data.userName = resourceResult[0].firstName + " " + (resourceResult[0].middleName? resourceResult[0].middleName + " " : "") + (resourceResult[0]?.lastName || '');
-            data.mobileNumber = resourceResult[0].mobileNumber;
-            data.userEmail = resourceResult[0].email;
-            data.address = resourceResult[0].address;
-            data.role = resourceResult[0].role;
-            console.info(data)
-            res.status(200).json({ status: 1, message: "Profile detail fetched", total: 1, data: data  })
+            practitionerData = getPractitioner(responseData)
+            practitionerData.userName = practitionerData.firstName + " " + (practitionerData.middleName? practitionerData.middleName + " " : "") + (practitionerData?.lastName || '');
+            console.info(practitionerData)
+            res.status(200).json({ status: 1, message: "Profile detail fetched", total: 1, data: practitionerData  })
         }
     }
     catch (e) {
@@ -94,6 +53,49 @@ let getUserProfile = async function (req, res) {
         })
     }
 
+}
+
+function getPractitioner(responseData) {
+    try {
+            let practitioner = responseData.data.entry.find(e => e.resource.resourceType == "Practitioner");
+            let practitionerData = getTransformedResult(Practitioner, practitioner)
+            let role = getPractitionerRole(responseData)
+            const data = {
+                "userId": practitionerData.fhirId,
+                "firstName": practitionerData.firstName,
+                "middleName": practitionerData.middleName,
+                "lastName": practitionerData.lastName,
+                "mobileNumber" : practitionerData.mobileNumber,
+                "userEmail": practitionerData.email,
+                "address": practitionerData.address,
+                "role": role
+            }
+            return data;
+    }
+    catch(e) {
+        console.error("addPractitioner error: ", e)
+        throw e;
+    }
+}
+
+function getPractitionerRole(responseData) {
+    try {
+        let role = [];
+        let roleArray = responseData.data.entry.filter(e => e.resource.resourceType == "PractitionerRole");
+        for (let i = 0; i < roleArray.length; i++) {                        
+                let roleObj = getTransformedResult(PractitionerRole, roleArray[i].resource)
+                let orgResource = responseData.data.entry.find(e => e.resource.resourceType == "Organization" && e.fullUrl.includes(roleArray[i].resource.organization.reference));
+                let orgData = getTransformedResult(Organization, orgResource.resource)
+                roleObj.orgId = orgData.orgId;
+                roleObj.orgName = orgData.orgName,
+                roleObj.orgType = orgData.orgType;
+                role.push(roleObj);
+            }
+    }
+    catch(e) {
+        console.error("addPractitionerRole error: ", e)
+        throw e;
+    }
 }
 
 const getTimestamp = async (req, res) => {
@@ -139,67 +141,28 @@ const updateTimestamp = async (req, res) => {
 
 const deleteUserData = async (req, res) => {
     try{
-        let {temptoken} = req.headers;
-        let type = null;
-        let userId = null;
-        let mobile = null;
-        let email = null;
-        let errorMessage = '';
-        temptoken = temptoken?.split(" ")[1] || null;
-        if (temptoken) {
-            jwt.verify(temptoken, secretKey,function (err, decoded) {
-                if (err) {
-                    if(err.name == 'TokenExpiredError'){ errorMessage = 'Session expired.' }
-                    else{ errorMessage = 'Unauthorized' }
-                } 
-                else {
-                    type = decoded?.type;
-                    userId =  decoded?.userId;
-                    mobile = decoded?.mobile;
-                    email = decoded?.email;
-                }
-            });
-        } else { errorMessage = 'No token provided'}
-
+        let {tempToken} = req.headers;
+        let result = await verifyToken(tempToken)
+        const {type , userId, mobile, email, errorMessage } = result
         if(errorMessage){
             return res.status(422).json({ status: 0, message: errorMessage });
         }
         else if((type != "delete") || (req.decoded.userId != userId)){
             return res.status(422).json({ status: 0, message: "Invalid token" });
         }
-        
-        await axios.put(config.baseUrl+'Practitioner/'+userId, {
-            "resourceType": "Practitioner",
-            "id": userId,
-            "active": false,
-            "name": [{"family": '', "given": [mobile || email]} ],
-            "telecom": [
-              {
-                "system": "phone",
-                "value": mobile,
-                "rank": 1
-              },
-              {
-                "system": "email",
-                "value": email
-              }
-            ]
-        });
-        // deleteUserDataQueue.add({ userId: req.decoded.userId, orgId: req.decoded.orgId, mobile, email }).then(() => {
-        //     return res.json({ status : 1, message: "Your account will be delete within 48 hours, you will get confirmation SMS or email"});
-        // });
+        const deActivateRes = await deactivateUserAccount(userId)
+        console.log("deActivateRes: ", deActivateRes)
+        const message = 'Your account has been successfully deleted.'            
         if (email) {
             let mailData = {
                 to: [{ email: email }],
                     subject: 'Agni : Account Deleted',
-                    content: 'Your account has been successfully deleted.'
+                    content: message
             }
             await sendEmail(mailData);
-        }
-            
+        }            
         if(mobile) {
-            let text = `Your Agni account has been successfully deleted.`
-            await sendSms(mobile, text);
+            await sendSms(mobile, message);
         }
         return res.json({ status : 1, message: "Your account will be delete within 48 hours, you will get confirmation SMS or email"});
     }
@@ -213,71 +176,92 @@ const deleteUserData = async (req, res) => {
     }
 }
 
+const deactivateUserAccount = async function(userId) {
+    try {
+        const patchBody = [
+            {
+                'op': 'replace',
+                'path': "active",
+                'value': false
+            }
+        ]
+
+        const response = await axios.patch(config.baseUrl+'Practitioner/'+userId, patchBody, {
+            headers: {
+                 'Content-Type': 'application/json-patch+json'
+            }
+        });
+
+        console.log('Practitioner deactivated successfully:', response.data);
+        return response;
+    }
+    catch(e) {
+        console.error("deactivateUserAccount error: ", e);
+        throw e;
+    }
+}
+const verifyToken = async function(tempToken) {
+    try {
+        let type , userId, mobile, email = null;
+        let errorMessage = '';
+        tempToken = tempToken?.split(" ")[1] || null;
+        if (tempToken) {
+            jwt.verify(tempToken, secretKey, (err, decoded) => {
+                if (err) {
+                    errorMessage = err.name === 'TokenExpiredError' ? 'Session expired.' : 'Unauthorized';            
+                } 
+                else {
+                    type = decoded?.type;
+                    userId =  decoded?.userId;
+                    mobile = decoded?.mobile;
+                    email = decoded?.email;
+                }
+            });
+        } 
+        else { 
+            errorMessage = 'No token provided'
+        }
+
+        return {type , userId, mobile, email,errorMessage };
+    }
+    catch(e) {
+        console.error("verify Token error: ", e);
+        throw e
+    }
+}
+
 const createUser = async (req, res) => {
     try{
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-            return response.sendInvalidDataError(res, errors);
-        }
-        let { firstName, lastName, mobile, email, clinicName } = req.body;
-        let { type } = req.token;
+        const validation = validateRequest(req, res);
+        if (!validation.isValid) return;
+        const { type } = req.token;
         if(type != "register"){
             return res.status(401).json({ status: 0, message: "Invalid Token" });
         }
-        const organization = {
-            "resourceType": "Organization",
-            "active": true,
-            "type": [{"coding": [{"system": "https://terminology.hl7.org/CodeSystem/organization-type","code": "prov","display": "Private Hospital"}]}],
-            "name": clinicName,
-            "telecom": [{"system": "phone","value": mobile},{"system": "email","value": email}],
-        }
-        let practitioner = {
-            "resourceType": "Practitioner",
-            "identifier": [{"system": "https://www.passportindia.gov.in", "value": mobile + firstName}],
-            "active": true,
-            "name": [{"family": lastName || '', "given": [firstName]} ],
-            "telecom": [{"system": "phone","value": mobile,"rank": 1},{"system": "email","value": email || ''}]
-        }
-        let response = await axios.post(config.baseUrl+'Organization', organization);
-        let orgId = null;
-        let userId = null;
-        if(response.status == 201){
-            orgId = response.data.id;
-        }
-        response = await axios.post(config.baseUrl+'Practitioner', practitioner);
-        if(response.status == 201){
-            userId = response.data.id;
-        }
-
-        let practitionerRole = {
-            "resourceType": "PractitionerRole",
-            "practitioner": { "reference": `Practitioner/${userId}`},
-            "organization": { "reference": `Organization/${orgId}`},
-            "code": [{"coding": [{"system": "https://terminology.hl7.org/CodeSystem/practitioner-role","code": "doctor"}]}]
-        }
-        let location = { "resourceType": "Location", "status": "active", "name": clinicName,
-            "position": { "longitude": 28.537, "latitude": 77.383 },
-            "managingOrganization": { "reference": `Organization/${orgId}`}
-        }
-        response = await axios.post(config.baseUrl+'PractitionerRole', practitionerRole);
-        response = await axios.post(config.baseUrl+'Location', location);
+        
+        const { firstName, lastName, mobile, email, clinicName } = req.body;
+        const orgObj = { contactNumber: mobile, email: email, orgName: clinicName, orgType: "prov" }
+        const orgId = await buildAndPost(Organization, orgObj, "Organization");
+        const userId = await buildAndPost(Practitioner, { firstName, lastName, mobile, email, clinicName }, "Practitioner")
+        const practitionerRoleResponse = await buildAndPost(PractitionerRole, {orgId, userId, roleId: "doctor"}, "PractitionerRole")
+        const locationResponse = await buildAndPost(Location, {clinicName, position: { "longitude": 28.537, "latitude": 77.383 }, orgId,}, "Location")
+        console.log("practitionerRoleResponse: ", practitionerRoleResponse, " and locationResponse: ", locationResponse)
+        
         await db.authentication_detail.create({ user_id: userId });
-        let userProfile = {
-            "userId": userId, "userName": firstName + ' ' + lastName,
+        const userProfile = {
+            "userId": userId, 
+            "userName": firstName + ' ' + lastName,
             "orgId": orgId
         }
         let token = jwt.sign(userProfile, config.jwtSecretKey, { expiresIn: '5d' });
-        res.json({ status : 1, message : "Registration successfull", data: { token : 'Bearer ' + token } });
+        res.json({ status : 1, message : "Registration successful", data: { token : 'Bearer ' + token } });
     }
-    catch(e){
-        console.info(e)
-        return res.status(500).json({
-            status: 0,
-            message: "Unable to process. Please try again.",
-            error: e
-        });
+    catch(error){
+        console.info(error)
+        handleError(res, error)
     }
 }
+
 
 
 module.exports = {
