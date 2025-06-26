@@ -126,7 +126,7 @@ class ImmunizationRecommendation {
         return this.immunizationRec;
       }
 
-    patchImmunizationRecommendation() {
+      setPatchData() {
         let recommendation = [];
         let code = this.fhirResource?.recommendation?.[0]?.vaccineCode?.[0]?.coding?.[0]?.code;
         let vaccineData = vaccines[code];

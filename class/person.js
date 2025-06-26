@@ -474,7 +474,7 @@ class Person {
         this.getGeneralPractitioner();
     }
 
-    patchUserInputToFHIR(fetchedResourceData) {
+    setPatchData(fetchedResourceData) {
         this.patchFirstName(fetchedResourceData);
         this.patchMiddleName(fetchedResourceData);
         this.patchLastName(fetchedResourceData);

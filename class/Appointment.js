@@ -131,7 +131,7 @@ class Appointment {
         this.setCreated();
     }
 
-    patchUserInputToFHIR() {
+    setPatchData() {
         this.patchStatus();
         this.patchCreatedOn();    
 

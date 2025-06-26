@@ -362,7 +362,7 @@ class Organization {
         this.getAddress();
     }
 
-    patchUserInputToFHIR(fetchedResourceData) {
+    setPatchData(fetchedResourceData) {
         this.patchOrgName(fetchedResourceData);
         this.patchIdentifier(fetchedResourceData);
         this.patchOrgType(fetchedResourceData);

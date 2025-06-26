@@ -86,7 +86,7 @@ class Slot {
         this.setStartEnd();
     }
 
-    patchUserInputToFHIR() {
+    setPatchData() {
         this.patchSchedule();
         this.patchSlotTime();
     }

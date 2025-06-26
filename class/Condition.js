@@ -141,11 +141,10 @@ class Condition {
         
     }
 
-    setpatchData() {
+    setPatchData() {
         this.patchRecorder();
         this.patchSymptom();
         this.patchDiagnosis();
-        return this.conditionObj;
     }
 }
 

@@ -115,7 +115,7 @@ class DocumentReference {
         );
     }
 
-    getDocumentPatch(){
+    setPatchData(){
         this.setNote();
         this.patchDocumentContent();
         return this.fhirResource;

@@ -130,9 +130,8 @@ class Observation {
       return this.observationObj;
   }
 
-    patchResource() {
-      this.setSymptoms()
-      return this.fhirResource
+  setPatchData() {
+      this.setSymptoms();
     }
 
 }
