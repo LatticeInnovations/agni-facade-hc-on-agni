@@ -1,6 +1,6 @@
 let axios = require("axios");
 let Slot = require("../class/Slot")
-let Encounter = require("../class/encounter");
+let Encounter = require("../class/BaseEncounter");
 let Appointment = require("../class/Appointment");
 const bundleStructure = require("../services/bundleOperation");
 const responseService = require("../services/responseService");
@@ -9,6 +9,7 @@ let appointmentValidation = require("../utils/Validator/scheduleAppointment").va
 let apptPatchValidation = require("../utils/Validator/scheduleAppointment").apptPatchValidation;
 const {validateRequest} = require("../utils/validateRequest")
 let apptStatus = require("../utils/appointmentStatus.json");
+const {buildFHIRResource, fetchResource, handleError, getTransformedResult} = require("../services/helperFunctions");
 let config = require("../config/nodeConfig");
 
 
@@ -23,43 +24,10 @@ const fetchLocationResource = async (orgId) => {
 
 let setAppointmentData = async function (req, res) {
     try {
-        let resourceResult = [];
-        const resType = "Appointment";
+       
         validateRequest(req, res, appointmentValidation);
-        for (let apptData of req.body) {
-            const locationId = await fetchLocationResource(apptData.orgId)
-            apptData.locationId = locationId;
-            let slotData = apptData.slot;
-            // generate slot of  the given schedule
-            slotData.scheduleId = apptData.scheduleId;
-            slotData.uuid = uuidv4();
-            let slot = new Slot(slotData, {})
-            slot.getJsonToFhirTranslator();
-            let slotResource = slot.getResource();
-            let slotBundle = await bundleStructure.setBundlePost(slotResource, null, slotData.uuid, "POST", "object");
-            apptData.slotUuid = slotData.uuid;
-            resourceResult.push(slotBundle);
-            let appt = new Appointment(apptData, {});
-            appt.getJsonToFhirTranslator();
-            let apptResource = {};
-            apptResource = { ...appt.getResource() };
-            apptResource.resourceType = resType;
-            let encounter = new Encounter(apptData, {});
-            encounter.getUserInputToFhir();
-            let encounterResource = {...encounter.getFHIRResource()};
-            encounterResource.resourceType = "Encounter";
-            let encounterUuid =  uuidv4();
-            // constraint to not allow multiple appointments creation for same patient  on same Time for same organization
-            let noneExistDataAppt = [
-                    { "key": "identifier", "value": apptResource.identifier[0].system +"|" + apptResource.identifier[0].value},
-                    { "key": "location", "value": 'Location/' + locationId },
-                    { "key": "patient", "value": 'Patient/' + apptData.patientId }
-                ]
-            let apptBundle = await bundleStructure.setBundlePost(apptResource, noneExistDataAppt, apptData.uuid, "POST", "object");              
-            let encounterBundle = await bundleStructure.setBundlePost(encounterResource, encounterResource.identifier, encounterUuid, "POST", "identifier");
-            resourceResult.push(apptBundle, encounterBundle);
-        
-        }
+        let resourceResult = [];
+        resourceResult = await createAppointmentResources(req.body)
         console.info("=============>", resourceResult, "<=========================");
         let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
         console.info("main bundle transaction resource: ", bundleData)
@@ -70,13 +38,97 @@ let setAppointmentData = async function (req, res) {
             res.status(201).json({ status: 1, message: "Appointment data saved.", data: responseData })
         }
         else {
-                return res.status(500).json({status: 0, message: "Unable to process. Please try again.", error: response})
+                handleError(res, response)
         }
 
     }
-    catch (e) {
-        return res.status(500).json({status: 0, message: "Unable to process. Please try again.", error: e})
+    catch (error) {
+        console.log("setAppointmentData Error: ", error)
+        handleError(res, error)
     }
+
+}
+
+const createAppointmentResources= async function(reqData) {
+    try
+    {
+        const resourcePromises = reqData.map(async (apptData) => {
+            const locationId = await fetchLocationResource(apptData.orgId)
+            apptData.locationId = locationId;
+
+            // Create Slot resource
+            const slotData = { ...apptData.slot, scheduleId: apptData.scheduleId, uuid: uuidv4() };                       
+            const slotResource = buildFHIRResource(Slot, slotData, "Slot")
+            let slotBundle = await bundleStructure.setBundlePost(slotResource, null, slotData.uuid, "POST", "object");
+
+            // create appointment resource
+            apptData.slotUuid = slotData.uuid;
+            const apptResource = buildFHIRResource(Appointment, apptData, "Appointment")
+            const noneExistDataAppt = [
+                { "key": "identifier", "value": `${apptResource.identifier[0].system}|${apptResource.identifier[0].value}`},
+                { "key": "location", "value": `Location/${locationId}` },
+                { "key": "patient", "value": `Patient/${apptData.patientId}` }
+            ]
+            let apptBundle = await bundleStructure.setBundlePost(apptResource, noneExistDataAppt, apptData.uuid, "POST", "object"); 
+
+            // Create encounter resource
+            const encounterResource = buildFHIRResource(Encounter, apptData, "Encounter")
+            let encounterUuid =  uuidv4();             
+            let encounterBundle = await bundleStructure.setBundlePost(encounterResource, encounterResource.identifier, encounterUuid, "POST", "identifier"); 
+
+            return [slotBundle, apptBundle, encounterBundle]
+        });
+
+        const resourceResult = ((await Promise.all(resourcePromises)).flat());
+        console.log("Appointment Resources: ", resourceResult)
+        return resourceResult;
+      
+        }
+    catch (error) {
+        console.error("createAppointmentResources Error: ", error)
+        throw error;
+    }
+}
+
+const mapAppointments = (FHIRData) => {
+    const locationIds = new Set();
+    const apptIds = new Set();
+    const slotIds = new Set();
+    const apptResult = [];
+
+    for (let apptData of FHIRData) {
+        let apptResponse = getTransformedResult(Appointment, apptData)
+        console.info(apptResponse)
+        
+        apptIds.add(apptResponse.appointmentId);
+        locationIds.add(apptResponse.locationId);
+
+        let slotId = apptData.resource.slot ? apptData.resource.slot[0].reference.split("/")[1] : null;
+        slotIds.add(slotId);
+        apptResponse.slotId = slotId;
+
+        apptResult.push(apptResponse);
+    }
+
+    return {apptResult, locationIds, apptIds, slotIds}
+}
+
+const combineAppointmentData = (apptResult, locationOrg, slotAppt, apptEncounter, apptStatus) =>{
+
+    return apptResult.map(obj1 => {
+        const obj2 = slotAppt.find(obj2 => obj2.slotId === obj1.slotId) || {slot: null, slotId: null}
+        const obj3 = apptEncounter.find(obj3 => obj3.appointmentId === obj1.appointmentId) || {};
+        const statusData = apptStatus.find(e => e.fhirStatus === obj1.apptStatus && e.encounter === obj3.encStatus && e.type === obj1.apptType);
+
+        obj1.status = statusData?.uiStatus || "Unknown";
+        obj1.scheduleId = obj2.scheduleId || null
+
+        delete obj1.apptType;
+        delete obj1.apptStatus;
+        delete obj3.encStatus;
+
+        return { ...obj1, ...obj2, ...obj3 };
+    })
 
 }
 
@@ -86,68 +138,49 @@ const getAppointment = async function(req, res) {
                 _total : "accurate",
                 _count: req.query._count,
                 _offset: req.query._offset,
-                _sort: req.query._sort
+                _sort: req.query._sort,
+                "location.organization": req.query.orgId
             }
-            queryParams["location.organization"] = req.query.orgId;
-            const link = config.baseUrl + "Appointment";
-            let resourceResult = [];
-            let resourceUrlData = { link: link, reqQuery: queryParams, allowNesting: 1, specialOffset: 1 }
-            let responseData = await bundleStructure.searchData(link, queryParams);
-            console.info("responseData: ", responseData)
-            let resStatus = 1;
-            if( !responseData.data.entry || responseData.data.total == 0) {
-                return res.status(200).json({ status: resStatus, message: "Data fetched", total: 0, data: []  })
+
+            const FHIRData = await fetchResource("Appointment", queryParams)
+            if (!FHIRData.length) {
+                return res.status(200).json({ status: 1, message: "Data fetched", total: 0, data: [] });
             }
-             // get all the details of appointment
-             let locationIds = new Set(); let apptIds = new Set(), slotIds = new Set(); let apptResult = [];
-             const FHIRData = responseData.data.entry
-             for (let apptData of FHIRData) {
-                 let appointment = new Appointment({}, apptData.resource);
-                 appointment.getFHIRToTransformedResult();
-                 let apptResponse = appointment.getInput();
-                 console.info(apptResponse)
-                 apptIds.add(apptResponse.appointmentId);
-                 locationIds.add(apptResponse.locationId);
-                 let slotId = apptData.resource.slot ? apptData.resource.slot[0].reference.split("/")[1] : null;
-                 slotIds.add(slotId);
-                 apptResponse.slotId = slotId;
-                 apptResult.push(apptResponse);
-             }
-             // get organization id of an appointment
-             let orgResource = await bundleStructure.searchData(config.baseUrl + "Location", { _elements: "managingOrganization", _id: [...locationIds].join(","), _count: locationIds.size });
- 
-             let locationOrg = orgResource.data.entry.map(e => { return { locationId: e.resource.id, orgId: e.resource.managingOrganization.reference.split("/")[1] } });
-             apptResult = apptResult.map(obj1 => {
-                 let obj2 = locationOrg.find(obj2 => obj2.locationId === obj1.locationId);
-               
-                 return { ...obj1, ...obj2 };
-             });
-             // get assigned slot and schedule data of an appointment
-             let slotList = await bundleStructure.searchData(config.baseUrl + "Slot", { "_id": [...slotIds].join(","), _count: 5000 });
-             let slotAppt = slotList.data.entry.map(e => { return { slotId: e.resource.id, slot: { start: e.resource.start, end: e.resource.end}, scheduleId: e.resource.schedule.reference.split("/")[1] } });
-             let encounterList = await bundleStructure.searchData(config.baseUrl + "Encounter", { "appointment": [...apptIds].join(","), _count: 5000 });
-             let apptEncounter = encounterList.data.entry.map(e => { return { encStatus: e.resource.status, appointmentId: e.resource.appointment[0].reference.split("/")[1], generatedOn: e?.resource?.period?.start || null } });
+            const { apptResult, locationIds, apptIds, slotIds } = mapAppointments(FHIRData);
+
+            const locationOrg = (await fetchResource("Location", {
+                _elements: "managingOrganization", _id: [...locationIds].join(","), 
+                _count: locationIds.size 
+            })).map(e => ({
+                locationId: e.resource.id,
+                orgId:  e.resource.managingOrganization.reference.split("/")[1]
+
+            }))
+
+            const slotAppt = (await fetchResource("Location", {
+                "_id": [...slotIds].join(","), _count: 5000 
+            })).map(e => ({
+                slotId: e.resource.id,
+                slot: { start: e.resource.start, end: e.resource.end},
+                scheduleId: e.resource.schedule.reference.split("/")[1]
+            }))
+
+            const apptEncounter = (await fetchResource("Encounter", {
+                "appointment": [...apptIds].join(","), _count: 5000
+            })).map(e => ({ 
+                encStatus: e.resource.status, 
+                appointmentId: e.resource.appointment[0].reference.split("/")[1], 
+                generatedOn: e?.resource?.period?.start || null } ));
              //combine appointment with slot and encounter status
-             resourceResult = apptResult.map(obj1 => {
-                 let obj2 = slotAppt.find(obj2 => obj2.slotId === obj1.slotId);
-                 let obj3 = apptEncounter.find(obj3 => obj3.appointmentId == obj1.appointmentId);
-                  let statusData = apptStatus.find(e => e.fhirStatus == obj1.apptStatus && e.encounter == obj3.encStatus && e.type == obj1.apptType);
-                  console.info(obj1.appointmentId, obj1.apptStatus, obj1.apptType, obj3.encStatus, statusData)
-                  obj1.status = statusData.uiStatus;
-                 if(typeof obj2 == "undefined") {
-                     obj2 = {slot: null, slotId: null};
-                     obj1.scheduleId = null;
-                 }
-                 delete obj1.apptType;
-                 delete obj1.apptStatus;
-                 delete obj3.encStatus;
-                 return { ...obj1, ...obj2, ...obj3 };
-             });
-            resStatus = bundleStructure.setResponse(resourceUrlData, responseData);
+
+             const resourceResult = combineAppointmentData(apptResult, locationOrg, slotAppt, apptEncounter, apptStatus);
+
+            const resStatus = bundleStructure.setResponse({ link: config.baseUrl + "Appointment", reqQuery: queryParams }, FHIRData);
             res.status(200).json({ status: resStatus, message: "Data fetched", total: resourceResult.length, data: resourceResult  })
         }  
-    catch(e) {
-        console.error("Error: ", e)
+    catch(error) {
+        console.error("getAppointment Error: ", error)
+        handleError(res, error)
     }
 }
 

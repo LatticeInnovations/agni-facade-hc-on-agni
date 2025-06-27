@@ -1041,7 +1041,7 @@ class Observation {
         ];
     }
 
-    setBasicPatchStructure(id) {
+    setPatchData(id) {
         this.fhirResource.request = {
             "method": "PATCH",
             "url": `Observation/${id}`,

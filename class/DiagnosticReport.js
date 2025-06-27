@@ -91,10 +91,9 @@ class DiagnosticReport {
         
     }
 
-    patchDocuments() {
+    setPatchData() {
         this.fhirResource.extension = [];
         this.setExtension();
-        return this.fhirResource;
     }
 
     deleteDiagnosticReport(){

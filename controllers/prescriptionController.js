@@ -1,7 +1,7 @@
 
 const MedicationRequest = require("../class/MedicationRequest");
 const Encounter = require("../class/GroupEncounter")
-const AppointmentEncounter = require("../class/encounter")
+const AppointmentEncounter = require("../class/BaseEncounter")
 let axios = require("axios");
 let config = require("../config/nodeConfig");
 const bundleStructure = require("../services/bundleOperation")

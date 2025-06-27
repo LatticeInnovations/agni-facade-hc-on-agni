@@ -2,5 +2,10 @@
     "sonarlint.connectedMode.project": {
         "connectionId": "https-sonarcube-thelattice-in-",
         "projectKey": "fhir-facade-server"
-    }
+    },
+    "cSpell.words": [
+        "appt",
+        "FHIR",
+        "uuidv"
+    ]
 }

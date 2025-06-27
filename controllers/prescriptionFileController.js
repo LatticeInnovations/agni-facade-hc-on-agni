@@ -1,7 +1,7 @@
 
 const MedicationRequest = require("../class/MedicationRequest");
-const DocumentReference = require("../class/DocumentReference")
-const Encounter = require("../class/encounter")
+const DocumentReference = require("../class/BaseDocumentReference")
+const Encounter = require("../class/BaseEncounter")
 const { v4: uuidv4 } = require('uuid');
 let axios = require("axios");
 let config = require("../config/nodeConfig");

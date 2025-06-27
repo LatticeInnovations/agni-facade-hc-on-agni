@@ -2,6 +2,7 @@ const axios = require("axios")
 let {sendInvalidDataError} = require("../utils/responseStatus");
 const config = require("../config/nodeConfig");
 let { validationResult } = require('express-validator');
+const bundleStructure = require("../services/bundleOperation");
 
 const getTransformedResult = (resourceClass, fhirResource) => {
     try {
@@ -18,6 +19,17 @@ const buildFHIRResource = (resourceClass, resourceObj) => {
     try {
         const resourceInstance = new resourceClass(resourceObj, {});
         resourceInstance.getJsonToFhirTranslator();
+        return resourceInstance.getFHIRResource();
+    } catch (error) {
+        console.error(`Error createResource :`, error);
+        throw error;
+    }
+}
+
+const patchFHIRResource = (resourceClass, resourceObj, fetchedResourceData) => {
+    try {
+        const resourceInstance = new resourceClass(resourceObj, []);
+        resourceInstance.setPatchData(fetchedResourceData);
         return resourceInstance.getFHIRResource();
     } catch (error) {
         console.error(`Error createResource :`, error);
@@ -59,14 +71,26 @@ const validateRequest = (req, res) => {
   };
 
 
-const handleError = (res, error, message = "Unable to process. Please try again.") => {
+const handleError = (res, error, statusCode=500, message = "Unable to process. Please try again.", ) => {
     console.error("Error:", error);
     const errorMessage = error.message || error.toString?.() || "Internal Server Error";
   
-    return res.status(500).json({
+    return res.status(statusCode).json({
       status: 0,
       message,
       error: process.env.NODE_ENV === 'production' ? undefined : errorMessage
     });
   };
-module.exports = {validateRequest, buildFHIRResource, postFHIRResource, buildAndPost, getTransformedResult, handleError}
+
+
+const fetchResource = async (resourceType, queryParams) => {
+    try {
+        const response = await bundleStructure.searchData(config.baseUrl + resourceType, queryParams);
+        return response.data || {}
+    } catch (error) {
+        console.error(`Error fetching ${resourceType}:`, error);
+        throw error;
+    }
+}
+
+module.exports = {validateRequest, buildFHIRResource, postFHIRResource, buildAndPost, getTransformedResult, handleError, fetchResource, patchFHIRResource}

@@ -5,7 +5,7 @@ const { v4: uuidv4 } = require('uuid');
 let config = require("../config/nodeConfig");
 let Encounter = require("../class/GroupEncounter");
 let Immunization = require("../class/Immunization")
-let DocumentReference = require("../class/DocumentReference");
+let DocumentReference = require("../class/BaseDocumentReference");
 const { validateImmunization } = require("../utils/Validator/immunizationValidation");
 
 const saveImmunizationData = async function (req, res) {

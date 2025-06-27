@@ -1,6 +1,6 @@
 let axios = require("axios");
 const Observation = require("../class/Observation");
-const Encounter = require("../class/encounter");
+const Encounter = require("../class/VitalEncounter");
 const bundleStructure = require("../services/bundleOperation");
 const responseService = require("../services/responseService");
 const { v4: uuidv4 } = require('uuid');

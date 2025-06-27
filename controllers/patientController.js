@@ -1,8 +1,7 @@
 
 let Person = require("../class/person");
-
 let Patient = require("../class/patient");
-
+const {buildFHIRResource, fetchResource, handleError, getTransformedResult, patchFHIRResource} = require("../services/helperFunctions");
 let axios = require("axios");
 let config = require("../config/nodeConfig");
 const { v4: uuidv4 } = require('uuid');
@@ -25,68 +24,45 @@ let savePatientData = async function (req, res) {
         let resourceResult = [];
         console.log("req body: ", req.body)
         for (let patientData of req.body) {
-            let patient = new Patient(patientData, {}, token);
-            patient.getJsonToFhirTranslator();
-            let patientResource = {};
-            patientResource = { ...patient.getFHIRResource() };
-            patientResource.resourceType = "Patient";
-            let personInput = { patientId: patientData.id };
-            let person1 = new Person(personInput, {});
-            patient.setBasicStructure();
-            patient.setLink(patientData.id);
-            patient.setSpouseName(patientData.spouseName);
-            patient.setMothersName(patientData.mothersName);
-            patient.setFathersName(patientData.setFathersName)
-            let personResource = { ...person1.getFHIRResource() };
-            personResource.identifier = patientResource.identifier;
-            personResource.resourceType = "Person";
-            personResource.id = uuidv4();            
+            patientData.orgId = token.orgId;
+            patientData.userId = token.userId;
+            let patientResource = buildFHIRResource(Patient, patientData)
+            const personId = uuidv4();
+            console.log("patientId: ", patientData.id)
+            let personResource = buildFHIRResource(Person, {patientId: patientData.id, id: personId})
+            console.log("personResource: ", personResource)      
             let patientBundle = await bundleStructure.setBundlePost(patientResource, patientResource.identifier, patientData.id, "POST", "identifier");
             console.info("patient bundle: ", patientBundle)
-            let personBundle = await bundleStructure.setBundlePost(personResource, null, personResource.id, "POST", "identifier");
+            let personBundle = await bundleStructure.setBundlePost(personResource, null, personId, "POST", "identifier");
             if (!('blockImmunization' in patientData)) {
                 let immunizationResources = await createImmunizationData(patientData, token)
                 resourceResult = resourceResult.concat(immunizationResources)
-            }
-                
+            }                
             resourceResult.push(patientBundle, personBundle);            
         }
         let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
         console.info("main bundle transaction resource: ", bundleData)
         let response = await axios.post(config.baseUrl, bundleData.bundle); 
-        console.log("get bundle json response: ", response.status)  
+        console.log("get bundle json response: ", response)  
         if (response.status == 200 || response.status == 201) {
             let resourceResponse = setPatientSaveResponse(bundleData.bundle.entry, response.data.entry, "post");
             let responseData = [...resourceResponse, ...bundleData.errData];
             res.status(201).json({ status: 1, message: "Patient data saved.", data: responseData })
         }
         else {
-            return res.status(500).json({
-                    status: 0, message: "Unable to process. Please try again.", error: response
-            })
+            handleError(res, response)
         }
     }
-    catch (e) {
-        console.error(e);
-        if (e.code && e.code == "ERR") {
-            let statusCode = e.statusCode ? e.statusCode : 500;
-            return res.status(statusCode).json({
-                status: 0,
-                message: e.message
-            })
-        }
-        return res.status(500).json({
-            status: 0,
-            message: "Unable to process. Please try again.",
-            error: e
-        })
+    catch (error) {
+        console.error("savePatientData Error: ", error);
+        error.code && error.code == "ERR" ? handleError(res, error, error.statusCode, error.message ) :  handleError(res, error)
+
     }
 
 }
 
 let updatePatientData = async function(req, res) {
     try {
-        let token = req.token;
         req.queueMeta = {
             data: req.data,
             entity: "patients",
@@ -95,26 +71,11 @@ let updatePatientData = async function(req, res) {
         let resourceResult = [];
         console.log("req body: ", req.body)
         for (let patientData of req.body) {
-            let patientResource = {};
-            let patient = new Patient(patientData, {}, token);
-            patient.setBasicStructure();
-            patient.getJsonToFhirTranslator(); 
-            console.log("patientResource 1: ", patientResource)
-            patient.setSpouseName(patientData.spouseName);
-            patient.setMothersName(patientData.mothersName);
-            patient.setFathersName(patientData.setFathersName);
-            patient.setFhirId(patientData.id);            
-            patientResource = { ...patient.getFHIRResource() };
-            patientResource.resourceType = "Patient";
+            const patientResource = buildFHIRResource(Patient, patientData)
             console.log("patientResource 2: ", patientResource)
             let patientBundle = await bundleStructure.setBundlePut(patientResource, patientResource.identifier, patientData.fhirId, "put", "identifier");
             console.info("patient bundle: ", patientBundle)
-            // let personBundle = await bundleStructure.setBundlePost(personResource, null, personResource.id, "put", "identifier");
-            // if (!('blockImmunization' in patientData)) {
-            //     let immunizationResources = await createImmunizationData(patientData, token)
-            //     resourceResult = resourceResult.concat(immunizationResources)
-            // }
-                
+        
             resourceResult.push(patientBundle);            
         }
         let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
@@ -127,25 +88,13 @@ let updatePatientData = async function(req, res) {
             res.status(201).json({ status: 1, message: "Patient data updated.", data: responseData })
         }
         else {
-            return res.status(500).json({
-                    status: 0, message: "Unable to process. Please try again.", error: response
-            })
+            handleError(res, response)
         }
     }
-    catch (e) {
-        console.error(e);
-        if (e.code && e.code == "ERR") {
-            let statusCode = e.statusCode ? e.statusCode : 500;
-            return res.status(statusCode).json({
-                status: 0,
-                message: e.message
-            })
-        }
-        return res.status(500).json({
-            status: 0,
-            message: "Unable to process. Please try again.",
-            error: e
-        })
+    catch (error) {
+        console.error("updatePatientData Error: ", error);
+        error.code && error.code == "ERR" ? handleError(res, error, error.statusCode, error.message ) :  handleError(res, error)
+
     }
 }
 
@@ -154,17 +103,15 @@ const createImmunizationData = async function(patientData, token) {
     const vaccineCodes = Object.keys(vaccines);
 
     for (let code of vaccineCodes) {
-        let ImmunizationRecommendationResource = new ImmunizationRecommendation({
+        const immunizationRecommendationResource = buildFHIRResource(ImmunizationRecommendation, {
             patientId: patientData.id,
             orgId: token.orgId,
             code: code,
             birthDate: patientData.birthDate
-        }, {});
-        ImmunizationRecommendationResource = ImmunizationRecommendationResource.getJsonToFhirTranslator();
-        let ImmunizationRecommendationBundle = await bundleStructure.setBundlePost(ImmunizationRecommendationResource, null, ImmunizationRecommendationResource.id, "POST", "identifier");
+        })
+        let ImmunizationRecommendationBundle = await bundleStructure.setBundlePost(immunizationRecommendationResource, null, immunizationRecommendationResource.id, "POST", "identifier");
         immunizationResources.push(ImmunizationRecommendationBundle);
     }
-
     return immunizationResources
 }
 
@@ -180,37 +127,30 @@ const setPatientSaveResponse  = (reqBundleData, responseBundleData, type) => {
 let getPatientData = async function (req, res) {
     try {
         const link = config.baseUrl + "Patient"
-        let specialOffset = null;
-        let queryParams = req.query
+        const queryParams = req.query;
+        let resStatus = 1;
         queryParams._total = "accurate"
         queryParams['organization'] = "Organization/"+req.token.orgId;
         let resourceResult = []
-        let resourceUrlData = { link: link, reqQuery: queryParams, allowNesting: 1, specialOffset: specialOffset }
-        let responseData = await bundleStructure.searchData(link, queryParams);
-        let resStatus = 1;
-        console.info("==================>", responseData.data)
-        if( !responseData.data.entry || responseData.data.total == 0) {
-                return res.status(200).json({ status: resStatus, message: "Data fetched", total: 0, data: []  })
+        const responseResult = await fetchResource("Patient", queryParams);
+        const responseData = responseResult.entry || []
+        console.log("==================>", responseResult)
+        if( !responseData) {
+            return res.status(200).json({ status: resStatus, message: "Data fetched", total: 0, data: []  })
         }
         else {            
-            resStatus = bundleStructure.setResponse(resourceUrlData, responseData);
-            
-            for (let i = 0; i < responseData.data.entry.length; i++) {
-                let patient = new Person({}, responseData.data.entry[i].resource, req.token);
-                patient.getFHIRToTransformedResult();
-                resourceResult.push(patient.getPersonResource())                
+            resStatus = bundleStructure.setResponse({ link: link, reqQuery: queryParams, allowNesting: 1, specialOffset: true }, responseResult);            
+            for (let i = 0; i < responseData.length; i++) {
+                const patient = getTransformedResult(Patient, responseData[i].resource);
+                resourceResult.push(patient)                
             }
         }
         res.status(200).json({ status: resStatus, message: "Data fetched.", total: resourceResult.length,"offset": +queryParams?._offset, data: resourceResult  })
-        
-    }
-    catch(e) {
-        console.error("Error",e)
-        return res.status(200).json({
-                status: 0,
-                message: "Unable to process. Please try again"
-            })
        
+    }
+    catch(error) {
+        console.error("getPatientData Error",error)
+        handleError(res, error);       
     }
 }
 
@@ -226,51 +166,38 @@ const patchPatientData = async function(req, res) {
       const reqInput = req.body;
       let resourceResult = [];
       for (let inputData of reqInput) {
-        let patient = new Person(inputData, []);
-        let link = config.baseUrl + resourceType;
-        let resourceSavedData = await bundleStructure.searchData(link, {_id: inputData.id });
-        if (resourceSavedData.data.total != 1) {
-          return res.status(500).json({
-            status: 0,
-            message: "Patient Id " + inputData.id + " does not exist.",
-            statusCode: 500,
-          });
-        }
-        patient.patchUserInputToFHIR(resourceSavedData.data.entry[0].resource);
-        let resourceData = [...patient.getFHIRResource()];
-        const patchUrl = resourceType + "/" + inputData.id;
-        let patchResource = await bundleStructure.setBundlePatch(
-          resourceData,
-          patchUrl
-        );
+        const resourceSavedResult = await fetchResource(resourceType, {_id: inputData.id })
+        const resourceSavedData = resourceSavedResult.entry || [];
+        if (resourceSavedData.length != 1) {
+            const statusCode = 500
+            return handleError(res, "Patient Id " + inputData.id + " does not exist.", statusCode, "Patient Id " + inputData.id + " does not exist.")
+        }        
+        const patientPatchResource = patchFHIRResource(Patient, inputData, resourceSavedData[0].resource)
+        let resourceData = [...patientPatchResource];
+        let patchResource = await bundleStructure.setBundlePatch(resourceData,resourceType + "/"+inputData.id);        
         resourceResult.push(patchResource);
+        //  Update immunization record
         if (inputData?.birthDate) {
             let immunizationPatchResources = await immunizationPatch(inputData)
             resourceResult = resourceResult.concat(immunizationPatchResources)
-        }
+        }        
       }
     console.info(resourceResult)
-    const resourceData = {resourceResult: resourceResult, errData: []}
-    let bundleData = await bundleStructure.getBundleJSON(resourceData)  
+    const bundleData = await bundleStructure.getBundleJSON({resourceResult: resourceResult, errData: []})  
     console.info(bundleData)
-    let response = await axios.post(config.baseUrl, bundleData.bundle); 
+    const response = await axios.post(config.baseUrl, bundleData.bundle); 
     console.log("get bundle json response: ", response.status)  
     if (response.status == 200 || response.status == 201) {
         let resourceResponse = setPatientSaveResponse(bundleData.bundle.entry, response.data.entry, "patch");
-        let responseData = [...resourceResponse, ...bundleData.errData];
+        const responseData = [...resourceResponse, ...bundleData.errData];
         res.status(201).json({ status: 1, message: "Patient data saved.", data: responseData })
     }
     else {
-        return res.status(500).json({
-        status: 0, message: "Unable to process. Please try again.", error: response
-        })
+        handleError(res, response)
     }
-    }  catch(e) {
-            console.error("Error",e)
-            return res.status(200).json({
-                    status: 0,
-                    message: "Unable to process. Please try again"
-                }) 
+    }  catch(error) {
+            console.error("patchPatientData Error",error)
+            handleError(res, error)
     }
 }
 

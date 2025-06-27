@@ -1,4 +1,3 @@
-const config = require("../config/nodeConfig");
 
 class DocumentManifest {
     reportObj;
@@ -64,9 +63,6 @@ class DocumentManifest {
         this.setIdentifier();
     }
 
-
-
-
     getResourceDetails() {
         this.reportObj.labReport.medicalRecordFhirId = this.fhirResource.id;
         this.reportObj.labReport.resourceType = this.fhirResource.resourceType;
@@ -96,10 +92,9 @@ class DocumentManifest {
 
    
 
-    patchDocuments() {
+    setPatchData() {
         this.fhirResource.content = [];
         this.setContent();
-        return this.fhirResource;
     }
 
     deleteDocumentManifest(){

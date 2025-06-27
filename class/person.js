@@ -5,10 +5,10 @@ class Person {
     personObj;
     fhirResource;
     token;
-    constructor(personObj, fhirResource, token) {
+    constructor(personObj, fhirResource) {
         this.personObj = personObj;
         this.fhirResource = fhirResource;
-        this.token = token;
+        this.fhirResource.resourceType = "Person"
         console.info("=================------------->", this.fhirResource)
     }
 
@@ -18,7 +18,6 @@ class Person {
         this.fhirResource.link = [];
         this.fhirResource.telecom = [];
         this.fhirResource.address = [];
-        this.fhirResource.link = [];
         this.fhirResource.managingOrganization = {};
         this.fhirResource.generalPractitioner = [];
     }
@@ -382,9 +381,9 @@ class Person {
         }
     }
 
-    setLink(patientId) {
+    setLink() {
         this.fhirResource.link.push({
-            "target": { "reference": "urn:uuid:" + patientId },
+            "target": { "reference": "urn:uuid:" + this.personObj.patientId },
             "assurance": "level3"
         })
     }
@@ -420,14 +419,14 @@ class Person {
 
     setManagingOrg(){
         this.fhirResource.managingOrganization = {
-            reference : "Organization/"+this.token.orgId
+            reference : "Organization/"+this.personObj.orgId
         }
     }
 
     setGeneralPractitioner(){
         this.fhirResource.generalPractitioner = [
             {
-                reference: "Practitioner/"+this.token.userId
+                reference: "Practitioner/"+this.personObj.userId
             }
         ];
     }
@@ -441,38 +440,11 @@ class Person {
     }
 
     getJsonToFhirTranslator() {
-        this.setBasicStructure()
+        this.setBasicStructure();
         this.setIdAsIdentifier();
-        this.setFirstName();
-        this.setMiddleName();
-        this.setLastName();
-        this.setIdentifier();
-        this.setActive();
-        this.setGender();
-        this.setBirthDate();
-        this.setPhone();
-        this.setEmailAddress();
-        this.setAddress("home");
-        this.setAddress("temp");
-        this.setManagingOrg();
-        this.setGeneralPractitioner();
+        this.setLink();
     }
 
-    getFHIRToTransformedResult() {
-        this.getId();
-        this.getFirstName();
-        this.getMiddleName();
-        this.getLastName();
-        this.getIdentifier();
-        this.getActive();
-        this.getGender();
-        this.getBirthDate();
-        this.getPhone();
-        this.getEmailAddress();
-        this.getAddress();
-        this.getManagingOrg();
-        this.getGeneralPractitioner();
-    }
 
     setPatchData(fetchedResourceData) {
         this.patchFirstName(fetchedResourceData);

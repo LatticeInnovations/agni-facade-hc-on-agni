@@ -5,10 +5,11 @@ class Patient extends Person {
   patient_obj;
   fhir_resource;
   reqType;
-  constructor(patient_obj, fhir_resource, token) {
-    super(patient_obj, fhir_resource, token);
+  constructor(patient_obj, fhir_resource) {
+    super(patient_obj, fhir_resource);
     this.patient_obj = patient_obj;
     this.fhir_resource = fhir_resource;
+    this.fhir_resource.resourceType = "Patient"
     this.fhir_resource.contact = [];
   }
 
@@ -87,6 +88,59 @@ class Patient extends Person {
       this.fhir_resource.id = this.patient_obj?.fhirId
     }
   }
+
+  getJsonToFhirTranslator() {
+    this.setBasicStructure()
+    this.setIdAsIdentifier();
+    this.setFirstName();
+    this.setMiddleName();
+    this.setLastName();
+    this.setIdentifier();
+    this.setActive();
+    this.setGender();
+    this.setBirthDate();
+    this.setPhone();
+    this.setEmailAddress();
+    this.setAddress("home");
+    this.setAddress("temp");
+    this.setManagingOrg();
+    this.setGeneralPractitioner();
+}
+
+getFHIRToTransformedResult() {
+  this.getId();
+  this.getFirstName();
+  this.getMiddleName();
+  this.getLastName();
+  this.getIdentifier();
+  this.getActive();
+  this.getGender();
+  this.getBirthDate();
+  this.getPhone();
+  this.getEmailAddress();
+  this.getAddress();
+  this.getManagingOrg();
+  this.getGeneralPractitioner();
+}
+
+setPatchData(fetchedResourceData) {
+  this.patchFirstName(fetchedResourceData);
+  this.patchMiddleName(fetchedResourceData);
+  this.patchLastName(fetchedResourceData);
+  this.patchIdentifier(fetchedResourceData);
+  this.patchActive();
+  this.patchGender();
+  this.patchBirthDate();
+  if(this.personObj.mobileNumber || this.personObj.email)
+      this.patchTelecom(fetchedResourceData);
+  if(!fetchedResourceData.address) {
+      this.addAddress();
+  }        
+  if (this.personObj["permanentAddress"] !== undefined && fetchedResourceData.address)
+      this.patchAddress("home", fetchedResourceData);
+  if (this.personObj["tempAddress"] !== undefined && fetchedResourceData.address)
+      this.patchAddress("temp", fetchedResourceData);
+}
 
 }
 

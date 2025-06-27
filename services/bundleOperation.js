@@ -124,11 +124,11 @@ let setResponse = function(resourceUrlData, responseData) {
         if (resourceUrlData.allowNesting == 1) {          
             // result = result.concat(resourceData.resourceResult);
             if(resourceUrlData.specialOffset) {
-                let nextIndex = responseData.data.link.findIndex(e => e.relation == "next");
+                let nextIndex = responseData.link.findIndex(e => e.relation == "next");
                 if(nextIndex != -1) {
-                     let urlPart = url.parse(responseData.data.link[nextIndex].url, true);                   
+                     let urlPart = url.parse(responseData.link[nextIndex].url, true);                   
                     let query = urlPart.query;
-                    resStatus = query._offset >= responseData.data.total ? 2 : 1;
+                    resStatus = query._offset >= responseData.total ? 2 : 1;
                 }  
                 else {
                     resStatus = 2;

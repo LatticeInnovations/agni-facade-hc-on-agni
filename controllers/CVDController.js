@@ -2,7 +2,7 @@ const bundleStructure = require("../services/bundleOperation")
 const responseService = require("../services/responseService");
 let config = require("../config/nodeConfig");
 const Observation = require("../class/Observation");
-const Encounter = require("../class/encounter");
+const Encounter = require("../class/CVDEncounter");
 const { v4: uuidv4 } = require('uuid');
 let axios = require("axios");
 
