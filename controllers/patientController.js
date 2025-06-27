@@ -50,7 +50,7 @@ let savePatientData = async function (req, res) {
             res.status(201).json({ status: 1, message: "Patient data saved.", data: responseData })
         }
         else {
-            handleError(res, response)
+            return handleError(res, response)
         }
     }
     catch (error) {
@@ -145,12 +145,12 @@ let getPatientData = async function (req, res) {
                 resourceResult.push(patient)                
             }
         }
-        res.status(200).json({ status: resStatus, message: "Data fetched.", total: resourceResult.length,"offset": +queryParams?._offset, data: resourceResult  })
+        return res.status(200).json({ status: resStatus, message: "Data fetched.", total: resourceResult.length,"offset": +queryParams?._offset, data: resourceResult  })
        
     }
     catch(error) {
         console.error("getPatientData Error",error)
-        handleError(res, error);       
+        return handleError(res, error);       
     }
 }
 
@@ -193,11 +193,11 @@ const patchPatientData = async function(req, res) {
         res.status(201).json({ status: 1, message: "Patient data saved.", data: responseData })
     }
     else {
-        handleError(res, response)
+        return handleError(res, response)
     }
     }  catch(error) {
             console.error("patchPatientData Error",error)
-            handleError(res, error)
+            return handleError(res, error)
     }
 }
 

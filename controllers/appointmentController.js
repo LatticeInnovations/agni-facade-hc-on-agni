@@ -6,21 +6,14 @@ const bundleStructure = require("../services/bundleOperation");
 const responseService = require("../services/responseService");
 const { v4: uuidv4 } = require('uuid');
 let appointmentValidation = require("../utils/Validator/scheduleAppointment").validateAppointmentArray;
-let apptPatchValidation = require("../utils/Validator/scheduleAppointment").apptPatchValidation;
+let {validateAppointmentPatch} = require("../utils/Validator/scheduleAppointment");
 const {validateRequest} = require("../utils/validateRequest")
 let apptStatus = require("../utils/appointmentStatus.json");
 const {buildFHIRResource, fetchResource, handleError, getTransformedResult} = require("../services/helperFunctions");
 let config = require("../config/nodeConfig");
 
 
-const fetchLocationResource = async (orgId) => {
-    // get location id of the organization sent by app and map it to the appointments
-    const locationResource = await bundleStructure.searchData(config.baseUrl + "Location", { organization: "Organization/" + orgId, _elements: "id", _total: "accurate" });
-    if (!locationResource.data) {
-        throw new Error("Location not found for the given organization.");
-    }
-    return locationResource.data.entry[0].resource.id;
-}
+
 
 let setAppointmentData = async function (req, res) {
     try {
@@ -38,7 +31,7 @@ let setAppointmentData = async function (req, res) {
             res.status(201).json({ status: 1, message: "Appointment data saved.", data: responseData })
         }
         else {
-                handleError(res, response)
+                return handleError(res, response)
         }
 
     }
@@ -47,6 +40,14 @@ let setAppointmentData = async function (req, res) {
         handleError(res, error)
     }
 
+}
+
+const fetchLocationResource = async (orgId) => {
+    // get location id of the organization sent by app and map it to the appointments
+    const locationResource = await fetchResource("Location", { organization: "Organization/" + orgId, _elements: "id", _total: "accurate" });
+    if (!locationResource.entry)
+        throw new Error("Location not found for the given organization.");
+    return locationResource.entry[0].resource.id;
 }
 
 const createAppointmentResources= async function(reqData) {
@@ -60,10 +61,11 @@ const createAppointmentResources= async function(reqData) {
             const slotData = { ...apptData.slot, scheduleId: apptData.scheduleId, uuid: uuidv4() };                       
             const slotResource = buildFHIRResource(Slot, slotData, "Slot")
             let slotBundle = await bundleStructure.setBundlePost(slotResource, null, slotData.uuid, "POST", "object");
-
+            console.log("slotResource: ", slotResource)
             // create appointment resource
             apptData.slotUuid = slotData.uuid;
-            const apptResource = buildFHIRResource(Appointment, apptData, "Appointment")
+            console.log("Appointment data: ", apptData)
+            const apptResource = buildFHIRResource(Appointment, apptData)
             const noneExistDataAppt = [
                 { "key": "identifier", "value": `${apptResource.identifier[0].system}|${apptResource.identifier[0].value}`},
                 { "key": "location", "value": `Location/${locationId}` },
@@ -72,7 +74,7 @@ const createAppointmentResources= async function(reqData) {
             let apptBundle = await bundleStructure.setBundlePost(apptResource, noneExistDataAppt, apptData.uuid, "POST", "object"); 
 
             // Create encounter resource
-            const encounterResource = buildFHIRResource(Encounter, apptData, "Encounter")
+            const encounterResource = buildFHIRResource(Encounter, apptData)
             let encounterUuid =  uuidv4();             
             let encounterBundle = await bundleStructure.setBundlePost(encounterResource, encounterResource.identifier, encounterUuid, "POST", "identifier"); 
 
@@ -97,7 +99,7 @@ const mapAppointments = (FHIRData) => {
     const apptResult = [];
 
     for (let apptData of FHIRData) {
-        let apptResponse = getTransformedResult(Appointment, apptData)
+        let apptResponse = getTransformedResult(Appointment, apptData.resource)
         console.info(apptResponse)
         
         apptIds.add(apptResponse.appointmentId);
@@ -143,23 +145,30 @@ const getAppointment = async function(req, res) {
             }
 
             const FHIRData = await fetchResource("Appointment", queryParams)
-            if (!FHIRData.length) {
+            if (!FHIRData.entry.length) {
                 return res.status(200).json({ status: 1, message: "Data fetched", total: 0, data: [] });
             }
-            const { apptResult, locationIds, apptIds, slotIds } = mapAppointments(FHIRData);
+            let { apptResult, locationIds, apptIds, slotIds } = mapAppointments(FHIRData.entry);
 
             const locationOrg = (await fetchResource("Location", {
                 _elements: "managingOrganization", _id: [...locationIds].join(","), 
                 _count: locationIds.size 
-            })).map(e => ({
+            })).entry.map(e => ({
                 locationId: e.resource.id,
                 orgId:  e.resource.managingOrganization.reference.split("/")[1]
 
             }))
 
-            const slotAppt = (await fetchResource("Location", {
+            //  get organization id from location of appointment
+            apptResult = apptResult.map(obj1 => {
+                let obj2 = locationOrg.find(obj2 => obj2.locationId === obj1.locationId);
+              
+                return { ...obj1, ...obj2 };
+            });
+
+            const slotAppt = (await fetchResource("Slot", {
                 "_id": [...slotIds].join(","), _count: 5000 
-            })).map(e => ({
+            })).entry.map(e => ({
                 slotId: e.resource.id,
                 slot: { start: e.resource.start, end: e.resource.end},
                 scheduleId: e.resource.schedule.reference.split("/")[1]
@@ -167,20 +176,20 @@ const getAppointment = async function(req, res) {
 
             const apptEncounter = (await fetchResource("Encounter", {
                 "appointment": [...apptIds].join(","), _count: 5000
-            })).map(e => ({ 
+            })).entry.map(e => ({ 
                 encStatus: e.resource.status, 
                 appointmentId: e.resource.appointment[0].reference.split("/")[1], 
                 generatedOn: e?.resource?.period?.start || null } ));
-             //combine appointment with slot and encounter status
 
+             //combine appointment with slot and encounter status
              const resourceResult = combineAppointmentData(apptResult, locationOrg, slotAppt, apptEncounter, apptStatus);
 
             const resStatus = bundleStructure.setResponse({ link: config.baseUrl + "Appointment", reqQuery: queryParams }, FHIRData);
-            res.status(200).json({ status: resStatus, message: "Data fetched", total: resourceResult.length, data: resourceResult  })
+            return res.status(200).json({ status: resStatus, message: "Data fetched", total: resourceResult.length, data: resourceResult  })
         }  
     catch(error) {
         console.error("getAppointment Error: ", error)
-        handleError(res, error)
+        return handleError(res, error)
     }
 }
 
@@ -189,58 +198,59 @@ const patchAppointmentData = async function(req, res) {
     try {
       const resourceType = "Appointment";
       const reqInput = req.body;
-      let resourceResult = [], errData = [];
+      let resourceResult = [], errData = [];        
+      let validationResponse = validateAppointmentPatch(req.body);
+      if (validationResponse.error) {
+          console.error(validationResponse.error.details)
+          return res.status(422).json({status: 0, response: { data: validationResponse.error.details[0] }, message: "Invalid input" })
+      }
+
       for (let inputData of reqInput) {
-        let validationResponse = apptPatchValidation(inputData);
-        if (validationResponse.error) {
-            console.error(response.error.details)
-            return res.status(422).json({status: 0, response: { data: response.error.details[0] }, message: "Invalid input" })
-        }
-        let link = config.baseUrl + resourceType;
-        let resourceSavedData = await bundleStructure.searchData(link, { "_id": inputData.appointmentId });
-        let encounterSavedData =  await bundleStructure.searchData(config.baseUrl + "Encounter", { "appointment": inputData.appointmentId });
-        if (resourceSavedData.data.total != 1) {
+        let resourceSavedData = await fetchResource(resourceType, { "_id": inputData.appointmentId })
+        console.log("resourceSavedData: ", resourceSavedData)
+        let encounterSavedData =  await fetchResource("Encounter", { "appointment": inputData.appointmentId })
+        if (resourceSavedData.entry.length != 1) {
             return res.status(422).json( { status: 0, message: "Appointment Id " + inputData.appointmentId + " does not exist."})
         }
-        else if(resourceSavedData.data.entry[0].resource.status == "cancelled" || resourceSavedData.data.entry[0].resource.status == "noshow") {
+        else if(resourceSavedData.entry[0].resource.status == "cancelled" || resourceSavedData.entry[0].resource.status == "noshow") {
             // once appointment status is no-show and cancelled it cannot be changed.
             errData.push({
                 "status": "422",
                 "id": null,
-                "err": "Appointment data not changed as status is " + resourceSavedData.data.entry[0].resource.status,
+                "err": "Appointment data not changed as status is " + resourceSavedData.entry[0].resource.status,
                 "fhirId": inputData.appointmentId
             })
         }
         else {
-            if(inputData.status.value == "in-progress" && encounterSavedData.data.entry) {
-                encounterSavedData.data.entry[0].resource.status = "in-progress";
-                encounterSavedData.data.entry[0].resource.period = {
+            if(inputData.status.value == "in-progress" && encounterSavedData.entry) {
+                encounterSavedData.entry[0].resource.status = "in-progress";
+                encounterSavedData.entry[0].resource.period = {
                     "start": inputData.generatedOn,
                     "end": inputData.generatedOn
                 }
-                let encounterBundle = await bundleStructure.setBundlePost(encounterSavedData.data.entry[0].resource, encounterSavedData.data.entry[0].resource.identifier, encounterSavedData.data.entry[0].resource.id, "PUT", "identifier");  
+                let encounterBundle = await bundleStructure.setBundlePost(encounterSavedData.entry[0].resource, encounterSavedData.entry[0].resource.identifier, encounterSavedData.entry[0].resource.id, "PUT", "identifier");  
                 resourceResult.push(encounterBundle);
             }
             // update appointment details 
-            else if((inputData.status.value == "completed") && encounterSavedData.data.entry) {
-                encounterSavedData.data.entry[0].resource.status = "finished";
-                let encounterBundle = await bundleStructure.setBundlePost(encounterSavedData.data.entry[0].resource, encounterSavedData.data.entry[0].resource.identifier, encounterSavedData.data.entry[0].resource.id, "PUT", "identifier");                   
+            else if((inputData.status.value == "completed") && encounterSavedData.entry) {
+                encounterSavedData.entry[0].resource.status = "finished";
+                let encounterBundle = await bundleStructure.setBundlePost(encounterSavedData.entry[0].resource, encounterSavedData.entry[0].resource.identifier, encounterSavedData.entry[0].resource.id, "PUT", "identifier");                   
                 resourceResult.push(encounterBundle);
                 inputData.createdOn = {
                     "operation": "replace",
-                    "value": resourceSavedData.data.entry[0].resource.created
+                    "value": resourceSavedData.entry[0].resource.created
                 }
             }
             let slotPatch = null;
             let appointment = new Appointment(inputData, []);
-            appointment.patchUserInputToFHIR(resourceSavedData.data.entry[0].resource);
-            let resourceData = [...appointment.getResource()];
+            appointment.setPatchData(resourceSavedData.entry[0].resource);
+            let resourceData = [...appointment.getFHIRResource()];
             const patchUrl = resourceType + "/" + inputData.appointmentId;
-            let slotId = resourceSavedData.data.entry[0].resource.slot[0].reference.split("/")[1];
+            let slotId = resourceSavedData.entry[0].resource.slot[0].reference.split("/")[1];
             let patchResource = await bundleStructure.setBundlePatch(resourceData, patchUrl);
             let slot = new Slot(inputData, []);
-            slot.patchUserInputToFHIR();
-            let slotPatchResource = [...slot.getResource()];
+            slot.setPatchData();
+            let slotPatchResource = [...slot.getFHIRResource()];
             const slotPatchUrl = "Slot/" + slotId;
             slotPatch = await bundleStructure.setBundlePatch(slotPatchResource, slotPatchUrl);
             resourceResult.push(patchResource, slotPatch);
@@ -264,11 +274,8 @@ const patchAppointmentData = async function(req, res) {
         })
     }
 }catch(e) {
-    console.error("Error",e)
-    return res.status(200).json({
-            status: 0,
-            message: "Unable to process. Please try again"
-        }) 
+    console.error("patchAppointmentData Error",e)
+    return handleError(res, e) 
 }
 }
 

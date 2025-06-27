@@ -4,13 +4,12 @@ const validateRequest = (req, res, validationFn) => {
 
     if (result.error) {
         console.error(result.error.details);
-        res.status(422).json({
+        return res.status(422).json({
             code: "ERR",
             statusCode: 422,
             response: { data: result.error.details[0] },
             message: "Invalid input"
         });
-        throw result.error; // Or return Promise.reject() if you prefer async
     }
 
     return result;

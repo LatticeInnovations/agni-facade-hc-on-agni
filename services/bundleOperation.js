@@ -138,12 +138,12 @@ let setResponse = function(resourceUrlData, responseData) {
         }
         else {      
             // console.log("response data: ", responseData.data)
-             if(responseData.data.link) {
-                let nextIndex = responseData.data.link.findIndex(e => e.relation == "next");
+             if(responseData.link) {
+                let nextIndex = responseData.link.findIndex(e => e.relation == "next");
                 if(nextIndex != -1) {
-                     let urlPart = url.parse(responseData.data.link[nextIndex].url, true);                   
+                     let urlPart = url.parse(responseData.link[nextIndex].url, true);                   
                     let query = urlPart.query;
-                    resStatus = query._offset >= responseData.data.total ? 2 : 1;
+                    resStatus = query._offset >= responseData.total ? 2 : 1;
                 }  
                 else {
                     resStatus = 2;

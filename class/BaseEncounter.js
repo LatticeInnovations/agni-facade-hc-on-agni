@@ -12,14 +12,17 @@ class BaseEncounter {
     this.fhirResource.identifier = [];
     this.fhirResource.subject = {};
     this.fhirResource.appointment = {};
+    this.fhirResource.serviceProvider = {}
   }
 
   setUuid() {
+    console.log("encounter obj: ", this.encounterObj)
     if(this.encounterObj.uuid)
       this.fhirResource.identifier.push({
             "system": config.snUrl,
             "value": this.encounterObj.uuid
       });
+      console.log("The identifier set is: ", this.fhirResource.identifier)
   }
 
   setStatus() {
@@ -29,7 +32,6 @@ class BaseEncounter {
 }
 
   getId() {
-      console.info(this.fhirResource);
       this.encounterObj.appointmentUuid = this.fhirResource?.identifier[0]?.value;
   }
 

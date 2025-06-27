@@ -6,6 +6,7 @@ class Schedule {
     constructor(scheduleObj, fhir_resource) {
         this.scheduleObj = scheduleObj;
         this.fhirResource = fhir_resource;
+        this.fhirResource.resourceType = "Schedule"
     }
 
     setBasicStructure() {

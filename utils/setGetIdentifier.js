@@ -36,6 +36,7 @@ function setIdentifierJSON(element) {
 }
 
 function getIdentifier(fhirResource, code) {
+    console.log("fhirResource.identifier: ", fhirResource.identifier)
     if (fhirResource.identifier && fhirResource.identifier.length > 0) {
         let identifier = []; let uuid = null;
         fhirResource.identifier.forEach(element => {

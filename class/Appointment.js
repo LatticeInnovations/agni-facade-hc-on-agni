@@ -24,6 +24,7 @@ class Appointment {
     }
 
     getIdentifier() {
+        console.log("get identifier: ", this.fhirResource)
         let data = idFunction.getIdentifier(this.fhirResource, "U");
         this.apptObj.uuid = data.uuid;
     }
