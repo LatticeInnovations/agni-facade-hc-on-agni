@@ -113,8 +113,6 @@ let searchData = async function (link, reqQuery) {
         let error = { status: 0, code: "ERR", e: "INVALID_URL", statusCode: 500 }
         return Promise.reject(error)
     }
-
-
 }
 
 let setResponse = function(resourceUrlData, responseData) {
