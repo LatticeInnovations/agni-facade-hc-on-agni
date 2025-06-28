@@ -3,7 +3,7 @@ const Observation = require("../class/VitalObservation");
 const Encounter = require("../class/VitalEncounter");
 const bundleStructure = require("../services/bundleOperation");
 const responseService = require("../services/responseService");
-const {buildFHIRResource, fetchResource, handleError, getTransformedResult, patchFHIRResource} = require("../services/helperFunctions");
+const {buildFHIRResource, fetchResource, handleError, getTransformedResult} = require("../services/helperFunctions");
 
 
 const { v4: uuidv4 } = require('uuid');
@@ -149,7 +149,7 @@ const getVitalObservationList = async (vitalEncounterList, practitionerList, mai
     try {
         return vitalEncounterList.map((encounter) => {
             let observationData = getTransformedResult(Encounter, encounter);
-            
+
             // Add practitioner name
             observationData.practitionerName = getPractitionerName(observationData.practitionerId, practitionerList);
 
