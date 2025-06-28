@@ -6,10 +6,10 @@ class CVDEncounter extends BaseEncounter {
     super(encounterObj, fhirResource);
   }
 
-  getUserInputToFhir() {
-    this.setStructureForEncounter();
-    this.fhirResource.type = [
-      {
+
+  setBasicCVDStructure() {
+    this.setPartOf();
+    this.fhirResource.type = [{
         coding: [
           {
             system: "https://your-custom-coding-system",
@@ -31,24 +31,26 @@ class CVDEncounter extends BaseEncounter {
       system: "https://unitsofmeasure.org",
       code: "ms"
     };
+  }
 
-    return this.fhirResource;
+  getJsonToFhirTranslator() {
+    super.getJsonToFhirTranslator();
+    this.setBasicCVDStructure();
+
   }
 
   getPractitionerReference() {
     this.encounterObj.practitionerId =
       this.fhirResource?.participant?.[0]?.individual?.reference?.split("/")[1] || null;
   }
-  
-  getPrimaryEncounterReference() {
-    this.encounterObj.primaryEncounterId =
-      this.fhirResource?.partOf?.reference?.split("/")[1] || null;
-  }
+
+
+
   getFHIRToTransformedResult() {
+    super.getFHIRToTransformedResult();
+    this.getPrimaryEncounterReference();
     this.encounterObj.cvdFhirId = this.fhirResource.id;
-    this.encounterObj.cvdUuid =
-      this.fhirResource?.identifier?.at(-1)?.value || null;
-    return this.getCommonTransformations();
+    this.encounterObj.cvdUuid = this.fhirResource.identifier?.at(-1)?.value || null;
   }
 }
 

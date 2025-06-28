@@ -1,5 +1,5 @@
 const BaseObservation = require("./BaseObservation");
-const {vitalMethodConfig, fhirTextToVitalType} = require("../utils/VitalObservationMap");
+const {vitalCVDMethodConfig, fhirTextToVitalType, fhirTextToCVDType} = require("../utils/VitalObservationMap");
 
 class VitalObservation extends BaseObservation {
     static requiresVitalType = true;
@@ -713,6 +713,7 @@ setRiskCode() {
 }
 
 setRiskComponent() {
+    console.log("check if it reaches risk: ", this.observationObj)
     if(this.observationObj?.risk){
         this.fhirResource.component.push({
             "code": {
@@ -736,7 +737,7 @@ setRiskComponent() {
 }
 
 getJsonToFhirTranslator() {
-    const config = vitalMethodConfig[this.vitalType]
+    const config = vitalCVDMethodConfig[this.vitalType]
     // console.log("config is: ", config, vitalMethodConfig)
     if(!config)
         console.warn(`Unsupported vitalType: ${this.vitalType}`);
@@ -745,14 +746,13 @@ getJsonToFhirTranslator() {
         this[config.code]();
         this[config.component]();
     }
-
-
 }
 
 getFHIRToTransformedResult() {
+    const module_type = this.fhirResource.module_type == "vital"? fhirTextToVitalType : fhirTextToCVDType
     const codeText = this.fhirResource?.code?.text;
-    const derivedVitalType = fhirTextToVitalType[codeText];
-    const config = vitalMethodConfig[derivedVitalType];
+    const derivedVitalType = module_type[codeText];
+    const config = vitalCVDMethodConfig[derivedVitalType];
     this.vitalType = derivedVitalType;
     if(!config || !config.dataMethod){
         console.warn(`Unsupported vital type: ${derivedVitalType}`)
@@ -764,13 +764,15 @@ getFHIRToTransformedResult() {
 }
 
 setPatchData() {
-    const config = vitalMethodConfig[this.vitalType];
+    this.fhirResource.component = []
+    const config = vitalCVDMethodConfig[this.vitalType];
     if (!config) {
         console.warn(`Unsupported vital type: ${this.vitalType}`);
     }
+    else {
+       this[config.component]();
+    }
 
-    this.fhirResource = this.fhirResource[0].resource;
-    this[config.component]();
 }
 
 }

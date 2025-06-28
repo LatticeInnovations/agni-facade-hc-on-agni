@@ -1,62 +1,98 @@
 const bundleStructure = require("../services/bundleOperation")
 const responseService = require("../services/responseService");
 let config = require("../config/nodeConfig");
-const Observation = require("../class/Observation");
+const Observation = require("../class/VitalCVDObservation");
 const Encounter = require("../class/CVDEncounter");
+let bundleFun = require("../services/bundleOperation");
 const { v4: uuidv4 } = require('uuid');
 let axios = require("axios");
+const {buildFHIRResource, fetchResource, handleError, getTransformedResult} = require("../services/helperFunctions");
+
+const RESOURCE_TYPES = {
+    ENCOUNTER: "Encounter",
+    PRACTITIONER: "Practitioner",
+    OBSERVATION: "Observation"
+};
+
+const CVD_ENCOUNTER_CODE = "cvd-encounter";
+const HTTP_METHODS = {
+    POST: "POST",
+    GET: "GET"
+}
+
+const BUNDLE_TYPES = {
+    IDENTIFIER: "identifier"
+}
+
+const cvdTypes = ["height", "weight",  "bp", "cholesterol", "bmi", "diabetic", "smoker", "risk"];
 
 
-
-const saveCVDData = async (req, res) => {
+const createObservationBundle = async(CVD, type) => {
     try {
-        let resourceResult = [];
-        for(let cvd of req.body){ 
-            let encounterData = await bundleStructure.searchData(config.baseUrl + "Encounter", { "appointment": cvd.appointmentId, _count: 5000 , "_include": "Encounter:appointment" });
-            let encounterUuid = cvd.cvdUuid;
-            let encounter = new Encounter({ 
+        CVD.module_type = "CVD";
+        const resource = buildFHIRResource(Observation, { ...CVD, optionalParam: type });
+        resource.id = uuidv4();
+        return await bundleStructure.setBundlePost(resource, null, resource.id, HTTP_METHODS.POST, BUNDLE_TYPES.IDENTIFIER);
+    }
+    catch (error) {
+        console.warn(`CVD '${type}' skipped:`, error.message);
+        return null; // Return null for skipped CVD types
+    }
+}
+
+const createEncounterBundle = async(cvd, encounterData, req) => {
+    try {
+        let encounterUuid = cvd.cvdUuid;
+        console.log(cvd)
+        const encounter = buildFHIRResource(Encounter, { 
                 id: encounterUuid,
-                encounterId: encounterData.data.entry[0].resource.id,
+                encounterId: encounterData.entry[0].resource.id,
                 patientId: cvd.patientId,
                 cvdUuid: encounterUuid,
                 practitionerId: req.decoded.userId,
-                createdOn: cvd.createdOn,
+                generatedOn: cvd.createdOn,
                 orgId: req.decoded.orgId
-            }, {}).getUserInputToFhirForCVD();
-            cvd.encounterId = encounterUuid;
-            cvd.practitionerId = req.decoded.userId;
-            cvd.categoryCode = "CVD";
-            cvd.categoryDisplay = "CVD risk assessment";
-            let heightObservation = new Observation(cvd, {}).getUserInputToFhirHeight();
-            let weightObservation = new Observation(cvd, {}).getUserInputToFhirWeight();
-            let diabeticObservation = new Observation(cvd, {}).getUserInputToFhirDiabetic();
-            let smokingObservation = new Observation(cvd, {}).getUserInputToFhirSmoker(); 
-            let bpObservation = new Observation(cvd, {}).getUserInputToFhirBloodPressure();
-            let cholesterolObservation = new Observation(cvd, {}).getUserInputToFhirCholesterol();
-            let bmiObservation = new Observation(cvd, {}).getUserInputToFhirBMI();
-            let cvdValueObservation = new Observation(cvd, {}).getUserInputToFhirRisk();
+            });
+        console.log("encounter data: ", encounter)
+    return await bundleStructure.setBundlePost(encounter, null, cvd.cvdUuid, HTTP_METHODS.POST, BUNDLE_TYPES.IDENTIFIER);
+    }
+    catch (error) {
+        console.error(`createEncounterBundle Error:`, error.message);
+        throw error;
+    }
+}
 
-            heightObservation.id = uuidv4();
-            weightObservation.id = uuidv4();
-            diabeticObservation.id = uuidv4();
-            smokingObservation.id = uuidv4();
-            bpObservation.id = uuidv4();
-            cholesterolObservation.id = uuidv4();
-            bmiObservation.id = uuidv4();
-            cvdValueObservation.id = uuidv4();
+const saveCVDData = async (req, res) => {
+    try {
+        const allResourceResults = [];
+        await Promise.all(req.body.map(async (cvd) => {
+                    const resourceResult = [];
+                    // Fetch encounter data
+                    const encounterData = await fetchResource("Encounter", {
+                        appointment: cvd.appointmentId,
+                        _count: 5000,
+                        _include: "Encounter:appointment"
+                    });
         
-            let encounterBundle = await bundleStructure.setBundlePost(encounter, null, encounter.id, "POST", "identifier");
-            heightObservation = await bundleStructure.setBundlePost(heightObservation, null, heightObservation.id, "POST", "identifier");
-            weightObservation = await bundleStructure.setBundlePost(weightObservation, null, weightObservation.id, "POST", "identifier");
-            diabeticObservation = await bundleStructure.setBundlePost(diabeticObservation, null, diabeticObservation.id, "POST", "identifier");
-            smokingObservation = await bundleStructure.setBundlePost(smokingObservation, null, smokingObservation.id, "POST", "identifier");
-            bpObservation = await bundleStructure.setBundlePost(bpObservation, null, bpObservation.id, "POST", "identifier");
-            cholesterolObservation = await bundleStructure.setBundlePost(cholesterolObservation, null, cholesterolObservation.id, "POST", "identifier");
-            bmiObservation = await bundleStructure.setBundlePost(bmiObservation, null, bmiObservation.id, "POST", "identifier");
-            cvdValueObservation = await bundleStructure.setBundlePost(cvdValueObservation, null, cvdValueObservation.id, "POST", "identifier"); 
-            resourceResult.push(encounterBundle, heightObservation, weightObservation, diabeticObservation, smokingObservation, bpObservation, cholesterolObservation, bmiObservation, cvdValueObservation);
-        }
-        let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
+                    // Create encounter bundle
+                    const encounterBundle = await createEncounterBundle(cvd, encounterData, req);
+                    resourceResult.push(encounterBundle);
+                    console.log("encounterBundle: ", encounterBundle)
+                    cvd.encounterId = cvd.cvdUuid;
+                    cvd.practitionerId = req.decoded.userId;
+                    cvd.categoryCode = "CVD";
+                    cvd.categoryDisplay = "CVD risk assessment";
+                    const observationBundles = await Promise.all(                
+                        cvdTypes.map((type) => createObservationBundle(cvd, type))
+                    );
+        
+                    // Filter out null values (skipped cvd types)
+                    resourceResult.push(...observationBundles);        
+                    allResourceResults.push(...resourceResult);
+        
+                }));
+        let bundleData = await bundleStructure.getBundleJSON({resourceResult: allResourceResults, errData: []})  
+        // res.status(201).json({ status: 1, message: "CVD data saved.", data: bundleData })
         let response = await axios.post(config.baseUrl, bundleData.bundle); 
         console.info("get bundle json response: ", response.status)  
         if (response.status == 200 || response.status == 201) {
@@ -64,96 +100,155 @@ const saveCVDData = async (req, res) => {
             res.status(201).json({ status: 1, message: "Practitioner data saved.", data: responseData })
         }
         else {
-                return res.status(500).json({
-                status: 0, message: "Unable to process. Please try again.", error: response
-            })
+            return handleError(res, response)
         }
     }
-    catch (e) {
-        console.error(e);
-        return res.status(500).json({
-            status: 0,
-            message: "Unable to process. Please try again.",
-            error: e
-        })
+    catch(error) {
+        console.error("setCVDData Error: ", error)
+        return handleError(res, error)
     }
 
 }
 
+/**
+ * Fetch practitioner name based on practitioner ID.
+ */
+const getPractitionerName = (practitionerId, practitionerData) => {
+    const practitioner = practitionerData.find((e) => e?.resource?.id === practitionerId);
+
+    if (!practitioner) return "";
+
+    const givenName = practitioner?.resource?.name?.[0]?.given?.join(" ") || "";
+    const familyName = practitioner?.resource?.name?.[0]?.family || "";
+    return `${givenName} ${familyName}`.trim();
+};
+
+// Process observation data and merge with encounter data.
+
+const processObservationData = (observationList, observationData) => {
+    return observationList.map((observation) => {
+        try {
+            // Dynamically transform the observation using the helper function
+            observation.module_type = "cvd";
+            const transformedObservation = getTransformedResult(Observation, observation);
+            return { ...observationData, ...transformedObservation };
+        } catch (error) {
+            console.warn(`Error processing observation: ${observation.id}`, error.message);
+            return observationData; // Return original data if transformation fails
+        }
+    }).reduce((mergedData, data) => ({ ...mergedData, ...data }), observationData);
+};
+
+
+const getCVDObservationList = async (CVDEncounterList, practitionerList, mainEncounters, observations) => {
+    try {
+        return CVDEncounterList.map((encounter) => {
+            let observationData = getTransformedResult(Encounter, encounter);
+
+            // Add practitioner name
+            observationData.practitionerName = getPractitionerName(observationData.practitionerId, practitionerList);
+
+            // Add creation date
+            observationData.createdOn = encounter.period.start;
+
+            // Add appointment ID from main encounter
+            const primaryEncounter = mainEncounters.find((e) => e.id === observationData.primaryEncounterId);
+            observationData.appointmentId = primaryEncounter?.appointment?.[0]?.reference?.split("/")[1] || null;
+
+            // Remove unnecessary fields
+            delete observationData.primaryEncounterId;
+            delete observationData.practitionerId;
+
+            // Process observations for the encounter
+            const observationList = observations.filter(
+                (obs) => obs.encounter.reference === `${RESOURCE_TYPES.ENCOUNTER}/${encounter.id}`
+            );
+            observationData = processObservationData(observationList, observationData);
+
+            return observationData;
+        });
+    }
+    catch(error) {
+        console.error("getCVDObservationList Error: ", error)
+        throw error;
+    }
+}
+
 const getCVDData = async (req, res) => {
     try {
-        const link = config.baseUrl + "Encounter";
-        let queryParams = req.query
-        queryParams.type="cvd-encounter"
-        queryParams["service-provider"] = req.decoded.orgId
-        queryParams._count = 4000;
-        queryParams._total = "accurate";
-        let resourceResult = []
-       let responseData = await bundleStructure.searchData(link, queryParams);
-        let resStatus = 1;
-        if( !responseData.data.entry || responseData.data.total == 0) {
-                return res.status(200).json({ status: resStatus, message: "Data fetched", total: 0, data: []  })
+        const queryParams = {
+            _total : "accurate",
+            _count: req.query._count,
+            _offset: req.query._offset,
+            _sort: req.query._sort,
+            type: "cvd-encounter",
+            "service-provider": req.decoded.orgId
         }
-        else {   
-            const FHIRData = responseData.data.entry;         
-            let practitionerData = await bundleStructure.searchData(config.baseUrl + "Practitioner", { _count: 10000 });
-            practitionerData = practitionerData.data.entry;
-            // Fetch main Encounters list
-            let mainEncounterList = FHIRData.filter(e => e.resource.resourceType == "Encounter" && e.resource.type[0].coding[0].code == "cvd-encounter").map(e => e.resource.partOf.reference.split('/')[1]);
-            let mainEncounterIds = mainEncounterList.join(','); 
-
-            mainEncounterList = await bundleStructure.searchData(config.baseUrl + "Encounter", { _id: mainEncounterIds, _count: 100000 });
-            mainEncounterList = mainEncounterList.data.entry.map(e => e.resource);
-            // Fetch sub encounter of vitals i.e Encounter --> Observation
-            let cvdEncounterList = FHIRData.filter(e => e.resource.type && e.resource.type[0].coding[0].code == "cvd-encounter").map(e => e.resource);
-            let cvdEncounterIds = cvdEncounterList.map(e => e.id).join(',');
+        const link = config.baseUrl + RESOURCE_TYPES.ENCOUNTER;
+        const resourceUrlData = { link, reqQuery: queryParams, allowNesting: 0, specialOffset: 1 };
+        // Fetch resources in parallel
+        const [responseData, practitionerData] = await Promise.all([
+            fetchResource(RESOURCE_TYPES.ENCOUNTER, queryParams),
+            fetchResource(RESOURCE_TYPES.PRACTITIONER, { _count: 10000 })
+        ]);
+        if( !responseData.entry || responseData.total == 0) {
+            return res.status(200).json({ status: resStatus, message: "Data fetched", total: 0, data: []  })
+        }
+        const practitionerList = practitionerData.entry;
+        
+        // Extract cvd encounters and main encounters
+        const cvdEncounterList = responseData.entry
+        .filter((e) => e.resource.type?.[0]?.coding?.[0]?.code === CVD_ENCOUNTER_CODE)
+        .map((e) => e.resource);
+        
+        const cvdEncounterIds = cvdEncounterList.map((e) => e.id).join(",");
+        const mainEncounterIds = cvdEncounterList
+        .map((e) => e.partOf?.reference?.split("/")[1])
+        .filter(Boolean)
+        .join(",");
+        
+        const [mainEncounterList, allObservations] = await Promise.all([
+            fetchResource(RESOURCE_TYPES.ENCOUNTER, { _id: mainEncounterIds, _count: 10000 }),
+            fetchResource(RESOURCE_TYPES.OBSERVATION, { encounter: cvdEncounterIds, _count: 100000 })
+        ]);
             
-            let allObservations = await bundleStructure.searchData(config.baseUrl + "Observation", { encounter: cvdEncounterIds, _count: 100000 });
-            allObservations = allObservations.data.entry.map(e => e.resource);
-            for(let encounter of cvdEncounterList){
-                    let observationEncounter = new Encounter({}, encounter);
-                    observationEncounter.getFhirToJsonForCVD();
-                    let observationData = observationEncounter.getEncounterResource();
-                    let practitioner = practitionerData.filter((e) => e?.resource?.id === observationData?.practitionerId);
-                    let practitionerName = practitioner.length > 0 ? (practitioner?.[0]?.resource?.name?.[0]?.given?.join(' ') || '') + ' ' + (practitioner?.[0]?.resource?.name?.[0]?.family || "") : "";
-                    observationData.practitionerName = practitionerName.trim();
-                    // Date of vital creation
-                    observationData.createdOn = encounter.period.start;
-                    //  sub encounter FHIR id as cvdFhirId
-                    delete observationData.prescriptionFhirId;
-                    delete observationData.prescriptionId;
-                    let primaryEncounter = mainEncounterList.filter(e => e.id === observationData.primaryEncounterId);
-                    // console.log("primary encounter --->", primaryEncounter)
-                    console.log("primary encounter ids---->", observationData.primaryEncounterId)
-                    if(primaryEncounter.length > 0){
-                        // fetch appointment id from main encounter
-                        observationData.appointmentId = primaryEncounter?.[0].appointment?.[0]?.reference?.split("/")[1] || null;
-                    }
-                    delete observationData.primaryEncounterId;
-                    delete observationData.practitionerId;
-                    // let observationList = FHIRData.filter(e => e.resource.resourceType == "Observation" && e.resource.encounter.reference == "Encounter/"+encounter.id).map(e => e.resource);
-                    let observationList = allObservations.filter(e => e.encounter.reference == "Encounter/"+encounter.id); 
-                    // console.log(observationList.filter(data => data.subject.reference === 'Patient/3741'));
-                    for(let observation of observationList){
-                        let data = getObservationData(observation, observationData);
-                        observationData = { ...observationData, ...data}
-                    }
-                    resourceResult.push(observationData);
-                
-                
-            }
-        }
+        const mainEncounters = mainEncounterList.entry.map((e) => e.resource);
+        const observations = allObservations.entry.map((e) => e.resource);
         
-        res.status(200).json({ status: resStatus, message: "Data fetched.", total: resourceResult.length,"offset": +queryParams?._offset, data: resourceResult  })
+        // Process cvd encounters
+        const resourceResult = await getCVDObservationList(cvdEncounterList, practitionerList, mainEncounters, observations);
+                    
+        const resStatus = bundleStructure.setResponse(resourceUrlData, responseData);
         
+        res.status(200).json({
+            status: resStatus,
+            message: "Data fetched",
+            total: resourceResult.length,
+            data: resourceResult
+        });
+    } 
+    catch(error) {
+        console.error("getCVDData Error: ", error)
+        return handleError(res, error)
     }
-    catch(e) {
-        console.error("Error",e)
-        return res.status(200).json({
-                status: 0,
-                message: "Unable to process. Please try again"
-            })
-       
+}
+
+const patchToBundle = async(type, cvd, observation) => {
+    try {
+        const patchUrl = "Observation" + "/" + observation.id;
+        const patchVal = {
+            "encounterId": cvd.cvdFhirId,
+            "op": cvd.component.operation,
+            path: "/component", 
+            value : cvd.component
+        }
+        console.log("patch val: ", patchVal)
+        const patchData = await bundleStructure.setBundlePatch([patchVal], patchUrl);
+        return patchData
+    }
+    catch (error) {
+        console.warn(`CVD '${type}' skipped:`, error.message);
+        return null; // Return null for skipped CVD types
     }
 }
 
@@ -165,46 +260,40 @@ const updateCVDData = async (req, res) => {
         //     let errData = { status: 0, response: { data: response.error.details }, message: "Invalid input" }
         //     return res.status(422).json(errData);
         // }
-        const reqInput = req.body;
         let resourceResult = [];
-        console.log("CVD assessment Patch");
-        for(let cvd of reqInput){
-            let observations = await bundleStructure.searchData(config.baseUrl + "Observation", { "encounter": cvd.cvdFhirId, "code:text": cvd.key });
-            observations = observations.data.entry;
-            let observation = getPatchComponent(cvd.key, cvd.component, observations);
-            const patchUrl = "Observation" + "/" + observations[0].resource.id;
-            let patchData = await bundleStructure.setBundlePatch([{
-                "encounterId": cvd.cvdFhirId,
-                "op": cvd.component.operation,
-                path: "/component", 
-                value : observation.component
-            }], patchUrl);
-
+        await Promise.all(req.body.map(async (cvd) => {
+            let observations = await fetchResource(RESOURCE_TYPES.OBSERVATION, { "encounter": cvd.cvdFhirId, "code:text": cvd.key })
+            let observation = getPatchComponent(cvd.key, cvd.component, observations.entry[0].resource);
+            console.log("check observation here: ", observation)
+            const patchData = await patchToBundle(cvd.key, cvd, observation);
+            console.log("check observation patchData: ", patchData)
             let encounterPatchExist = resourceResult.find(e => e.fullUrl == "Encounter"+ "/"+ cvd.cvdFhirId);
-            if(!encounterPatchExist){
-                let patchPractitionerRefInEncounter = await bundleStructure.setBundlePatch([{
-                    "op": "replace",
-                    path: "/participant/0/individual/reference",
-                    value : "Practitioner/" + req.decoded.userId,
-                },
-                {
-                    "op": "replace",
-                    path: "/length",
-                    value : {
-                        "value": new Date().valueOf(),
-                        "unit": "millisecond",
-                        "system": "https://unitsofmeasure.org",
-                        "code": "ms"
+                if(!encounterPatchExist){
+                    let patchPractitionerRefInEncounter = await bundleFun.setBundlePatch([{
+                        "op": "replace",
+                        path: "/participant/0/individual/reference",
+                        value : "Practitioner/" + req.token.userId,
                     },
-                }], "Encounter"+ "/"+ cvd.cvdFhirId);
-                resourceResult.push(patchPractitionerRefInEncounter);
-            }
-            resourceResult.push(patchData);
-        }
-      console.info(resourceResult)
+                    {
+                        "op": "replace",
+                        path: "/length",
+                        value : {
+                            "value": new Date().valueOf(),
+                            "unit": "millisecond",
+                            "system": "https://unitsofmeasure.org",
+                            "code": "ms"
+                        },
+                    }], "Encounter"+ "/"+ cvd.cvdFhirId);
+                    resourceResult.push(patchPractitionerRefInEncounter);
+                }
+                resourceResult.push(patchData);
+        }))
+        console.log("CVD assessment Patch");
+
       const resourceData = {resourceResult: resourceResult, errData: []}
       let bundleData = await bundleStructure.getBundleJSON(resourceData)  
       console.info(bundleData)
+      res.status(201).json({ status: 1, message: "CVD data saved.", data: bundleData.bundle })
       let response = await axios.post(config.baseUrl, bundleData.bundle); 
       console.log("get bundle json response: ", response.status)  
       if (response.status == 200 || response.status == 201) {
@@ -213,16 +302,11 @@ const updateCVDData = async (req, res) => {
           res.status(201).json({ status: 1, message: "CVD data saved.", data: responseData })
       }
       else {
-          return res.status(500).json({
-          status: 0, message: "Unable to process. Please try again.", error: response
-          })
+          return handleError(res, response)
       }
-    }  catch(e) {
-              console.error("Error",e)
-              return res.status(200).json({
-                      status: 0,
-                      message: "Unable to process. Please try again"
-                  }) 
+    }  catch(error) {
+        console.error("updateCVDData Error: ", error)
+        return handleError(res, error)
     }
 }
 
@@ -243,42 +327,17 @@ const setCVDResponse  = (reqBundleData, responseBundleData, type) => {
     return response;
 }
 
-const getObservationData = (FHIRData, observation) => {
-    switch(FHIRData.code.text){
-        case 'Height': return new Observation(observation, FHIRData).getHeightData();
-        case 'Weight': return new Observation(observation, FHIRData).getWeightData();
-        case 'Heart Rate': return new Observation(observation, FHIRData).getHeartRate();
-        case 'Respiratory rate': return new Observation(observation, FHIRData).getRespRate();
-        case 'spO2': return new Observation(observation, FHIRData).getSpo2();
-        case 'Body temperature': return new Observation(observation, FHIRData).getTemperature();
-        case 'Blood Pressure': return new Observation(observation, FHIRData).getBloodPressure();
-        case 'Blood Glucose': return new Observation(observation, FHIRData).getBloodGlucose();
-        case 'Eye Test': return new Observation(observation, FHIRData).getEyeTest();
-        case 'Diabetic status': return new Observation(observation, FHIRData).getDiabeticData();
-        case 'Smoking Status' : return new Observation(observation, FHIRData).getSmokerData();
-        case 'Cholesterol': return new Observation(observation, FHIRData).getCholesterolData();
-        case 'BMI': return new Observation(observation, FHIRData).getBMIData();
-        case 'CVD Risk Percentage': return new Observation(observation, FHIRData).getRiskData();
-    }
-}
+const {fhirTextToCVDType} = require("../utils/VitalObservationMap");
 
 const getPatchComponent = (key, input, FHIRData) => {
-    switch(key){
-        case 'Height': return new Observation(input, FHIRData).patchUserInputToFhirHeight();
-        case 'Weight': return new Observation(input, FHIRData).patchUserInputToFhirWeight();
-        case 'Heart Rate': return new Observation(input, FHIRData).patchUserInputToFhirHeartRate();
-        case 'Respiratory rate': return new Observation(input, FHIRData).patchUserInputToFhirRespRate();
-        case 'spO2': return new Observation(input, FHIRData).patchUserInputToFhirSpo2();
-        case 'Body temperature': return new Observation(input, FHIRData).patchUserInputToFhirTemp();
-        case 'Blood Pressure': return new Observation(input, FHIRData).patchUserInputToFhirBloodPressure();
-        case 'Blood Glucose': return new Observation(input, FHIRData).patchUserInputToFhirBloodGlucose();
-        case 'Eye Test': return new Observation(input, FHIRData).patchUserInputToFhirEyeTest();
-        case 'Diabetic status': return new Observation(input, FHIRData).patchUserInputToFhirDiabetic();
-        case 'Smoking Status' : return new Observation(input, FHIRData).patchUserInputToFhirSmoker();
-        case 'Cholesterol': return new Observation(input, FHIRData).patchUserInputToFhirCholesterol();
-        case 'BMI': return new Observation(input, FHIRData).patchUserInputToFhirBMI();
-        case 'CVD Risk Percentage': return new Observation(input, FHIRData).patchUserInputToFhirRisk();
-    }
+const vitalType = fhirTextToCVDType[key];
+  if (!vitalType) {
+    console.warn(`Unknown FHIR code text: ${key}`);
+    return FHIRData;
+  }
+  const obs = new Observation(input, FHIRData, vitalType);
+  obs.setPatchData(); // internally calls component setter based on vitalType
+  return obs.getFHIRResource();
 }
 
 module.exports = {saveCVDData, getCVDData, updateCVDData}

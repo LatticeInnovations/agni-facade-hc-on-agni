@@ -70,20 +70,6 @@ class BaseObservation {
         this.setPatientReference();
         this.setPractitionerReference();
       }
-
-    setPatchData(id) {
-        this.fhirResource.request = {
-            "method": "PATCH",
-            "url": `Observation/${id}`,
-            "ifMatch": "W/\"1\"" 
-        }
-        this.fhirResource.resource = [];
-        this.fhirResource.resource.push({
-            "op": "replace",
-            "path": "/component",
-            "value": []
-        });
-    }
 }
 
 module.exports = BaseObservation;

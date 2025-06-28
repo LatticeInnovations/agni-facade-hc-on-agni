@@ -38,6 +38,7 @@ const patchFHIRResource = (resourceClass, resourceObj, fetchedResourceData) => {
     }
 }
 
+
 const postFHIRResource = async (resourceData, endpoint) => {
     try {
         const response = await axios.post(config.baseUrl + endpoint, resourceData);

@@ -1,5 +1,5 @@
 let axios = require("axios");
-const Observation = require("../class/VitalObservation");
+const Observation = require("../class/VitalCVDObservation");
 const Encounter = require("../class/VitalEncounter");
 const bundleStructure = require("../services/bundleOperation");
 const responseService = require("../services/responseService");
@@ -29,11 +29,12 @@ const BUNDLE_TYPES = {
 // Step 1: vital types list
 const vitalTypes = [
     "height", "weight", "heartRate", "respRate", "spo2", "temperature", "bp", 
-    "bloodGlucose", "eyeTest", "cholesterol", "bmi", "diabetic", "smoker", "risk"
+    "bloodGlucose", "eyeTest"
   ];
 
 const createObservationBundle = async(vital, type) => {
     try {
+        vital.module_type = "vital";
         const resource = buildFHIRResource(Observation, { ...vital, optionalParam: type });
         resource.id = uuidv4();
         return await bundleStructure.setBundlePost(resource, null, resource.id, HTTP_METHODS.POST, BUNDLE_TYPES.IDENTIFIER);
@@ -135,6 +136,7 @@ const processObservationData = (observationList, observationData) => {
     return observationList.map((observation) => {
         try {
             // Dynamically transform the observation using the helper function
+            observation.module_type = "vital";
             const transformedObservation = getTransformedResult(Observation, observation);
             return { ...observationData, ...transformedObservation };
         } catch (error) {

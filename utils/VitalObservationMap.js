@@ -1,73 +1,87 @@
-const vitalMethodConfig = {
+const vitalCVDMethodConfig = {
     height: {
         code: 'setHeightCode',
         component: 'setHeightComponent',
-        dataMethod: 'getHeightData'
+        dataMethod: 'getHeightData',
+        patchMethod: 'patchUserInputToFhirHeight'
     },
     weight: {
         code: 'setWeightCode',
         component: 'setWeightComponent',
-        dataMethod: 'getWeightData'
+        dataMethod: 'getWeightData',
+        patchMethod: 'patchUserInputToFhirWeight'
     },
     heartRate: {
         code: 'setHeartRateCode',
         component: 'setHeartRateComponent',
-        dataMethod: 'getHeartRate'
+        dataMethod: 'getHeartRate',
+        patchMethod: 'patchUserInputToFhirHeartRate'
     },
     respRate: {
         code: 'setRespRateCode',
         component: 'setRespRateComponent',
-        dataMethod: 'getRespRate'
+        dataMethod: 'getRespRate',
+        patchMethod: 'patchUserInputToFhirRespRate'
     },
     spo2: {
         code: 'setSpo2Code',
         component: 'setSpo2Component',
-        dataMethod: 'getSpo2'
+        dataMethod: 'getSpo2',
+        patchMethod: 'patchUserInputToFhirSpo2'
     },
     temperature: {
         code: 'setTempCode',
         component: 'setTempComponent',
-        dataMethod: 'getTemperature'
+        dataMethod: 'getTemperature',
+        patchMethod: 'patchUserInputToFhirTemp'
     },
     bp: {
         code: 'setBPCode',
         component: 'setBPComponent',
-        dataMethod: 'getBloodPressure'
+        dataMethod: 'getBloodPressure',
+        patchMethod: 'patchUserInputToFhirBloodPressure'
     },
     bloodGlucose: {
         code: 'setBloodGlucoseCode',
         component: 'setBloodGlucoseComponent',
-        dataMethod: 'getBloodGlucose'
+        dataMethod: 'getBloodGlucose',
+        patchMethod: 'patchUserInputToFhirBloodGlucose'
     },
     eyeTest: {
         code: 'setEyeTestCode',
         component: 'setEyeTestComponent',
-        dataMethod: 'getEyeTest'
+        dataMethod: 'getEyeTest',
+        patchMethod: 'patchUserInputToFhirEyeTest'
     },
     cholesterol: {
         code: 'setCholesterolCode',
         component: 'setCholesterolComponent',
-        dataMethod: 'getCholesterolData'
+        dataMethod: 'getCholesterolData',
+        patchMethod: 'patchUserInputToFhirDiabetic'
     },
     bmi: {
         code: 'setBMICode',
         component: 'setBMIComponent',
-        dataMethod: 'getBMIData'
+        dataMethod: 'getBMIData',
+        patchMethod: 'patchUserInputToFhirSmoker'
     },
     diabetic: {
         code: 'setDiabeticCode',
         component: 'setDiabeticComponent',
-        dataMethod: 'getDiabeticData'
+        dataMethod: 'getDiabeticData',
+        patchMethod: 'patchUserInputToFhirCholesterol'
     },
     smoker: {
         code: 'setSmokerCode',
         component: 'setSmokerComponent',
-        dataMethod: 'getSmokerData'
+        dataMethod: 'getSmokerData',
+        patchMethod: 'patchUserInputToFhirBMI'
     },
     risk: {
         code: 'setRiskCode',
         component: 'setRiskComponent',
-        dataMethod: 'getRiskData'
+        dataMethod: 'getRiskData',
+        patchMethod: 'patchUserInputToFhirRisk'
     }
 };
 
@@ -80,8 +94,20 @@ const fhirTextToVitalType = {
     "Body temperature": "temperature",
     "Blood Pressure": "bp",
     "Blood Glucose": "bloodGlucose",
-    "Eye Test": "eyeTest",
-    "Cholesterol": "cholesterol"
+    "Eye Test": "eyeTest"
   };
 
-module.exports = {vitalMethodConfig, fhirTextToVitalType};
+  const fhirTextToCVDType = {
+    "Height": "height",
+    "Weight": "weight",
+    "Blood Pressure": "bp",
+    "Diabetic status": "diabetic",
+    "Smoking Status": "smoker",
+    "Cholesterol": "cholesterol",
+    "BMI": "bmi",
+    "CVD Risk Percentage": "risk"
+  };
+  
+
+
+module.exports = {vitalCVDMethodConfig, fhirTextToVitalType, fhirTextToCVDType};

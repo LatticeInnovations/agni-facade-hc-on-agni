@@ -65,7 +65,9 @@ setPartOf () {
 
 
 setPatientReference() {
+  console.log("patinet data: ", this.encounterObj.patientId)
     this.fhirResource.subject.reference = "Patient/" + this.encounterObj.patientId
+    console.log(this.fhirResource.subject)
 }
 
 setOrganizationReference(){
@@ -123,6 +125,7 @@ getPatientReference() {
   }
 
   getFHIRResource() {
+    console.log("fhir resource for encounter check: ", this.fhirResource)
     return this.fhirResource;
   }
 
