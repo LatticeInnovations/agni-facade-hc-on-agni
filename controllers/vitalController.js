@@ -1,166 +1,242 @@
 let axios = require("axios");
-const Observation = require("../class/Observation");
+const Observation = require("../class/VitalObservation");
 const Encounter = require("../class/VitalEncounter");
 const bundleStructure = require("../services/bundleOperation");
 const responseService = require("../services/responseService");
+const {buildFHIRResource, fetchResource, handleError, getTransformedResult, patchFHIRResource} = require("../services/helperFunctions");
+
+
 const { v4: uuidv4 } = require('uuid');
 let config = require("../config/nodeConfig");
-const resourceType = "Observation"
+const resourceType = "Observation";
+
+const RESOURCE_TYPES = {
+    ENCOUNTER: "Encounter",
+    PRACTITIONER: "Practitioner",
+    OBSERVATION: "Observation"
+};
+
+const VITAL_ENCOUNTER_CODE = "vital-encounter";
+const HTTP_METHODS = {
+    POST: "POST",
+    GET: "GET"
+}
+
+const BUNDLE_TYPES = {
+    IDENTIFIER: "identifier"
+}
+
+// Step 1: vital types list
+const vitalTypes = [
+    "height", "weight", "heartRate", "respRate", "spo2", "temperature", "bp", 
+    "bloodGlucose", "eyeTest", "cholesterol", "bmi", "diabetic", "smoker", "risk"
+  ];
+
+const createObservationBundle = async(vital, type) => {
+    try {
+        const resource = buildFHIRResource(Observation, { ...vital, optionalParam: type });
+        resource.id = uuidv4();
+        return await bundleStructure.setBundlePost(resource, null, resource.id, HTTP_METHODS.POST, BUNDLE_TYPES.IDENTIFIER);
+    }
+    catch (error) {
+        console.warn(`Vital '${type}' skipped:`, error.message);
+        return null; // Return null for skipped vital types
+    }
+}
+
+const createEncounterBundle = async(vital, encounterData, req) => {
+    try {
+        // const encounterUuid = uuidv4();
+        console.log(vital)
+        const encounter = buildFHIRResource(Encounter, {
+            id: vital.vitalUuid,
+            encounterId: encounterData.entry[0].resource.id,
+            patientId: vital.patientId,
+            vitalUuid: vital.vitalUuid,
+            practitionerId: req.decoded.userId,
+            generatedOn: vital.createdOn,
+            orgId: req.decoded.orgId
+        });
+    return await bundleStructure.setBundlePost(encounter, null, vital.vitalUuid, HTTP_METHODS.POST, BUNDLE_TYPES.IDENTIFIER);
+    }
+    catch (error) {
+        console.error(`createEncounterBundle Error:`, error.message);
+        throw error;
+    }
+}
+
 let setVitalData = async function (req, res) {
     try {
-        let resourceResult = [];
-        for(let vital of req.body){ 
-            let encounterData = await bundleStructure.searchData(config.baseUrl + "Encounter", { "appointment": vital.appointmentId, _count: 5000 , "_include": "Encounter:appointment" });
-            let encounterUuid = uuidv4();
-            let encounter = new Encounter({ 
-                id: encounterUuid,
-                encounterId: encounterData.data.entry[0].resource.id,
-                patientId: vital.patientId,
-                vitalUuid: vital.vitalUuid,
-                practitionerId: req.decoded.userId,
-                createdOn: vital.createdOn,
-                orgId: req.decoded.orgId
-            }, {}).getUserInputToFhirForVitals();
-            vital.encounterId = encounterUuid;
+        const allResourceResults = [];
+
+        await Promise.all(req.body.map(async (vital) => {
+            const resourceResult = [];
+            // Fetch encounter data
+            const encounterData = await fetchResource("Encounter", {
+                appointment: vital.appointmentId,
+                _count: 5000,
+                _include: "Encounter:appointment"
+            });
+
+            // Create encounter bundle
+            const encounterBundle = await createEncounterBundle(vital, encounterData, req);
+            resourceResult.push(encounterBundle);
+            console.log("encounterBundle: ", encounterBundle)
+            vital.encounterId = vital.vitalUuid;
             vital.practitionerId = req.decoded.userId;
-            let heightObservation = new Observation(vital, {}).getUserInputToFhirHeight();
-            let weightObservation = new Observation(vital, {}).getUserInputToFhirWeight();
-            let heartRateObservation = new Observation(vital, {}).getUserInputToFhirHeartRate();
-            let respRateObservation = new Observation(vital, {}).getUserInputToFhirRespRate();
-            let spo2Observation = new Observation(vital, {}).getUserInputToFhirSpo2();
-            let temperatureObservation = new Observation(vital, {}).getUserInputToFhirTemp();
-            let bpObservation = new Observation(vital, {}).getUserInputToFhirBloodPressure();
-            let bloodGlucoseObservation = new Observation(vital, {}).getUserInputToFhirBloodGlucose();
-            let eyeTestObservation = new Observation(vital, {}).getUserInputToFhirEyeTest();
-            let cholesterolObservation = new Observation(vital, {}).getUserInputToFhirCholesterol();
-            heightObservation.id = uuidv4();
-            weightObservation.id = uuidv4();
-            heartRateObservation.id = uuidv4();
-            respRateObservation.id = uuidv4();
-            spo2Observation.id = uuidv4();
-            temperatureObservation.id = uuidv4();
-            bpObservation.id = uuidv4();
-            bloodGlucoseObservation.id = uuidv4();
-            eyeTestObservation.id = uuidv4();
-            cholesterolObservation.id = uuidv4();
-            
-            let encounterBundle = await bundleStructure.setBundlePost(encounter, null, encounter.id, "POST", "identifier");
-            heightObservation = await bundleStructure.setBundlePost(heightObservation, null, heightObservation.id, "POST", "identifier");
-            weightObservation = await bundleStructure.setBundlePost(weightObservation, null, weightObservation.id, "POST", "identifier");
-            heartRateObservation = await bundleStructure.setBundlePost(heartRateObservation, null, heartRateObservation.id, "POST", "identifier");
-            respRateObservation = await bundleStructure.setBundlePost(respRateObservation, null, respRateObservation.id, "POST", "identifier");
-            spo2Observation = await bundleStructure.setBundlePost(spo2Observation, null, spo2Observation.id, "POST", "identifier");
-            temperatureObservation = await bundleStructure.setBundlePost(temperatureObservation, null, temperatureObservation.id, "POST", "identifier");
-            bpObservation = await bundleStructure.setBundlePost(bpObservation, null, bpObservation.id, "POST", "identifier");
-            bloodGlucoseObservation = await bundleStructure.setBundlePost(bloodGlucoseObservation, null, bloodGlucoseObservation.id, "POST", "identifier");
-            eyeTestObservation = await bundleStructure.setBundlePost(eyeTestObservation, null, eyeTestObservation.id, "POST", "identifier");
-            cholesterolObservation = await bundleStructure.setBundlePost(cholesterolObservation, null,cholesterolObservation.id, "POST", "identifier");
-            resourceResult.push(encounterBundle, heightObservation, weightObservation, heartRateObservation, respRateObservation, spo2Observation, temperatureObservation, bpObservation, bloodGlucoseObservation, eyeTestObservation, cholesterolObservation);
-        }
-        console.info("=============>", resourceResult, "<=========================");
-        let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
-        console.info("main bundle transaction resource: ", bundleData)
-        let response = await axios.post(config.baseUrl, bundleData.bundle); 
+            // Create observation bundles for all vital types
+            const observationBundles = await Promise.all(                
+                vitalTypes.map((type) => createObservationBundle(vital, type))
+            );
+
+            // Filter out null values (skipped vital types)
+            resourceResult.push(...observationBundles.filter((bundle) => bundle !== null));
+
+            allResourceResults.push(...resourceResult);
+
+        }))
+        console.info("=============>", allResourceResults, "<=========================");
+        const bundleData = await bundleStructure.getBundleJSON({resourceResult: allResourceResults, errData: []});
+        console.log("bundle data", bundleData)
+        // return res.status(201).json({bundleData: bundleData.bundle})
+        const response = await axios.post(config.baseUrl, bundleData.bundle); 
         console.log("get bundle json response: ", response.status)  
         if (response.status == 200 || response.status == 201) {
-            let responseData = setVitalResponse(bundleData.bundle.entry, response.data.entry, "post");
+            const responseData = setVitalResponse(bundleData.bundle.entry, response.data.entry, "post");
             res.status(201).json({ status: 1, message: "Vital saved.", data: responseData })
         }
         else {
-                return res.status(500).json({status: 0, message: "Unable to process. Please try again.", error: response})
+            return handleError(res, response)
         }
-
     }
-    catch (e) {
-        return res.status(500).json({status: 0, message: "Unable to process. Please try again.", error: e})
+    catch(error) {
+        console.error("setVitalData Error: ", error)
+        return handleError(res, error)
     }
 
+}
+
+/**
+ * Fetch practitioner name based on practitioner ID.
+ */
+const getPractitionerName = (practitionerId, practitionerData) => {
+    const practitioner = practitionerData.find((e) => e?.resource?.id === practitionerId);
+
+    if (!practitioner) return "";
+
+    const givenName = practitioner?.resource?.name?.[0]?.given?.join(" ") || "";
+    const familyName = practitioner?.resource?.name?.[0]?.family || "";
+    return `${givenName} ${familyName}`.trim();
+};
+
+// Process observation data and merge with encounter data.
+
+const processObservationData = (observationList, observationData) => {
+    return observationList.map((observation) => {
+        try {
+            // Dynamically transform the observation using the helper function
+            const transformedObservation = getTransformedResult(Observation, observation);
+            return { ...observationData, ...transformedObservation };
+        } catch (error) {
+            console.warn(`Error processing observation: ${observation.id}`, error.message);
+            return observationData; // Return original data if transformation fails
+        }
+    }).reduce((mergedData, data) => ({ ...mergedData, ...data }), observationData);
+};
+
+
+const getVitalObservationList = async (vitalEncounterList, practitionerList, mainEncounters, observations) => {
+    try {
+        return vitalEncounterList.map((encounter) => {
+            let observationData = getTransformedResult(Encounter, encounter);
+            
+            // Add practitioner name
+            observationData.practitionerName = getPractitionerName(observationData.practitionerId, practitionerList);
+
+            // Add creation date
+            observationData.createdOn = encounter.period.start;
+
+            // Add appointment ID from main encounter
+            const primaryEncounter = mainEncounters.find((e) => e.id === observationData.primaryEncounterId);
+            observationData.appointmentId = primaryEncounter?.appointment?.[0]?.reference?.split("/")[1] || null;
+
+            // Remove unnecessary fields
+            delete observationData.primaryEncounterId;
+            delete observationData.practitionerId;
+
+            // Process observations for the encounter
+            const observationList = observations.filter(
+                (obs) => obs.encounter.reference === `${RESOURCE_TYPES.ENCOUNTER}/${encounter.id}`
+            );
+            observationData = processObservationData(observationList, observationData);
+
+            return observationData;
+        });
+    }
+    catch(error) {
+        console.error("getVitalObservationList Error: ", error)
+        throw error;
+    }
 }
 
 const getVitalData = async function(req, res) {
     try {
-            let queryParams = {
+            const queryParams = {
                 _total : "accurate",
                 _count: req.query._count,
                 _offset: req.query._offset,
-                _sort: req.query._sort
+                _sort: req.query._sort,
+                type: "vital-encounter",
+                "service-provider": req.decoded.orgId
             }
-            queryParams.type="vital-encounter";
-            queryParams["service-provider"] = req.decoded.orgId
-            const link = config.baseUrl + "Encounter";
-            let resourceResult = [];
-            let resourceUrlData = { link: link, reqQuery: queryParams, allowNesting: 0, specialOffset: null }
-            let responseData = await bundleStructure.searchData(link, queryParams);
-            console.info("responseData: ", responseData)
-            let resStatus = 1;
-            if( !responseData.data.entry || responseData.data.total == 0) {
+            const link = config.baseUrl + RESOURCE_TYPES.ENCOUNTER;
+            const resourceUrlData = { link, reqQuery: queryParams, allowNesting: 0, specialOffset: 1 };
+
+            // Fetch resources in parallel
+            const [responseData, practitionerData] = await Promise.all([
+                fetchResource(RESOURCE_TYPES.ENCOUNTER, queryParams),
+                fetchResource(RESOURCE_TYPES.PRACTITIONER, { _count: 10000 })
+            ]);
+            if( !responseData.entry || responseData.total == 0) {
                 return res.status(200).json({ status: resStatus, message: "Data fetched", total: 0, data: []  })
             }
-            console.log("Vitals Get API");
-            let practitionerData = await bundleStructure.searchData(config.baseUrl + "Practitioner", { _count: 10000 });
-            practitionerData = practitionerData.data.entry;
-            // Fetch main Encounters list
-            let mainEncounterList = responseData.data.entry.filter(e => e.resource.resourceType == "Encounter" && e.resource.type[0].coding[0].code == "vital-encounter").map(e => e.resource.partOf.reference.split('/')[1]);
-            let mainEncounterIds = mainEncounterList.join(','); 
+            const practitionerList = practitionerData.entry;
+
+            // Extract vital encounters and main encounters
+            const vitalEncounterList = responseData.entry
+            .filter((e) => e.resource.type?.[0]?.coding?.[0]?.code === VITAL_ENCOUNTER_CODE)
+            .map((e) => e.resource);
+
+            const vitalEncounterIds = vitalEncounterList.map((e) => e.id).join(",");
+            const mainEncounterIds = vitalEncounterList
+            .map((e) => e.partOf?.reference?.split("/")[1])
+            .filter(Boolean)
+            .join(",");
+
+            const [mainEncounterList, allObservations] = await Promise.all([
+                fetchResource(RESOURCE_TYPES.ENCOUNTER, { _id: mainEncounterIds, _count: 10000 }),
+                fetchResource(RESOURCE_TYPES.OBSERVATION, { encounter: vitalEncounterIds, _count: 100000 })
+            ]);
+    
+            const mainEncounters = mainEncounterList.entry.map((e) => e.resource);
+            const observations = allObservations.entry.map((e) => e.resource);
+
+            // Process vital encounters
+            const resourceResult = await getVitalObservationList(vitalEncounterList, practitionerList, mainEncounters, observations);
             
-            mainEncounterList = await bundleStructure.searchData(config.baseUrl + "Encounter", { _id: mainEncounterIds, _count: 10000 });
-            mainEncounterList = mainEncounterList.data.entry.map(e => e.resource);
-            // Fetch sub encounter of vitals i.e Encounter --> Observation
-            let vitalEncounterList = responseData.data.entry.filter(e => e.resource.type && e.resource.type[0].coding[0].code == "vital-encounter").map(e => e.resource);
-            let vitalEncounterIds = vitalEncounterList.map(e => e.id).join(',');
-            let allObservations = await bundleStructure.searchData(config.baseUrl + "Observation", { encounter: vitalEncounterIds, _count: 100000 });
-            allObservations = allObservations.data.entry.map(e => e.resource);
-            for(let encounter of vitalEncounterList){
-                    let observationEncounter = new Encounter({}, encounter);
-                    observationEncounter.getFhirToJsonForVitals();
-                    let observationData = observationEncounter.getEncounterResource();
-                    let practitioner = practitionerData.filter((e) => e?.resource?.id === observationData?.practitionerId);
-                    let practitionerName = practitioner.length > 0 ? (practitioner?.[0]?.resource?.name?.[0]?.given?.join(' ') || '') + ' ' + (practitioner?.[0]?.resource?.name?.[0]?.family || "") : "";
-                    observationData.practitionerName = practitionerName.trim();
-                    // Date of vital creation
-                    observationData.createdOn = encounter.period.start;
-                    let primaryEncounter = mainEncounterList.filter(e => e.id === observationData.primaryEncounterId);
-                    // console.log("primary encounter --->", primaryEncounter)
-                    console.log("primary encounter ids---->", observationData.primaryEncounterId)
-                    if(primaryEncounter.length > 0){
-                        // fetch appointment id from main encounter
-                        observationData.appointmentId = primaryEncounter?.[0].appointment?.[0]?.reference?.split("/")[1] || null;
-                    }
-                    delete observationData.primaryEncounterId;
-                    delete observationData.practitionerId;
-                    // let observationList = FHIRData.filter(e => e.resource.resourceType == "Observation" && e.resource.encounter.reference == "Encounter/"+encounter.id).map(e => e.resource);
-                    let observationList = allObservations.filter(e => e.encounter.reference == "Encounter/"+encounter.id); 
-                    // console.log(observationList.filter(data => data.subject.reference === 'Patient/3741'));
-                    for(let observation of observationList){
-                        let data = getObservationData(observation, observationData);
-                        observationData = { ...observationData, ...data}
-                    }
-                    console.info("======================>", observationData)
-                    resourceResult.push(observationData);
-        } 
-        resStatus = bundleStructure.setResponse(resourceUrlData, responseData);
-        res.status(200).json({ status: resStatus, message: "Data fetched", total: resourceResult.length, data: resourceResult  })
+            const resStatus = bundleStructure.setResponse(resourceUrlData, responseData);
+        res.status(200).json({
+            status: resStatus,
+            message: "Data fetched",
+            total: resourceResult.length,
+            data: resourceResult
+        });
     } 
-    catch(e) {
-        console.error("Error: ", e)
+    catch(error) {
+        console.error("getVitalData Error: ", error)
+        return handleError(res, error)
     }
 }
-
-const getObservationData = (FHIRData, observation) => {
-    switch(FHIRData.code.text){
-        case 'Height': return new Observation(observation, FHIRData).getHeightData();
-        case 'Weight': return new Observation(observation, FHIRData).getWeightData();
-        case 'Heart Rate': return new Observation(observation, FHIRData).getHeartRate();
-        case 'Respiratory rate': return new Observation(observation, FHIRData).getRespRate();
-        case 'spO2': return new Observation(observation, FHIRData).getSpo2();
-        case 'Body temperature': return new Observation(observation, FHIRData).getTemperature();
-        case 'Blood Pressure': return new Observation(observation, FHIRData).getBloodPressure();
-        case 'Blood Glucose': return new Observation(observation, FHIRData).getBloodGlucose();
-        case 'Eye Test': return new Observation(observation, FHIRData).getEyeTest();
-        case 'Cholesterol': return new Observation(observation, FHIRData).getCholesterolData();
-    }
-}
-
 
 const setVitalResponse  = (reqBundleData, responseBundleData, type) => {
     let filteredData = [];

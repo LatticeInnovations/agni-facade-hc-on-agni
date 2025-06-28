@@ -6,8 +6,8 @@ class VitalEncounter extends BaseEncounter {
     super(encounterObj, fhirResource);
   }
 
-  setBasicStructure() {    
-    this.setBasicStructure();
+  setBasicVitalStructure() {  
+    this.setPartOf();
     this.fhirResource.type = [{
       coding: [{
         system: "https://your-custom-coding-system",
@@ -17,7 +17,7 @@ class VitalEncounter extends BaseEncounter {
     }];
     this.fhirResource.identifier.push({
       system: config.snUrl + '/vital',
-      value: this.encounterObj.vitalUuid
+      value: this.encounterObj.id
     });
     this.fhirResource.length = {
       value: new Date().valueOf(),
@@ -25,23 +25,30 @@ class VitalEncounter extends BaseEncounter {
       system: "https://unitsofmeasure.org",
       code: "ms"
     };
-    return this.fhirResource;
   }
+
+  getJsonToFhirTranslator() {
+    super.getJsonToFhirTranslator();
+    this.setBasicVitalStructure();
+
+  }
+
 
   getPractitionerReference() {
     this.encounterObj.practitionerId =
       this.fhirResource?.participant?.[0]?.individual?.reference?.split("/")[1] || null;
   }
 
-  getVitalUuid() {
-    this.encounterObj.vitalUuid = this?.fhirResource?.identifier?.[this?.fhirResource?.identifier?.length - 1]?.value || null;
-}
+
 
   getFHIRToTransformedResult() {
+    super.getFHIRToTransformedResult();
+    this.getPrimaryEncounterReference();
     this.encounterObj.vitalFhirId = this.fhirResource.id;
     this.encounterObj.vitalUuid = this.fhirResource.identifier?.at(-1)?.value || null;
-    return this.getCommonTransformations();
   }
+
+
 }
 
 module.exports = VitalEncounter;

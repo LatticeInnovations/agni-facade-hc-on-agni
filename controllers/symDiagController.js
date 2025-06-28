@@ -56,7 +56,7 @@ const getSymptomsDiagnosisList = async function (req, res) {
             }
             let valueSet = new ValueSet({}, FHIRData, type);            
             resourceResult = valueSet.getFHIRToJSONOutput();
-            res.status(200).json({ status: resStatus, message: "Data fetched", total: resourceResult.length, data: resourceResult  })
+            return res.status(200).json({ status: resStatus, message: "Data fetched", total: resourceResult.length, data: resourceResult  })
     }
     catch (e) {
         console.error(e)
@@ -133,10 +133,10 @@ const saveSymptomDiagnosisData = async function (req, res) {
         console.log("get bundle json response: ", response.status)  
         if (response.status == 200 || response.status == 201) {
             let responseData = setSymptomDiagnosisResponse(bundleData.bundle.entry, response.data.entry, "post");
-            res.status(201).json({ status: 1, message: "Symptom and diagnosis data saved.", data: responseData })
+            return res.status(201).json({ status: 1, message: "Symptom and diagnosis data saved.", data: responseData })
         }
         else {
-                return res.status(500).json({status: 0, message: "Unable to process. Please try again.", error: response})
+            return res.status(500).json({status: 0, message: "Unable to process. Please try again.", error: response})
         }
 
     }
@@ -215,6 +215,7 @@ const getSymptomDiagnosisData    = async function(req, res) {
     } 
     catch(e) {
         console.error("Error: ", e)
+        return res.status(500).json({status: 0, message: "Unable to process. Please try again.", error: e})
     }
 }
 
@@ -292,7 +293,7 @@ const patchSymptomDiagnosisData = async (req, res) => {
       }
     }  catch(e) {
               console.error("Error",e)
-              return res.status(200).json({
+              return res.status(500).json({
                       status: 0,
                       message: "Unable to process. Please try again"
                   }) 

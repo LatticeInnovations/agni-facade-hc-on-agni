@@ -29,7 +29,6 @@ let saveRelatedPersonData = async function (req, res) {
                 return res.status(500).json({ status: 0,  message: "Patient Id " + inputData.id + " does not exist." })
             }
             let resourcePost = await createNewRelation(person1Link, patientArrayById, inputData.id, inputData.relationship);
-            //console.log("resourcePost", resourcePost)
             patientArrayById = resourcePost.patientArrayById;
             resourceResult = resourceResult.concat(resourcePost.resourceList);         
          }
@@ -51,15 +50,11 @@ let saveRelatedPersonData = async function (req, res) {
             let responseData = setRelatedPersonSaveResponse(bundleData.bundle.entry, response.data.entry, "post");  
             return res.status(201).json({ status: 1, message: "Related person data saved.", data: responseData })
         }
-        else {
-                return res.status(500).json({
-                status: 0, message: "Unable to process. Please try again.", error: response
-            })
-        }
+        return handleError(res, response) 
     }
     catch (error) {
         console.error("saveRelatedPersonData Error: ", error);
-        error.code && error.code == "ERR" ? handleError(res, error, error.statusCode, error.message ) :  handleError(res, error)
+        return handleError(res, error, error.statusCode || 500, error.message || "Unable to process. Please try again.");     
 
     }
 
