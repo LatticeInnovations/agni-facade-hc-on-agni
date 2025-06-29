@@ -1,7 +1,7 @@
 let axios = require("axios");
 let ValueSet = require("../class/ValueSet");
 let Condition = require('../class/Condition');
-let Encounter = require('../class/BaseEncounter');
+let Encounter = require('../class/SymDiagnosisEncounter');
 let Observation = require("../class/symptomObservation")
 const bundleStructure = require("../services/bundleOperation");
 const responseService = require("../services/responseService");
@@ -9,6 +9,9 @@ const { v4: uuidv4 } = require('uuid');
 let config = require("../config/nodeConfig");
 const diagnosisList = require("../utils/diagnosisList.json").compose.include[0].concept;
 const symptomList = require("../utils/symptomsList.json").compose.include[0].concept;
+const {buildFHIRResource, fetchResource, handleError, getTransformedResult} = require("../services/helperFunctions");
+
+
 global.diagnosisMap = new Map();
 global.symptomsMap = new Map();
 
@@ -36,16 +39,15 @@ populateDiagnosisMap(diagnosisList);
 const getSymptomsDiagnosisList = async function (req, res) {
     try {
             let queryParams = req.query;
-            const link = config.baseUrl + "ValueSet";
             let resourceResult = [];
 
-            let responseData = await bundleStructure.searchData(link, queryParams);
+            let responseData = await fetchResource("ValueSet", queryParams);
             console.info("responseData: ", responseData)
             let resStatus = 1;
-            if( !responseData.data.entry || responseData.data.total == 0) {
+            if( !responseData.entry || responseData.total == 0) {
                 return res.status(200).json({ status: resStatus, message: "Data fetched", total: 0, data: []  })
             }
-            const FHIRData = responseData.data.entry[0].resource;
+            const FHIRData = responseData.entry[0].resource;
             let list = FHIRData.compose.include[0].concept;
             const type = req.query.name == "symptomsList" ? "symptoms" : "diagnosis";
             if(type == "symptoms" && list.length != global.symptomsMap.size){
@@ -65,6 +67,64 @@ const getSymptomsDiagnosisList = async function (req, res) {
 
 }
 
+const createEncounterBundle = async(mainEncounter, symDiagData, patientId, token) => {
+    try {
+        // const encounterUuid = uuidv4();
+        console.log(symDiagData)
+        const encounter = buildFHIRResource(Encounter, { 
+            id: symDiagData.symDiagUuid,  encounterId: mainEncounter.id, patientId: patientId,
+            vitalUuid: symDiagData.symDiagUuid, practitionerId: token.userId, generatedOn: symDiagData.createdOn,
+            orgId: token.orgId
+        });
+               
+        return await bundleStructure.setBundlePost(encounter, null, symDiagData.symDiagUuid, "POST", "identifier");
+    }
+    catch (error) {
+        console.error(`createEncounterBundle Error:`, error.message);
+        throw error;
+    }
+}
+
+const createSymptomBundle = async (patientId, symDiagData, token) => {
+    try {
+        const resourceResult = []
+        if(symDiagData.symptoms.length > 0) {
+            let observationId =  uuidv4()             
+        let symptomResource = buildFHIRResource(Observation, {patientId: patientId, encounterId: symDiagData.symDiagUuid,
+            practitionerId: token.userId, symptoms: symDiagData.symptoms, uuid: observationId, newEnc: true
+        })
+           let symptomBundle = await bundleStructure.setBundlePost(symptomResource, null, observationId, "POST", "identifier");                
+        resourceResult.push(symptomBundle)
+        }
+        return resourceResult;
+    }   
+    catch (error) {
+        console.error(`createSymptomBundle Error:`, error.message);
+        throw error;
+    }
+}
+
+const createDiagnosisBundle = async (patientId, symDiagData, token) => {
+    try {
+        const resourceResult = []
+        symDiagData.diagnosis.forEach(async (element)=> {
+            symDiagData.uuid = uuidv4();
+            symDiagData.encounterId = symDiagData.symDiagUuid;
+            symDiagData.patientId =patientId;
+            symDiagData.practitionerId = token.userId;
+            symDiagData.onsetDateTime = symDiagData.createdOn;
+            symDiagData.diagnosis = element;
+            const conditionResource = buildFHIRResource(Condition, symDiagData);
+            const conditionResourcePost = await bundleStructure.setBundlePost(conditionResource, null, symDiagData.uuid, "POST", "identifier");
+            resourceResult.push(conditionResourcePost)
+        })  
+        return resourceResult;
+    }   
+    catch (error) {
+        console.error(`createSymptomBundle Error:`, error.message);
+        throw error;
+    }
+}
 
 const saveSymptomDiagnosisData = async function (req, res) {
     try {
@@ -82,53 +142,17 @@ const saveSymptomDiagnosisData = async function (req, res) {
                 console.log("Symptom and Diagnosis POST");
                 mainEncounter = mainEncounter[0]
                 const patientId = mainEncounter.subject.reference.split("/")[1];
-                //  create sub encounter
-                let subEncounter = new Encounter({ 
-                    id: symDiagData.symDiagUuid,  encounterId: mainEncounter.id, patientId: patientId,
-                    vitalUuid: symDiagData.symDiagUuid, practitionerId: req.decoded.userId, createdOn: symDiagData.createdOn,
-                    orgId: req.decoded.orgId
-                }, {}).getUserInputToFhirForVitals();
-                subEncounter.identifier[0].system = "https://hl7.org/fhir/sid/sn/diagnosis"
-                subEncounter.type =  [
-                    {
-                        "coding": [
-                            {
-                                "system": "https://your-custom-coding-system",
-                                "code": "symptom-diagnosis-encounter",
-                                "display": "Symptom Diagnosis encounter"
-                            }
-                        ]
-                    }
-                ]
-               
-                let subEncounterBundle = await bundleStructure.setBundlePost(subEncounter, null, subEncounter.id, "POST", "identifier");
-                resourceResult.push(subEncounterBundle)
+                const subEncounterBundle = await createEncounterBundle(mainEncounter, symDiagData, patientId, req.token)
                 // create symptom Observation  
-                if(symDiagData.symptoms.length > 0) {
-                    let observationId =  uuidv4()             
-                let symptomResource = new Observation({patientId: patientId, encounterId: symDiagData.symDiagUuid,
-                    practitionerId: req.decoded.userId, symptoms: symDiagData.symptoms, uuid: observationId, newEnc: true
-                }, {}).setJsonTOFhir()
-                let symptomBundle = await bundleStructure.setBundlePost(symptomResource, null, observationId, "POST", "identifier");                
-                resourceResult.push(symptomBundle)
-                }               
-
+                const symptomResult = await createSymptomBundle(patientId, symDiagData, req.token)
                 // create condition resources
-                symDiagData.diagnosis.forEach(async (element)=> {
-                    symDiagData.uuid = uuidv4();
-                    symDiagData.encounterId = symDiagData.symDiagUuid;
-                    symDiagData.patientId =patientId;
-                    symDiagData.practitionerId = req.decoded.userId;
-                    symDiagData.onsetDateTime = symDiagData.createdOn;
-                    symDiagData.diagnosis = element;
-                    const conditionResource = new Condition(symDiagData, {}).getJsonToFhirTranslator();
-                    const conditionResourcePost = await bundleStructure.setBundlePost(conditionResource, null, symDiagData.uuid, "POST", "identifier");
-                    resourceResult.push(conditionResourcePost)
-                })                 
+                const diagnosisResult = await createDiagnosisBundle(patientId, symDiagData, req.token);  
+                resourceResult = [subEncounterBundle, ...symptomResult, ...diagnosisResult] 
         }
         console.info("=============>", resourceResult, "<=========================");
         let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
         console.info("main bundle transaction resource: ", bundleData)
+        // return res.status(201).json({ status: 1, message: "Symptom and diagnosis data saved.", data: bundleData.bundle })
         let response = await axios.post(config.baseUrl, bundleData.bundle); 
         console.log("get bundle json response: ", response.status)  
         if (response.status == 200 || response.status == 201) {
@@ -136,86 +160,103 @@ const saveSymptomDiagnosisData = async function (req, res) {
             return res.status(201).json({ status: 1, message: "Symptom and diagnosis data saved.", data: responseData })
         }
         else {
-            return res.status(500).json({status: 0, message: "Unable to process. Please try again.", error: response})
+            return handleError(res, response);           
         }
 
     }
-    catch (e) {
-        return res.status(500).json({status: 0, message: "Unable to process. Please try again.", error: e})
+    catch(error) {
+        console.error("saveSymptomDiagnosisData Error: ", error)
+        return handleError(res, error)
     }
 
 }
 
-const getSymptomDiagnosisData    = async function(req, res) {
+const getSymDiagForEncounter = async(mainEncounterList, subEncounterList, symptoms, diagnosis, practitionerData) => {
     try {
-            let queryParams = {
+        const resourceResult = [];
+
+        for(let encounter of subEncounterList){
+            let diagnosisList = [];
+            const mainEncounter = mainEncounterList.filter(e => e.id == encounter.partOf.reference.split("/")[1])[0]
+            console.log("mainEncounter: ", mainEncounter, encounter.partOf.reference)
+            const symptomObservation = symptoms.filter(e => e.resource.resourceType == "Observation" && e.resource.encounter.reference.split("/")[1] == encounter.id)
+            const diagnosisResources = diagnosis.filter(e => e.resource.resourceType == "Condition" && e.resource.encounter.reference.split("/")[1] == encounter.id).map(e => e.resource)
+            if(diagnosisResources.length > 0)
+                diagnosisList = diagnosisResources.map(element => {
+                return  getTransformedResult(Condition, element);
+            })
+            let symptomResource = []
+            if(symptomObservation.length > 0) {
+                symptomResource = getTransformedResult(Observation, symptomObservation[0].resource);
+            }                     
+            let practitioner = practitionerData.filter((e) => e?.resource?.id == encounter?.participant[0].individual.reference.split("/")[1]);
+            let practitionerName = practitioner.length > 0 ? (practitioner?.[0]?.resource?.name?.[0]?.given?.join(' ') || '') + ' ' + (practitioner?.[0]?.resource?.name?.[0]?.family || "") : "";
+             let subEncounter = {
+                patientId: encounter?.subject?.reference?.split('/')?.[1] || null,
+                symDiagFhirId: encounter.id,
+                symDiagUuid: encounter.identifier[0].value,
+                appointmentId: mainEncounter.appointment[0].reference.split("/")[1]  ,
+                appointmentUuid: mainEncounter.identifier[0].value,
+                symptoms: symptomResource?.symptoms || [],
+                createdOn: encounter.period.start,
+                diagnosis: diagnosisList,
+                practitionerName: practitionerName.trim()
+            }
+            console.log(subEncounter)
+            resourceResult.push(subEncounter)
+        }
+        return resourceResult;
+    }
+    catch(error) {
+        console.error("getSymDiagForEncounter Error: ", error);
+        throw error
+    }
+}
+
+const getSymptomDiagnosisData = async function(req, res) {
+    try {
+        const queryParams = {
                 _total : "accurate",
                 _count: req.query._count,
                 _offset: req.query._offset,
-                _sort: req.query._sort
-            }
-            queryParams._include= "Encounter:part-of:Encounter";
-            queryParams.type="symptom-diagnosis-encounter"
-            queryParams["service-provider"] = req.decoded.orgId
-            const link = config.baseUrl + "Encounter";
-            let resourceResult = [];
-            let resourceUrlData = { link: link, reqQuery: queryParams, allowNesting: 0, specialOffset: null }
-            let responseData = await bundleStructure.searchData(link, queryParams);
-            console.info("responseData: ", responseData)
-            let resStatus = 1;
-            if( !responseData.data.entry || responseData.data.total == 0) {
+                _sort: req.query._sort,
+                type: "symptom-diagnosis-encounter",
+                "service-provider": req.decoded.orgId
+        };
+        let resourceUrlData = { link: config.baseUrl + "Encounter", reqQuery: queryParams, allowNesting: 0, specialOffset: 1 }
+        let responseData = await fetchResource("Encounter", queryParams);
+        console.info("responseData: ", responseData)
+        let resStatus = 1;
+        if( !responseData.entry || responseData.total == 0) {
                 return res.status(200).json({ status: resStatus, message: "Data fetched", total: 0, data: []  })
-            }
-        const FHIRData =  responseData.data.entry 
-        let mainEncounterList = FHIRData.filter(e => e.resource.resourceType == "Encounter" && e.resource.appointment).map(e => e.resource);
+        }
+        const FHIRData =  responseData.entry 
+        const mainEncounterIds = responseData.entry.map(e=> e.resource.partOf.reference.split("/")[1]).join(",");
+        let mainEncounterList = await fetchResource("Encounter", {_count: 1000, "_id": mainEncounterIds})
+        console.log("mainEncounterIds: ", mainEncounterList)
+        mainEncounterList = mainEncounterList.entry.map(e => e.resource);
+        console.log("mainEncounterList: ", mainEncounterList)
         let subEncounterList = FHIRData.filter(e => e.resource.resourceType == "Encounter" && e.resource.type && e.resource.type[0].coding[0].code == "symptom-diagnosis-encounter").map(e => e.resource);
         
         let subEncounterIds = subEncounterList.map((e) => e.id).join(',');
-        let symptoms = await bundleStructure.searchData(config.baseUrl + "Observation", { "encounter": subEncounterIds, _count: 5000 });
-        symptoms = symptoms?.data?.entry || [];
+        let symptoms = await fetchResource("Observation", { "encounter": subEncounterIds, _count: 5000 });
+        symptoms = symptoms?.entry || [];
 
-        let diagnosis = await bundleStructure.searchData(config.baseUrl + "Condition", { "encounter": subEncounterIds, _count: 5000 });
-        diagnosis = diagnosis?.data?.entry || [];
+        let diagnosis = await fetchResource("Condition", { "encounter": subEncounterIds, _count: 5000 });
+        diagnosis = diagnosis?.entry || [];
         
-        const practitonerIdList = subEncounterList.map(e=> e.participant[0].individual.reference.split("/")[1]).join(",")
-        let practitionerData = await bundleStructure.searchData(config.baseUrl + "Practitioner", { _id: practitonerIdList, _count: 100000 });
-        practitionerData = practitionerData.data.entry;
-        for(let encounter of subEncounterList){
-                let diagnosisList = [];
-                const mainEncounter = mainEncounterList.filter(e => e.id = encounter.partOf.reference.split("/")[1])[0]
-                const symptomObservation = symptoms.filter(e => e.resource.resourceType == "Observation" && e.resource.encounter.reference.split("/")[1] == encounter.id)
-                const diagnosisResources = diagnosis.filter(e => e.resource.resourceType == "Condition" && e.resource.encounter.reference.split("/")[1] == encounter.id).map(e => e.resource)
-                if(diagnosisResources.length > 0)
-                    diagnosisList = diagnosisResources.map(element => {
-                    const data = new Condition({}, element).getFHIRToUserResponse()                    
-                    return data
-                })
-                let symptomResource = []
-                if(symptomObservation.length > 0) {
-                    symptomResource = new Observation({}, symptomObservation[0].resource).getFhirToJson()
-                }                     
-                let practitioner = practitionerData.filter((e) => e?.resource?.id == encounter?.participant[0].individual.reference.split("/")[1]);
-                let practitionerName = practitioner.length > 0 ? (practitioner?.[0]?.resource?.name?.[0]?.given?.join(' ') || '') + ' ' + (practitioner?.[0]?.resource?.name?.[0]?.family || "") : "";
-                 let subEncounter = {
-                    patientId: encounter?.subject?.reference?.split('/')?.[1] || null,
-                    symDiagFhirId: encounter.id,
-                    symDiagUuid: encounter.identifier[0].value,
-                    appointmentId: mainEncounter.appointment[0].reference.split("/")[1]  ,
-                    appointmentUuid: mainEncounter.identifier[0].value,
-                    symptoms: symptomResource?.symptoms || [],
-                    createdOn: encounter.period.start,
-                    diagnosis: diagnosisList,
-                    practitionerName: practitionerName.trim()
-                }
-                console.log(subEncounter)
-                resourceResult.push(subEncounter)
-            }
+        const practitionerIdList = subEncounterList.map(e=> e.participant[0].individual.reference.split("/")[1]).join(",")
+        let practitionerData = await fetchResource("Practitioner", { _id: practitionerIdList, _count: 100000 });
+        practitionerData = practitionerData.entry;
+
+        const resourceResult = await getSymDiagForEncounter(mainEncounterList, subEncounterList, symptoms, diagnosis, practitionerData);
+  
         resStatus = bundleStructure.setResponse(resourceUrlData, responseData);
         res.status(200).json({ status: resStatus, message: "Data fetched", total: resourceResult.length, data: resourceResult  })
     } 
-    catch(e) {
-        console.error("Error: ", e)
-        return res.status(500).json({status: 0, message: "Unable to process. Please try again.", error: e})
+    catch(error) {
+        console.error("getSymptomDiagnosisData Error: ", error)
+        return handleError(res, error)
     }
 }
 
@@ -236,6 +277,47 @@ const setSymptomDiagnosisResponse  = (reqBundleData, responseBundleData, type) =
     return response;
 }
 
+const patchEncounterBundle = async (subEncounterResources, symDiagData) => {
+    try {
+        const subEncounter = subEncounterResources.filter(e => e.id == symDiagData.symDiagFhirId)[0];
+            let subEncounterData = new Encounter({}, subEncounter).patchSystemDiagnosisSubEncounter();
+            return await bundleStructure.setBundlePut(subEncounterData, subEncounterData.identifier, subEncounter.id, "PUT");  
+    }
+    catch(error) {
+        console.error("patchEncounterBundle Error: ", error)
+        throw error;
+    }
+}
+
+const createPatchArray = async (reqInput, subEncounterResources, allResources, token) => {
+    try {
+        const resourceResult = []
+        for(let symDiagData of reqInput) {                
+            const subEncounterPatch = await patchEncounterBundle(subEncounterResources, symDiagData)
+            resourceResult.push(subEncounterPatch)
+            const patientId = subEncounterPatch.resource.subject.reference.split("/")[1]
+            symDiagData.patientId = patientId;
+            const observationResource = allResources.filter(e => e.resource.resourceType == "Observation" && e.resource.encounter.reference.split("/")[1] == symDiagData.symDiagFhirId);  
+            const newSymDiagData = {...symDiagData, patientId, encounterId: symDiagData.symDiagFhirId, practitionerId: token.userId,  newEnc: false,  onsetDateTime: symDiagData.createdOn };           
+            // observation patch logic
+            const symptomBundle = await observationResourcePatch(observationResource, newSymDiagData);
+            if(Object.keys(symptomBundle).length > 0)
+                resourceResult.push(symptomBundle)
+            //  diagnosis resources logic
+            
+            const conditionResources = allResources.filter(e => e.resource.resourceType == "Condition" && e.resource.encounter.reference.split("/")[1] == symDiagData.symDiagFhirId).map(e => e.resource)
+            const conditionBundle = await conditionResourcePatch(conditionResources, symDiagData, token);
+            if(conditionBundle.length > 0) {
+                resourceResult.push(conditionBundle);
+            }                    
+        }
+        return resourceResult;
+    }
+    catch(error) {
+        console.error("createPatchArray Error: ", error)
+        throw error;
+    } 
+}
 const patchSymptomDiagnosisData = async (req, res) => {
     try {
         // let response = resourceValid(req.params);
@@ -243,60 +325,33 @@ const patchSymptomDiagnosisData = async (req, res) => {
         //     console.error(response.error.details)
         //     let errData = { status: 0, response: { data: response.error.details }, message: "Invalid input" }
         //     return res.status(422).json(errData);
-        // }
-        const reqInput = req.body;
-        let resourceResult = [];
+        // }   
         console.log("Symptom and Diagnosis Patch");
-        const allSymptomEncounterIds = reqInput.map(e=> e.symDiagFhirId).join(",")
-        let allResources = await bundleStructure.searchData(config.baseUrl + "Encounter", {"_revinclude:0": "Condition:encounter", "_revinclude:1": "Observation:encounter", "_id": allSymptomEncounterIds, _count: 2000})
-        const subEncounterResources = allResources.data.entry.filter(e => e.resource.resourceType == "Encounter").map(e => e.resource)
-        allResources = allResources.data.entry
-        for(let symDiagData of reqInput) {                
-            const subEncounter = subEncounterResources.filter(e => e.id == symDiagData.symDiagFhirId)[0];
-            let subEncounterData = new Encounter({}, subEncounter).patchSystemDiagnosisSubEncounter();
-            const subEncounterPatch = await bundleStructure.setBundlePut(subEncounterData, subEncounterData.indentifier, subEncounter.id, "PUT");  
-            resourceResult.push(subEncounterPatch)
-            const patientId = subEncounter.subject.reference.split("/")[1]
-            const observationResource = allResources.filter(e => e.resource.resourceType == "Observation" && e.resource.encounter.reference.split("/")[1] == symDiagData.symDiagFhirId)
-             
-            symDiagData.patientId = patientId
-            symDiagData.encounterId = symDiagData.symDiagFhirId
-            symDiagData.practitionerId = req.decoded.userId
-            symDiagData.newEnc = false;
-            symDiagData.onsetDateTime = symDiagData.createdOn;
-            // observation patch logic
-            const symptomBundle = await observationResourcePatch(observationResource, symDiagData);
-            if(Object.keys(symptomBundle).length > 0)
-                resourceResult.push(symptomBundle)
-            //  diagnosis resources logic
-            const conditionResources = allResources.filter(e => e.resource.resourceType == "Condition" && e.resource.encounter.reference.split("/")[1] == symDiagData.symDiagFhirId).map(e => e.resource)
-            const conditionBundle = await conditionResourcePatch(conditionResources, symDiagData, req.token);
-            if(conditionBundle.length > 0) {
-                resourceResult = [...resourceResult, ...conditionBundle]
-            }                    
+        const allSymptomEncounterIds = req.body.map(e=> e.symDiagFhirId).join(",");
+        console.log("allSymptomEncounterIds: ", allSymptomEncounterIds)
+        let allResources = await fetchResource("Encounter", {"_revinclude:0": "Condition:encounter", "_revinclude:1": "Observation:encounter", "_id": allSymptomEncounterIds, _count: 2000})
+        allResources = allResources.entry;
+        console.log("Symptom and Diagnosis Patch", allResources);
+        const subEncounterResources = allResources.filter(e => e.resource.resourceType == "Encounter").map(e => e.resource)
+        const resourceResult = await createPatchArray(req.body, subEncounterResources, allResources, req.token)
+        console.info(resourceResult)
+        const resourceData = {resourceResult: resourceResult, errData: []}
+        let bundleData = await bundleStructure.getBundleJSON(resourceData)  
+        console.info(bundleData)
+        // return res.status(200).json({ status: 1, message: "Symptom and diagnosis data saved.", data: bundleData.bundle })
+        let response = await axios.post(config.baseUrl, bundleData.bundle); 
+        console.log("get bundle json response: ", response.status)  
+        if (response.status == 200 || response.status == 201) {
+            let resourceResponse = setSymptomDiagnosisResponse(bundleData.bundle.entry, response.data.entry, "patch");
+            let responseData = [...resourceResponse, ...bundleData.errData];
+            res.status(201).json({ status: 1, message: "Symptom and diagnosis data saved.", data: responseData })
         }
-      console.info(resourceResult)
-      const resourceData = {resourceResult: resourceResult, errData: []}
-      let bundleData = await bundleStructure.getBundleJSON(resourceData)  
-      console.info(bundleData)
-      let response = await axios.post(config.baseUrl, bundleData.bundle); 
-      console.log("get bundle json response: ", response.status)  
-      if (response.status == 200 || response.status == 201) {
-          let resourceResponse = setSymptomDiagnosisResponse(bundleData.bundle.entry, response.data.entry, "patch");
-          let responseData = [...resourceResponse, ...bundleData.errData];
-          res.status(201).json({ status: 1, message: "Symptom and diagnosis data saved.", data: responseData })
-      }
-      else {
-          return res.status(500).json({
-          status: 0, message: "Unable to process. Please try again.", error: response
-          })
-      }
-    }  catch(e) {
-              console.error("Error",e)
-              return res.status(500).json({
-                      status: 0,
-                      message: "Unable to process. Please try again"
-                  }) 
+        else {
+            return handleError(res, response) 
+        }
+    }  catch(error) {
+        console.error("patchSymptomDiagnosisData Error: ", error)
+        return handleError(res, error) 
     }
 }
 
@@ -308,7 +363,7 @@ const observationResourcePatch = async function(observationResource, symDiagData
     const observationId =  uuidv4()
     symDiagData.uuid = observationId
     if(observationResource.length == 0 && symDiagData.symptoms.length > 0) {
-        let symptomResource = new Observation(symDiagData, {}).setJsonTOFhir();
+        let symptomResource = buildFHIRResource(Observation, symDiagData);
         symptomBundle = await bundleStructure.setBundlePost(symptomResource, symptomResource.identifier, observationId, "POST", "identifier", token);                
     }
     //  If symptoms resource exist but symptoms list is empty
@@ -317,7 +372,7 @@ const observationResourcePatch = async function(observationResource, symDiagData
     }
     // update existing symptom resource
     else if(symDiagData.symptoms.length > 0 ){
-        let symptomResource = new Observation(symDiagData, {}).setJsonTOFhir();
+        let symptomResource =  buildFHIRResource(Observation, symDiagData);
         console.log(symptomResource, observationResource)
         observationResource[0].resource.component = symptomResource.component
         symptomBundle = await bundleStructure.setBundlePost(observationResource[0].resource, null, observationResource[0].resource.id, "PUT", null);  
@@ -350,7 +405,7 @@ const conditionResourcePatch = async function(conditionResources, symDiagData, t
                 symDiagData.practitionerId = token.userId;
                 symDiagData.onsetDateTime = symDiagData.createdOn;
                 symDiagData.diagnosis = element;
-                const conditionResource = new Condition(symDiagData, {}).getJsonToFhirTranslator();
+                const conditionResource =  buildFHIRResource(Condition, symDiagData);
                 const conditionResourcePost = await bundleStructure.setBundlePost(conditionResource, null, symDiagData.uuid, "POST", "identifier");
                 conditionResourcesList.push(conditionResourcePost)
             }) 

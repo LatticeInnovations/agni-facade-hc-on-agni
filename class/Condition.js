@@ -41,6 +41,7 @@ class Condition {
     }
 
     setPatientId() {
+        console.log("this.conditionObj: ", this.conditionObj)
         this.fhirResource.subject = {
             "reference": "Patient/" + this.conditionObj.patientId
         }
