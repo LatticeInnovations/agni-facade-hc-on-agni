@@ -82,6 +82,22 @@ getEncounterTime() {
       this.fhirResource.subject.reference.split("/")[1];
   }
 
+  getPractitionerReference() {
+    this.encounterObj.practitionerId = this?.fhirResource?.participant?.[0]?.individual?.reference?.split('/')[1] || null;
+  }
+
+  setPractitionerReference() {
+    if(this.encounterObj.userId) {
+      this.fhirResource.participant = [
+        {
+          "individual": {
+            "reference": "Practitioner/" + this.encounterObj.userId
+          }
+        }
+      ]
+    }
+
+  }
 
   getJsonToFhirTranslator() {
     this.setBasicStructure();
@@ -90,6 +106,7 @@ getEncounterTime() {
     this.setPartOf();
     this.setType()
     this.setEncounterTime();
+    this.setPractitionerReference();
   }
 
   getFHIRResource() {
@@ -102,6 +119,7 @@ getEncounterTime() {
     this.getPatientReference();
     this.getEncounterTime();
     this.getPartOf()
+    this.getPractitionerReference();
   }
 
   getSimplifiedOutput() {

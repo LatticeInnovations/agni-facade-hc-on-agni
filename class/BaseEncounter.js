@@ -95,6 +95,7 @@ getPatientReference() {
 
 
   getPractitionerReference() {
+
     this.encounterObj.practitionerId = this?.fhirResource?.participant?.[0]?.individual?.reference?.split('/')[1] || null;
   }
 
@@ -113,6 +114,7 @@ getPatientReference() {
   }
 
   getFHIRToTransformedResult() {
+    console.log("practitoner check: ", this?.fhirResource);
     this.getId();
     this.getAppointmentReference();
     this.getPatientReference();

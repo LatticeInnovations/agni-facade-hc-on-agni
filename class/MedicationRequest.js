@@ -9,6 +9,7 @@ class MedicationRequest {
     constructor(med_req_obj, fhir_resource) {
         this.medReqObj = med_req_obj;
         this.fhirResource = fhir_resource;
+        this.fhirResource.resourceType = "MedicationRequest";
     }
 
    setIdentifier() {
@@ -156,11 +157,14 @@ getId() {
     }
 
     setDocument(){
-        this.medReqObj.prescriptionFiles.forEach((file) => {
-            this.fhirResource.supportingInformation.push({
-                "reference": "urn:uuid:" + file.documentUuid
+        if(this.medReqObj.prescriptionFiles) {
+            this.medReqObj.prescriptionFiles.forEach((file) => {
+                this.fhirResource.supportingInformation.push({
+                    "reference": "urn:uuid:" + file.documentUuid
+                });
             });
-        });
+        }
+
     }
 
     getJsonToFhirTranslator() {
@@ -173,7 +177,17 @@ getId() {
         this.setEncounter();
         this.setNote();
         this.setDosageInstruction();
-        // this.setDocument();
+        this.setDocument();
+    }
+
+    getJSONtoFhirForPrescriptionDocument(){
+        this.setBasicStructure();
+        this.setIdentifier();
+        this.setIntent();
+        this.setGroupIdentifier();
+        this.setPatientReference();
+        this.setEncounter();
+        this.setDocument();
     }
 
     getFHIRToTransformedResult() {
@@ -202,17 +216,7 @@ getId() {
         this.fhirResource.status = "completed";
     }
 
-    getJSONtoFhirForPrescriptionDocument(){
-        this.fhirResource.resourceType = "MedicationRequest";
-        this.setBasicStructure();
-        this.setIdentifier();
-        this.setIntent();
-        this.setGroupIdentifier();
-        this.setPatientReference();
-        this.setEncounter();
-        this.setDocument();
-        return this.fhirResource;
-    }
+
 
     deletePrescriptionDocument(){
         this.fhirResource.status = "entered-in-error";
