@@ -60,9 +60,9 @@ const getSymptomsDiagnosisList = async function (req, res) {
             resourceResult = valueSet.getFHIRToJSONOutput();
             return res.status(200).json({ status: resStatus, message: "Data fetched", total: resourceResult.length, data: resourceResult  })
     }
-    catch (e) {
-        console.error(e)
-        return res.status(500).json({status: 0, message: "Unable to process. Please try again.", error: e})
+    catch (error) {
+        console.error(error)
+        return handleError(res, error);
     }
 
 }

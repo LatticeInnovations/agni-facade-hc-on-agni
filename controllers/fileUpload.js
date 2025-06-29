@@ -29,7 +29,7 @@ const uploadFiles = async (req, res) => {
     }
 }
 
-const downloadFile = async (req, res, next) => {
+const downloadFile = async (req, res) => {
     try{
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
@@ -53,7 +53,7 @@ const downloadFile = async (req, res, next) => {
     }
 }
 
-const getAllFiles = async (req, res, next) => {
+const getAllFiles = async (req, res) => {
     try{
         let files = [];
         fs.readdirSync('uploads').forEach(file => {
@@ -71,7 +71,7 @@ const getAllFiles = async (req, res, next) => {
     }
 }
 
-const downloadMultipleFiles = async (req, res, next) => {
+const downloadMultipleFiles = async (req, res) => {
     try{
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
