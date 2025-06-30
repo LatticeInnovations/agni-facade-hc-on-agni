@@ -1,18 +1,16 @@
-let bundleFun = require("../services/bundleOperation");
-let config = require("../config/nodeConfig");
+const { fetchResource } = require("../services/helperFunctions");
 let getManufacturer = async function (req, res) {
     try {
         //  Get organizations list which are manufacturers
-        let link = config.baseUrl + "Organization"
-        let reqQuery = {
+        const reqQuery = {
             type: "bus",
             _count: 1000
         }
         //  fetch data from fhir server
-        let responseData = await bundleFun.searchData(link, reqQuery);
+        let responseData = await fetchResource("Organization", reqQuery);
         let manufacturersList = []
-        if(responseData.data.entry.length > 0) {
-            manufacturersList = responseData.data.entry.map(res => {
+        if(responseData.entry.length > 0) {
+            manufacturersList = responseData.entry.map(res => {
                 return {
                     "manufacturerId": res.resource.id,
                     "manufacturerName": res.resource.name,
@@ -22,7 +20,7 @@ let getManufacturer = async function (req, res) {
             })
         }
 
-        return res.status(200).json({status: 1, message: "Data fetched", total : responseData.data.total, data: manufacturersList});
+        return res.status(200).json({status: 1, message: "Data fetched", total : responseData.total, data: manufacturersList});
         
     }
     catch (e) {

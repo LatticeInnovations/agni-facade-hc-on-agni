@@ -16,7 +16,7 @@ class Immunization {
     this.immunizationObj.identifier = this.fhirResource.identifier;
   }
 
-  getimmunizationFhirId() {
+  getImmunizationFhirId() {
     this.immunizationObj.immunizationId =this.fhirResource.id
   }
 
@@ -58,11 +58,11 @@ class Immunization {
     this.immunizationObj.manufacturerId = null
   }
 
-  setOccuranceTime() {
+  setOccurrenceTime() {
     this.fhirResource.occurrenceDateTime = this.immunizationObj.createdOn
   }
 
-  getOccuranceTime() {
+  getOccurrenceTime() {
     this.immunizationObj.createdOn = this.fhirResource.occurrenceDateTime;
   }
 
@@ -149,7 +149,7 @@ class Immunization {
     this.setPatientReference();
     this.setSubEncounter();
     this.setNotes();
-    this.setOccuranceTime();
+    this.setOccurrenceTime();
     this.setExpiryDate();
     this.setPerformer();
   }
@@ -158,16 +158,16 @@ class Immunization {
     return this.fhirResource;
   }
 
-  getImmunizationObj() {
+  getFHIRToTransformedResult() {
     this.getId();
-    this.getimmunizationFhirId();
+    this.getImmunizationFhirId();
     this.getVaccineCode();
     this.getNotes();
     this.getLotNumber();
     this.getManufacturer();
     this.getSubEncounter();
     this.getExpiryDate();
-    this.getOccuranceTime();
+    this.getOccurrenceTime();
     this.getPatientReference();
   }
 

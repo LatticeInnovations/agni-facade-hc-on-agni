@@ -17,6 +17,8 @@ const getTransformedResult = (resourceClass, fhirResource) => {
 
 const buildFHIRResource = (resourceClass, resourceObj) => {
     try {
+
+        console.log(this.resourceObj)
         const { optionalParam, ...rest } = resourceObj;
         const resourceInstance = new resourceClass(rest, {}, optionalParam);
         resourceInstance.getJsonToFhirTranslator();

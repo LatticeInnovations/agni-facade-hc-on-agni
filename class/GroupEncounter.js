@@ -83,15 +83,16 @@ getEncounterTime() {
   }
 
   getPractitionerReference() {
-    this.encounterObj.practitionerId = this?.fhirResource?.participant?.[0]?.individual?.reference?.split('/')[1] || null;
+    this.groupEncounterObj.practitionerId = this?.fhirResource?.participant?.[0]?.individual?.reference?.split('/')[1] || null;
   }
 
   setPractitionerReference() {
-    if(this.encounterObj.userId) {
+    console.log("encounter check", this.groupEncounterObj)
+    if(this.groupEncounterObj.userId) {
       this.fhirResource.participant = [
         {
           "individual": {
-            "reference": "Practitioner/" + this.encounterObj.userId
+            "reference": "Practitioner/" + this.groupEncounterObj.userId
           }
         }
       ]

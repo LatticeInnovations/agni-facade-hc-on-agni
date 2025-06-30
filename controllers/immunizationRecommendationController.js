@@ -1,40 +1,32 @@
 let ImmunizationRecommendation = require('../class/ImmunizationRecommendation');
-const bundleStructure = require("../services/bundleOperation");
-let config = require("../config/nodeConfig");
+const { getTransformedResult, fetchResource, handleError } = require('../services/helperFunctions');
 
 let setImmunizationRecommendationData = async function (req, res) {
     try {
-        const link = config.baseUrl + "ImmunizationRecommendation";
-        let queryParams = {
+        let resourceResult = [];
+        const queryParams = {
             "_total": "accurate",
             "_count": 10000,
             "patient": req.query.patient
         }
-        let resourceResult = []
-        let responseData = await bundleStructure.searchData(link, queryParams);
+        const responseData = await fetchResource("ImmunizationRecommendation", queryParams);
+        console.log(responseData)
         let resStatus = 1;
-        console.info("FHIRData: ", responseData)
-        if( !responseData.data.entry || responseData.data.total == 0) {
+        if( !responseData.entry || responseData.total == 0) {
                 return res.status(200).json({ status: resStatus, message: "Data fetched", total: 0, data: []  })
         }
-        const FHIRData = responseData.data.entry.map(e => e.resource)
+        const FHIRData = responseData.entry.map(e => e.resource);
         FHIRData.forEach(recommendationData => {
-            let vaccineData = new ImmunizationRecommendation({}, recommendationData);
-            vaccineData = vaccineData.getFHIRtoJSON()
-            resourceResult.push(...vaccineData);
-        })
-
-        
-        res.status(200).json({ status: resStatus, message: "Immunization recommendation data fetched.", total: resourceResult.length,"offset": +queryParams?._offset, data: resourceResult  })
+            const vaccineData = getTransformedResult(ImmunizationRecommendation, recommendationData);
+            console.log("vaccineData; ", vaccineData)
+            resourceResult.push(...vaccineData.result);
+        })        
+        return res.status(200).json({ status: resStatus, message: "Immunization recommendation data fetched.", total: resourceResult.length,"offset": +queryParams?._offset, data: resourceResult  })
         
     }
     catch(e) {
         console.error("Error",e)
-        return res.status(200).json({
-                status: 0,
-                message: "Unable to process. Please try again"
-            })
-       
+        return handleError(res, e);       
     }
 }
 
