@@ -4,7 +4,7 @@ let config = require("../config/nodeConfig");
 const { v4: uuidv4 } = require('uuid');
 const bundleStructure = require("../services/bundleOperation")
 const responseService = require("../services/responseService");
-const { fetchResource } = require("../services/helperFunctions");
+const { fetchResource, buildFHIRResource, getTransformedResult } = require("../services/helperFunctions");
 
 
 //  Save Practitioner data
@@ -35,10 +35,7 @@ let savePractitionerData = async function (req, res) {
                      return res.status(422).json( { status: 0, message: "Practitioner data already exists."})
                 }
             }
-            let practitioner = new Practitioner(practitionerData, {});
-            practitioner.getJsonToFhirTranslator();
-            let practitionerResource = {};
-            practitionerResource = {...practitioner.getFHIRResource()};
+            let practitionerResource = buildFHIRResource(Practitioner, practitionerData);
             practitionerResource.resourceType = resType;
             practitionerResource.id = uuidv4();
             let practitionerBundle = await bundleStructure.setBundlePost(practitionerResource, practitionerResource.telecom, practitionerResource.id, "POST", "telecom"); 
@@ -88,8 +85,7 @@ let getPractitionerData = async function (req, res) {
             resStatus = bundleStructure.setResponse(resourceUrlData, responseData);
             
             for (let i = 0; i < responseData.entry.length; i++) {
-                let practitioner = new Practitioner({}, responseData.entry[i].resource, req.token);
-                practitioner.getFHIRToTransformedResult();
+                let practitioner = getTransformedResult(Practitioner, responseData.entry[i].resource);
                 resourceResult.push(practitioner.getPersonResource())                
             }
         }

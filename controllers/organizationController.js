@@ -2,7 +2,7 @@ let Organization = require("../class/Organization");
 let Location = require("../class/location");
 let config = require("../config/nodeConfig");
 const bundleStructure = require("../services/bundleOperation");
-const { fetchResource } = require("../services/helperFunctions");
+const { fetchResource, getTransformedResult } = require("../services/helperFunctions");
 
 
 
@@ -26,14 +26,10 @@ let getOrganizationData = async function (req, res) {
             resStatus = bundleStructure.setResponse(resourceUrlData, responseData);
             
             let orgList = responseData.entry.filter(e => e.resource.resourceType == "Organization").map(e => e.resource);
-            for (let orgData of orgList) { 
-                let locationResource = responseData.entry.filter(e => e.resource.resourceType == "Location" && e.resource.managingOrganization.reference == "Organization/" + orgData.id).map(e => e.resource)[0];
-                let organization = new Organization({}, orgData );
-                organization.getFHIRToTransformedResult();
-                let organizationData = organization.getOrgResource();
-                let location = new Location({}, locationResource);
-                location.getFhirToJson();
-                let locationData = location.getLocationResource();
+            for (const orgResource of orgList) { 
+                let locationResource = responseData.entry.filter(e => e.resource.resourceType == "Location" && e.resource.managingOrganization.reference == "Organization/" + orgResource.id).map(e => e.resource)[0];
+                const organizationData = getTransformedResult(Organization, orgResource);
+                const locationData = getTransformedResult(Location, locationResource);
                 organizationData.position = locationData.position;
                 console.info(organizationData);
                 resourceResult.push(organizationData)

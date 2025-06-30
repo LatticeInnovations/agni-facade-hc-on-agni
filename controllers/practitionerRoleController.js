@@ -1,7 +1,7 @@
 let Practitioner = require("../class/practitioner");
 let PractitionerRole = require("../class/practitionerRole");
 let Organization = require("../class/Organization");
-const { fetchResource } = require("../services/helperFunctions");
+const { fetchResource, getTransformedResult } = require("../services/helperFunctions");
 
 
 
@@ -23,18 +23,12 @@ let getPractitionerRoleData = async function (req, res) {
         else { 
             const FHIRData =  responseData.entry;      
             let practitioner = FHIRData.find(e => e.resource.resourceType == "Practitioner");
-            let practitionerData = new Practitioner({}, practitioner.resource);
-            practitionerData.getFHIRToTransformedResult();
-            practitionerData = practitionerData.getPersonResource();
+            let practitionerData = getTransformedResult(Practitioner, practitioner.resource);
             let roleArray = FHIRData.filter(e => e.resource.resourceType == "PractitionerRole");
             for (let i = 0; i < roleArray.length; i++) {                        
-                let roleData = new PractitionerRole({}, roleArray[i].resource);
-                roleData.getFhirToJson();
-                let roleObj = roleData.getRoleJson();
+                const roleObj =getTransformedResult(PractitionerRole, roleArray[i].resource);
                 let orgResource = FHIRData.find(e => e.resource.resourceType == "Organization" && e.fullUrl.includes(roleArray[i].resource.organization.reference));
-                let orgData = new Organization({},orgResource.resource);
-                orgData.getFHIRToTransformedResult();
-                orgData = orgData.getOrgResource();
+                const orgData = getTransformedResult(Organization, orgResource.resource);
                 roleObj.orgId = orgData.orgId;
                 roleObj.orgName = orgData.orgName,
                 roleObj.orgType = orgData.orgType;
