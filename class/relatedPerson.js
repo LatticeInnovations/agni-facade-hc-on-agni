@@ -40,7 +40,7 @@ class RelatedPerson {
         }
     }
 
-    setPatchData() {
+    patchRelationship() {
         this.fhirResource.push({ "op": this.relationObject.operation, "path": "/relationship/0/coding/0/code", value: this.relationObject.value});
     }
 

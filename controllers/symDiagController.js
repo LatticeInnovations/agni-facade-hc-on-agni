@@ -131,23 +131,23 @@ const saveSymptomDiagnosisData = async function (req, res) {
         let resourceResult = [];
         const appointmentIds = req.body.map(e=> e.appointmentId).join(",");
         // fetch main encounter using appointment id
-            const getMainEncounters = await fetchResource("Encounter", { "appointment": appointmentIds, _count: 5000 , "_include": "Encounter:appointment" });
-            if(getMainEncounters.entry.length == 0) {
+            const getMainEncounters = await fetchResource("Encounter", { "appointment": appointmentIds, _count: 5000 });
+            if(!getMainEncounters.entry) {
                 return []
             }
             const mainEncounters = getMainEncounters.entry.map(e => e.resource)
-            
             for(let symDiagData of req.body) {
-                let mainEncounter = mainEncounters.filter(e => e.resourceType == "Encounter" && e.appointment[0]?.reference?.split('/')[1] == symDiagData.appointmentId)
+                let mainEncounter = mainEncounters.filter(e => e.appointment[0]?.reference?.split('/')[1] == symDiagData.appointmentId)
                 console.log("Symptom and Diagnosis POST");
                 mainEncounter = mainEncounter[0]
+                console.log("getMainEncounters: ", mainEncounter)
                 const patientId = mainEncounter.subject.reference.split("/")[1];
                 const subEncounterBundle = await createEncounterBundle(mainEncounter, symDiagData, patientId, req.token)
                 // create symptom Observation  
                 const symptomResult = await createSymptomBundle(patientId, symDiagData, req.token)
                 // create condition resources
                 const diagnosisResult = await createDiagnosisBundle(patientId, symDiagData, req.token);  
-                resourceResult = [subEncounterBundle, ...symptomResult, ...diagnosisResult] 
+                resourceResult.push(subEncounterBundle, ...symptomResult, ...diagnosisResult)
         }
         console.info("=============>", resourceResult, "<=========================");
         let bundleData = await bundleStructure.getBundleJSON({resourceResult})  

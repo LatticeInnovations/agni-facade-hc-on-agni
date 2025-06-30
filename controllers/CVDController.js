@@ -154,7 +154,7 @@ const getCVDObservationList = async (CVDEncounterList, practitionerList, mainEnc
             // Add appointment ID from main encounter
             const primaryEncounter = mainEncounters.find((e) => e.id === observationData.primaryEncounterId);
             observationData.appointmentId = primaryEncounter?.appointment?.[0]?.reference?.split("/")[1] || null;
-
+            observationData.appointmentUuid = primaryEncounter?.identifier?.[0].value
             // Remove unnecessary fields
             delete observationData.primaryEncounterId;
             delete observationData.practitionerId;
@@ -240,7 +240,7 @@ const patchToBundle = async(type, cvd, observation) => {
             "encounterId": cvd.cvdFhirId,
             "op": cvd.component.operation,
             path: "/component", 
-            value : cvd.component
+            value : observation.component
         }
         console.log("patch val: ", patchVal)
         const patchData = await bundleStructure.setBundlePatch([patchVal], patchUrl);
@@ -264,6 +264,7 @@ const updateCVDData = async (req, res) => {
         await Promise.all(req.body.map(async (cvd) => {
             let observations = await fetchResource(RESOURCE_TYPES.OBSERVATION, { "encounter": cvd.cvdFhirId, "code:text": cvd.key })
             let observation = getPatchComponent(cvd.key, cvd.component, observations.entry[0].resource);
+            console.log("check patch data: ", observation.component)
             console.log("check observation here: ", observation)
             const patchData = await patchToBundle(cvd.key, cvd, observation);
             console.log("check observation patchData: ", patchData)
@@ -293,7 +294,7 @@ const updateCVDData = async (req, res) => {
       const resourceData = {resourceResult: resourceResult, errData: []}
       let bundleData = await bundleStructure.getBundleJSON(resourceData)  
       console.info(bundleData)
-      res.status(201).json({ status: 1, message: "CVD data saved.", data: bundleData.bundle })
+    //   res.status(201).json({ status: 1, message: "CVD data saved.", data: bundleData.bundle })
       let response = await axios.post(config.baseUrl, bundleData.bundle); 
       console.log("get bundle json response: ", response.status)  
       if (response.status == 200 || response.status == 201) {
@@ -305,7 +306,7 @@ const updateCVDData = async (req, res) => {
           return handleError(res, response)
       }
     }  catch(error) {
-        console.error("updateCVDData Error: ", error)
+        console.error("updateCVDData Error: ", error.data)
         return handleError(res, error)
     }
 }

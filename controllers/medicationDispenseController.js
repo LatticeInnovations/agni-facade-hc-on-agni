@@ -10,7 +10,7 @@ const resType = "MedicationDispense";
 
 const createdDispenseResources = async (req, existingMainEncountersList, token) => {
     try {
-        let bundleResources = []
+        let bundleResources = [...existingMainEncountersList]
         await Promise.all(req.body.map(async (reqData) => {
             reqData.practitionerId = req.decoded.userId;
             let statusData = dispenseStatus.find( (e) => e.statusId == reqData.status);
@@ -26,7 +26,7 @@ const createdDispenseResources = async (req, existingMainEncountersList, token) 
               // console.info("check req data ==============> ", reqData)
               const newRecord = await dispenseService.addNewRecord(resType, reqData, token)
               console.log("new record: ", newRecord)
-              bundleResources = [...existingMainEncountersList]
+              bundleResources = [...bundleResources]
               bundleResources.push(...newRecord);
             }
             else {

@@ -92,6 +92,7 @@ class BaseDocumentReference {
       this.documentObj.documentFhirId = this.fhirResource.id;
       this.documentObj.documentUuid = this.fhirResource?.identifier?.[0]?.value;
       this.documentObj.note = this.fhirResource?.description || "";
+      this.documentObj.filename = this.fhirResource?.content?.[0]?.attachment?.title || null
       return this.documentObj;
     }
   }

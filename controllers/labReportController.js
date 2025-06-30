@@ -238,8 +238,9 @@ const deleteLabReport = async (req, res) => {
 const fetchDocumentData = (documents) => {
     let result = [];
     for(let document of documents){
-        console.info(document.resource)
+        console.info("document.resource", document.resource, document.resource.content)
         let documentData = getTransformedResult(DocumentReference, document.resource);
+        console.log("documentData: ", documentData)
         result.push(documentData)
     }
     return result;

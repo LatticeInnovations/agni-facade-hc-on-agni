@@ -27,6 +27,7 @@ const createEncounterBundle = async (patPres, apptData, token) => {
     patPres.display = "Prescription management";
     patPres.appointmentEncounterId = apptData.id;
     patPres.practitionerId = token.userId;
+    patPres.orgId = token.orgId;
     const encounterData = buildFHIRResource(Encounter, patPres);
     return await bundleStructure.setBundlePost(
         encounterData,
@@ -56,13 +57,11 @@ const createMedicationRequestBundle = async (prescription, patPres, encounterDat
     ];
 
     const medReqData = buildFHIRResource(MedicationRequest, prescription);
-    medReqData.resourceType = RESOURCE_TYPES.MEDICATION_REQUEST;
-    medReqData.id = prescription.medReqUuid;
 
     return await bundleStructure.setBundlePost(
         medReqData,
         prescription.identifier,
-        medReqData.id,
+        prescription.medReqUuid,
         HTTP_METHODS.POST,
         BUNDLE_TYPES.IDENTIFIER
     );
@@ -86,7 +85,7 @@ let savePrescriptionData = async function (req, res) {
                     });
                     const apptData = appointmentEncounter.entry[0].resource;
                     // Create encounter bundle
-                    const encounterBundle = await createEncounterBundle(patPres, apptData);
+                    const encounterBundle = await createEncounterBundle(patPres, apptData, req.decoded);
                     const medList = patPres.prescription;
                     const encounterData = buildFHIRResource(Encounter, patPres);
 
@@ -98,17 +97,19 @@ let savePrescriptionData = async function (req, res) {
                     );
                     return [encounterBundle, ...medReqResources];
                 } catch (error) {
-                    console.warn(`Error processing prescription: ${patPres.prescriptionId}`, error.message);
+                    console.warn(`Error processing prescription: ${patPres.prescriptionId}`, error);
                     return []; // Return empty array for skipped prescriptions
                 }
             })
         );
 
         // Flatten the resource results
+        console.log(resourceResult)
         const flattenedResourceResult = resourceResult.flat();
 
-        // Create bundle and send request
+        // Create bundle and send request   
         const bundleData = await bundleStructure.getBundleJSON({ resourceResult: flattenedResourceResult });
+        // return res.status(201).json({ status: 1, message: "Practitioner data saved.", data: bundleData.bundle });
         const response = await axios.post(config.baseUrl, bundleData.bundle);
         console.info("get bundle json response: ", response.status);
 

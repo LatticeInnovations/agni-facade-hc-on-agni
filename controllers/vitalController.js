@@ -157,7 +157,7 @@ const getVitalObservationList = async (vitalEncounterList, practitionerList, mai
             // Add appointment ID from main encounter
             const primaryEncounter = mainEncounters.find((e) => e.id === observationData.primaryEncounterId);
             observationData.appointmentId = primaryEncounter?.appointment?.[0]?.reference?.split("/")[1] || null;
-            observationData.appointmentUuid = primaryEncounter?.identifier?.[0].value
+            observationData.appointmentUuid = primaryEncounter?.identifier?.[0].value;
             // Remove unnecessary fields
             delete observationData.primaryEncounterId;
             delete observationData.practitionerId;

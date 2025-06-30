@@ -68,7 +68,7 @@ const setRelatedPersonSaveResponse  = (reqBundleData, responseBundleData, type) 
     console.info("responseData: ", responseData)
     filteredData = responseData.filter(e => e.resource && (e.resource.resourceType == "RelatedPerson"|| (type == "patch" && e.resource.resourceType == "Binary")))
     console.info("responseData: ", responseData,  "------------", "filteredData: ", filteredData)
-    response = responseService.setDefaultResponse("RelatedPerson", "post", filteredData);
+    response = responseService.setDefaultResponse("RelatedPerson", type, filteredData);
     return response;
 }
 
@@ -281,8 +281,8 @@ let replaceRelation = async function (patientId, replaceList) {
             // person data for patching further of the relative
             let patchPatienttoRelativeURL = `RelatedPerson?patient=Patient/${relation.value.relativeId}&_has:Person:link:patient=${patientId}`;
             let relationPatient = new RelatedPerson({ operation: "replace", value: relation.value.patientIs }, []);
-            let relation1Patch = relationPatient.patchRelationship();
-            let patchPatientRelation = await bundleStructure.setBundlePatch(relation1Patch, patchPatienttoRelativeURL);
+            relationPatient.patchRelationship();
+            let patchPatientRelation = await bundleStructure.setBundlePatch(relationPatient.getFHIRResource(), patchPatienttoRelativeURL);
             relationBundle.push(patchPatientRelation);
         }
         return relationBundle;
