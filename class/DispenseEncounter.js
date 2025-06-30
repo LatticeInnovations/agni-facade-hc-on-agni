@@ -5,10 +5,10 @@ class DispenseEncounter {
   dispenseObj;
   fhirResource;
   isMain;
-  constructor(dispense_obj, fhir_resource, isMain) {
+  constructor(dispense_obj, fhir_resource) {
     this.dispenseObj = dispense_obj;
     this.fhirResource = fhir_resource;
-    this.isMain = Boolean(isMain);
+    this.isMain = this.dispenseObj?.isMain || fhir_resource.isMain;
     this.fhirResource.resourceType = "Encounter"
     console.info("check the received resource: ",dispense_obj, this.isMain, this.dispenseObj)
   }

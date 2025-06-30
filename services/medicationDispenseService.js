@@ -5,132 +5,156 @@ const Medication = require("../class/medication");
 const MedicationRequest = require("../class/MedicationRequest");
 const { v4: uuidv4 } = require("uuid");
 let config = require("../config/nodeConfig");
-const bundleStructure = require("./bundleOperation")
+const bundleStructure = require("./bundleOperation");
+const { buildFHIRResource, getTransformedResult, fetchResource } = require("./helperFunctions");
+
+const processSubEncounters = (medDispResources, mainEncounters) => {
+  const subEncounters = medDispResources
+      .filter((res) => res.resource.resourceType === "Encounter")
+      .map((e) => e.resource);
+
+  return subEncounters.map((element) => {
+      if (mainEncounters.length > 0) {
+          const primaryEncounter = mainEncounters.find(
+              (e) => e.id === element.partOf.reference.split("/")[1]
+          );
+          element.appointmentId = primaryEncounter?.mappedAppointmentEncounter?.appointment?.[0]?.reference?.split("/")[1] || null;
+      } else {
+          element.appointmentId = null;
+      }
+      return element;
+  });
+};
  
+
+const mapMedicationDispenseResources = (medDispResources, enc, medReqData, medicationData) => {
+  const medDispenseRes = medDispResources
+      .filter(
+          (md) =>
+              md.resource.resourceType === "MedicationDispense" &&
+              md.resource.context.reference.split("/")[1] === enc.id
+      )
+      .map((e) => e.resource);
+
+  return medDispenseRes.map((medDisp) => {
+      const medReqIndex = medDisp.authorizingPrescription
+          ? medReqData.findIndex(
+                (e) => e.medReqFhirId === medDisp.authorizingPrescription[0].reference.split("/")[1]
+            )
+          : -1;
+
+      const medIndex = medicationData.findIndex(
+          (e) => e.medFhirId === medDisp.medicationReference.reference.split("/")[1]
+      );
+
+      medDisp.prescriptionData = medReqIndex !== -1 ? medReqData[medReqIndex] : {};
+      medDisp.dispensedMedication = medIndex !== -1 ? medicationData[medIndex] : {};
+
+      return medDisp;
+  });
+};
+
   // Fetch medicine dispense list with their sub encounters combined
-  const fetchMedDispenseList = async function(medDispResources, mainEncounters, token) {
+  const fetchMedDispenseList = async function (medDispResources, mainEncounters, token) {
     try {
+        // Fetch medication request and medication data
+        const { medReqData, medicationData } = await getMedicationRequestAndMedication(medDispResources, token);
+
+        // Process sub-encounters
+        const subEncounters = processSubEncounters(medDispResources, mainEncounters);
+
+        // Map sub-encounters to their respective MedicationDispense resources
+        const medDispenseWithEncounter = subEncounters.map((enc) => {
+            const medDispenseRes = mapMedicationDispenseResources(medDispResources, enc, medReqData, medicationData);
+            return { subEncounter: enc, medDispenseRes };
+        });
+
+        return medDispenseWithEncounter;
+    } catch (error) {
+        console.error(error);
+        const err = { statusCode: 404, code: "ERR", message: "Data not found" };
+        return Promise.reject(err);
+    }
+};
   
-      let {medReqData, medicationData} = await getMedicationRequestAndMedication(medDispResources, token)
-      //  filter sub encounter resource from fetched resources
-      let subEncounters = medDispResources.filter(
-        (res) => res.resource.resourceType == "Encounter"
-      ).map(e => e.resource);
-      subEncounters = subEncounters.map(element => {      
-        if(mainEncounters.length > 0) {
-          let primaryEncounter = mainEncounters.filter(e => e.id == element.partOf.reference.split("/")[1])
-          element.appointmentId = primaryEncounter[0].mappedAppointmentEncounter.appointment[0].reference.split("/")[1]
-          
-        }
-        else {
-          element.appointmentId = null
-        }
-        return element
-        
+const fetchExistingMainEncounters = async (prescriptionIds, token) => {
+  const mainEncounterQuery = {
+      "part-of": prescriptionIds.join(","),
+      type: "pharmacy-service",
+      _count: 1000,
+  };
+
+  const existingMainEncounters = await fetchResource("Encounter", mainEncounterQuery,
+    token);
+  if (existingMainEncounters.total > 0) {
+      return await Promise.all(
+          existingMainEncounters.entry.map(async (encounter) => {
+              return await bundleStructure.setBundlePost(  encounter.resource, encounter.resource.identifier, encounter.resource.id, "PUT", "identifier");
+          })
+      );
+  }
+  return [];
+};
+ 
+
+const getMissingPrescriptionIds = (existingMainEncountersList, prescriptionIds) => {
+  const existingMainPrescriptionIds = new Set(
+      existingMainEncountersList.map((e) => e.resource.partOf.reference.split("/")[1])
+  );
+  return prescriptionIds.filter((item) => !existingMainPrescriptionIds.has(item));
+};
+
+const createNewMainEncounters = async (reqInput, missingPrescriptionIds) => {
+  if (!missingPrescriptionIds || missingPrescriptionIds.length === 0) {
+      return [];
+  }
+
+  return await Promise.all(
+      missingPrescriptionIds.map(async (inputId) => {
+          const input = reqInput.find((e) => e.prescriptionFhirId === inputId);
+          if (!input) {
+              return null;
+          }
+
+          input.mainEncounterUuid = uuidv4();
+          const mainEncounterResource = await getEncounterResource(input, {}, true);
+
+          return await bundleStructure.setBundlePost(mainEncounterResource,  mainEncounterResource.identifier, input.mainEncounterUuid, "POST", "identifier");
       })
-      //  map sub encounter resources to their respective MedicationDispense resources
-      const medDispenseWithEncounter = subEncounters.map((enc) => {
-      let medDispenseRes = medDispResources.filter((md) => md.resource.resourceType == "MedicationDispense" && md.resource.context.reference.split("/")[1] == enc.id)
-      .map((e) => {return e.resource});
-      // map medicine and medicationRequest data with medicationDispense data
-      medDispenseRes = medDispenseRes.map(medDisp => {
-        let medReqIndex = -1 
-        //  check if it's not OTC then it have medicationRequest reference
-        if(medDisp.authorizingPrescription)
-          medReqIndex = medReqData.findIndex(e => e.medReqFhirId == medDisp.authorizingPrescription[0].reference.split("/")[1])
-        const medIndex = medicationData.findIndex(e => e.medFhirId == medDisp.medicationReference.reference.split("/")[1])
-        if(medReqIndex != -1) {
-          medDisp.prescriptionData = medReqData[medReqIndex]
-        }
-        else {
-          medDisp.prescriptionData = {}
-        }
-        if(medIndex != -1) {
-          medDisp.dispensedMedication = medicationData[medIndex]
-        }
-        return medDisp
-      });
-        return {
-          subEncounter: enc, medDispenseRes: medDispenseRes
-        };
-      });    
-      return medDispenseWithEncounter;
-    } catch (e) {
-      console.error(e);
-      const err = { statusCode: 404, code: "ERR", message: "Data not found" };
-      return Promise.reject(err);
-    }
-  
-  }
-  
+  ).then((results) => results.filter((encounter) => encounter !== null)); // Filter out null values
+};
 
 
-const getMainEncountersForPrescription = async function(reqInput, token, prescriptionIds) {
-    try {
-      let existingMainEncountersList = []
-      // console.info("prescriptionIds: ", prescriptionIds)
-      if(prescriptionIds.length > 0) {
-            // search existing main encounters
-      const mainEncounterQuery = {
-          "part-of": prescriptionIds.join(","),
-          type: "pharmacy-service",
-          _count: 1000,
-        };
-        const existingMainEncounters = await bundleStructure.searchData(
-          config.baseUrl + "Encounter",
-          mainEncounterQuery, token
-        );
-        // console.info("main encounters list: ", existingMainEncounters.data)
-        
-        if(existingMainEncounters.data.total > 0) {
-          existingMainEncountersList = await Promise.all(existingMainEncounters?.data?.entry?.map(
-            async (encounter) => {
-              const mainEncounterResInBundle = await bundleStructure.setBundlePost(encounter.resource, encounter.resource.identifier, encounter.resource.id, "PUT", "identifier");  
-              return mainEncounterResInBundle  
-            }
-          )) || [];
-        }
+const getMainEncountersForPrescription = async function (reqInput, token, prescriptionIds) {
+  try {
+      if (!prescriptionIds || prescriptionIds.length === 0) {
+          return [];
       }
-  
-  
-      if (existingMainEncountersList.length < prescriptionIds.length) {
-        // Find the prescription Ids of main encounter that do not exist already
-        const existingMainPrescriptionIds = new Set(
-          existingMainEncountersList.map((e) => e.resource.partOf.reference.split("/")[1])
-        );
-        // console.info("existingMainPrescriptionIds: ", existingMainPrescriptionIds, "prescriptionIds: ", prescriptionIds)
-        // filter non existing main encounters
-        const leftMainEncounters = prescriptionIds.filter(
-          (item) => !existingMainPrescriptionIds.has(item)
-        );
-        // console.info("check nonexisting", leftMainEncounters)
-        // Create new main encounters concurrently using Promise.all
-        let newEncounters = await Promise.all(
-          leftMainEncounters.map(async (inputId) => {
-              let input = reqInput.filter(e=> e.prescriptionFhirId == inputId)[0]
-              input.mainEncounterUuid = uuidv4()
-            const mainEncounterResource =  await getEncounterResource(input, {}, true);
-            const mainEncounterResInBundle = await bundleStructure.setBundlePost(mainEncounterResource, mainEncounterResource.identifier, input.mainEncounterUuid, "POST", "identifier");  
-            return mainEncounterResInBundle;
-          }));
-        // console.info("Check new Encounters: ", newEncounters)
-        existingMainEncountersList.push(...newEncounters);
-      }
-      
-  
-  
-      return existingMainEncountersList;
-    } catch (e) {
-      return Promise.reject(e);
-    }
+
+      // Fetch existing main encounters
+      const existingMainEncountersList = await fetchExistingMainEncounters(prescriptionIds, token);
+
+      // Identify prescription IDs for missing main encounters
+      const missingPrescriptionIds = getMissingPrescriptionIds(existingMainEncountersList, prescriptionIds);
+
+      // Create new main encounters for missing prescription IDs
+      const newEncounters = await createNewMainEncounters(reqInput, missingPrescriptionIds);
+
+      // Combine existing and new encounters
+      return [...existingMainEncountersList, ...newEncounters];
+  } catch (error) {
+      console.error("Error in getMainEncountersForPrescription:", error);
+      return Promise.reject(error);
   }
+};
   
   const mapEncounterAndMedDispense= async function(mainEncounters, medDispenseWithEncounter) {
     try {
       const medicationDispenseResult = await Promise.all(
         mainEncounters.map(async (mainEnc) => {
           // get main encounter object
-          const mainEncounterObj = new DispenseEncounter({}, mainEnc, true).getFhirToJson();
+          mainEnc.isMain = true;
+          const mainEncounterObj = getTransformedResult(DispenseEncounter, mainEnc);
           // get sub encounter
           let subEncounterWithMedDispenseObj = await Promise.all(
             medDispenseWithEncounter
@@ -157,11 +181,12 @@ const getMainEncountersForPrescription = async function(reqInput, token, prescri
   
   const fetchSubEncounterWithMedDispenseUserOutput = async function(element) {
     try {
-      const subEncounterObj = new DispenseEncounter({}, element.subEncounter, false).getFhirToJson();
+      element.subEncounter.isMain = false;
+      const subEncounterObj = getTransformedResult(DispenseEncounter, element.subEncounter);
       subEncounterObj.appointmentId = element.subEncounter.appointmentId
       // get dispense list included with medicationRequest data and medication data as well for a sub encounter
       const medDispenseObjects = element.medDispenseRes.map((medDispense) =>
-  {         let medDispenseData = new MedicationDispense({}, medDispense).getFhirToJson()
+  {         let medDispenseData = getTransformedResult(MedicationDispense, medDispense);
             medDispenseData.prescriptionData = medDispense.prescriptionData;
             medDispenseData.dispensedMedication = medDispense.dispensedMedication
         return medDispenseData}
@@ -176,6 +201,7 @@ const getMainEncountersForPrescription = async function(reqInput, token, prescri
 
   const getMedicationRequestAndMedication = async function(medDispResources, token) {
     try {
+      console.log("medDispResources: ", medDispResources)
       // Get medication Request ids and medicationIds to further fetch the data from medication details
       let {medReqIds, medicationIds} = medDispResources.reduce((acc, element) => {
         if(element.resource.authorizingPrescription){
@@ -193,9 +219,7 @@ const getMainEncountersForPrescription = async function(reqInput, token, prescri
       if(medReqIds.size > 0) {
         const medRequestResources = await bundleStructure.searchData(config.baseUrl + "MedicationRequest", {_id: Array.from(medReqIds).join(","), _count: 200}, token)
           medReqData = medRequestResources.data.entry.map(medReq => {
-            let medReqData = new MedicationRequest({}, medReq.resource);
-            medReqData.getFhirToJson();
-            let medData = medReqData.getMedReqResource();
+            const medData = getTransformedResult(MedicationRequest, medReq.resource);
             medData.qtyPrescribed = medData.qtyPerDose * medData.frequency * medData.duration;
             medicationIds.add(medReq.resource.medicationReference.reference.split("/")[1])
             return medData
@@ -204,10 +228,8 @@ const getMainEncountersForPrescription = async function(reqInput, token, prescri
   
       let medicationResources = await bundleStructure.searchData(config.baseUrl + "Medication", {_id: Array.from(medicationIds).join(","), _count: 200}, token)
       let medicationData = medicationResources.data.entry.map(element => {
-        let medication = new Medication({}, element.resource);
-        medication.getFHIRToTransformedResult();
-        const medData = medication.getMedicationResource()
-        return  medData
+        const medication = getTransformedResult(Medication, element.resource);
+        return  medication
       });
   
       medReqData = medReqData.map(reqData => {
@@ -282,8 +304,7 @@ const getMainEncountersForPrescription = async function(reqInput, token, prescri
           let medicationDispenseResources = []
           for ( let dispenseData of combinedMedReqResource) {
             // console.log("DISPENSE DATA *******************************:", dispenseData)
-              const medDispenseClass = new MedicationDispense(dispenseData, {})
-              let medDisResource = medDispenseClass.getJSONtoFhir()
+              const medDisResource = buildFHIRResource(MedicationDispense, dispenseData);
               const dispenseResourceBundle = await bundleStructure.setBundlePost(medDisResource, medDisResource.identifier, medDisResource.identifier[0].value, "POST", "identifier");    
               medicationDispenseResources.push(dispenseResourceBundle)
           }
@@ -343,10 +364,9 @@ const getMainEncountersForPrescription = async function(reqInput, token, prescri
   const getEncounterResource = async function (reqInput, FHIRData, isMain) {
     try {
       //  Create main encounter resource to combine it to prescription
-      let encounterResource = null;
-      const dispenseEncounter = new DispenseEncounter(reqInput, FHIRData, isMain);
-      encounterResource = dispenseEncounter.getUserInputToFhir();
-      return encounterResource;
+      reqInput.isMain = isMain;
+      const dispenseEncounter = buildFHIRResource(DispenseEncounter, reqInput);
+      return dispenseEncounter;
     } catch (e) {
       return Promise.reject(e);
     }
