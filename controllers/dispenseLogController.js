@@ -19,7 +19,7 @@ let getDispenseLog = async function (req, res) {
         let responseData = await fetchResource("Encounter", queryParams);
         let resStatus = 1;
         const token = req.token.encodedToken;
-        console.info("FHIRData: ", responseData.data.entry)
+        console.info("FHIRData: ", responseData.entry)
         if( !responseData.entry || responseData.total == 0) {
                 return res.status(200).json({ status: resStatus, message: "Data fetched", total: 0, data: []  })
         }

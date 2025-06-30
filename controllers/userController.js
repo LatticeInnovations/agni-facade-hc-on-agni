@@ -81,10 +81,10 @@ function getPractitioner(responseData) {
 function getPractitionerRole(responseData) {
     try {
         let role = [];
-        let roleArray = responseData.data.entry.filter(e => e.resource.resourceType == "PractitionerRole");
+        let roleArray = responseData.entry.filter(e => e.resource.resourceType == "PractitionerRole");
         for (let i = 0; i < roleArray.length; i++) {                        
                 let roleObj = getTransformedResult(PractitionerRole, roleArray[i].resource)
-                let orgResource = responseData.data.entry.find(e => e.resource.resourceType == "Organization" && e.fullUrl.includes(roleArray[i].resource.organization.reference));
+                let orgResource = responseData.entry.find(e => e.resource.resourceType == "Organization" && e.fullUrl.includes(roleArray[i].resource.organization.reference));
                 let orgData = getTransformedResult(Organization, orgResource.resource)
                 roleObj.orgId = orgData.orgId;
                 roleObj.orgName = orgData.orgName,
