@@ -16,7 +16,7 @@ const createEncounterResource = async (labReport, encounterUuid, req) => {
     let encounter = buildFHIRResource(Encounter, { 
         id: encounterUuid,
         uuid: encounterUuid,
-        encounterId: encounterData.entry[0].resource.id,
+        appointmentEncounterId: encounterData.entry[0].resource.id,
         patientId: labReport.patientId,
         userId: req.decoded.userId,
         generatedOn: labReport.createdOn,
@@ -77,8 +77,7 @@ let saveLabReport = async function (req, res) {
             report = await bundleStructure.setBundlePost(report, null, labReport.diagnosticUuid, "POST", "identifier");
             resourceResult.push(report);
         }
-        let bundleData = await bundleStructure.getBundleJSON({resourceResult}) 
-        // return res.status(200).json({data: bundleData.bundle}) 
+        let bundleData = await bundleStructure.getBundleJSON({resourceResult}) ;
         let response = await axios.post(config.baseUrl, bundleData.bundle); 
         console.info("get bundle json response: ", response.status)  
         if (response.status == 200 || response.status == 201) {

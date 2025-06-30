@@ -13,11 +13,11 @@ const { fetchResource, buildFHIRResource, handleError, getTransformedResult } = 
 
 const createEncounterResource = async (medicalRecord, encounterUuid, req) => {
     let encounterData = await fetchResource("Encounter", { "appointment": medicalRecord.appointmentId, _count: 5000 , "_include": "Encounter:appointment" });   
-
+    
     let encounter = buildFHIRResource(Encounter, { 
         id: encounterUuid,
         uuid: encounterUuid,
-        encounterId: encounterData.entry[0].resource.id,
+        appointmentEncounterId: encounterData.entry[0].resource.id,
         patientId: medicalRecord.patientId,
         userId: req.decoded.userId,
         generatedOn: medicalRecord.createdOn,
@@ -34,6 +34,7 @@ const createEncounterResource = async (medicalRecord, encounterUuid, req) => {
                     ]
         }
     ];
+    console.log("encounterData: ", encounter, encounterData.entry[0].resource.id)
     let encounterBundle = await bundleStructure.setBundlePost(encounter, encounter.identifier, encounterUuid, "POST", "identifier");
     return encounterBundle;
 }
@@ -80,12 +81,12 @@ let saveMedicalRecord = async function (req, res) {
             report = await bundleStructure.setBundlePost(report, null, medicalRecord.medicalReportUuid, "POST", "identifier");
             resourceResult.push(report);
         }
-        let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
+        let bundleData = await bundleStructure.getBundleJSON({resourceResult});
+        // return  res.status(201).json({ status: 1, message: "Medical record data saved.", data: bundleData.bundle }) 
         let response = await axios.post(config.baseUrl, bundleData.bundle); 
         console.info("get bundle json response: ", response.status)  
         if (response.status == 200 || response.status == 201) {
-            let responseData = setMedicalRecordResponse(bundleData.bundle.entry, response.data.entry, "post");        
-
+            let responseData = setMedicalRecordResponse(bundleData.bundle.entry, response.data.entry, "post"); 
             res.status(201).json({ status: 1, message: "Medical record data saved.", data: responseData })
         }
         else {

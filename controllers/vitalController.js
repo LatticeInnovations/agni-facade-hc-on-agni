@@ -73,10 +73,7 @@ let setVitalData = async function (req, res) {
         await Promise.all(req.body.map(async (vital) => {
             const resourceResult = [];
             // Fetch encounter data
-            const encounterData = await fetchResource("Encounter", {
-                appointment: vital.appointmentId,
-                _count: 5000,
-                _include: "Encounter:appointment"
+            const encounterData = await fetchResource("Encounter", {  appointment: vital.appointmentId, _count: 5000, _include: "Encounter:appointment"
             });
 
             // Create encounter bundle
@@ -92,7 +89,6 @@ let setVitalData = async function (req, res) {
 
             // Filter out null values (skipped vital types)
             resourceResult.push(...observationBundles.filter((bundle) => bundle !== null));
-
             allResourceResults.push(...resourceResult);
 
         }))
@@ -161,7 +157,7 @@ const getVitalObservationList = async (vitalEncounterList, practitionerList, mai
             // Add appointment ID from main encounter
             const primaryEncounter = mainEncounters.find((e) => e.id === observationData.primaryEncounterId);
             observationData.appointmentId = primaryEncounter?.appointment?.[0]?.reference?.split("/")[1] || null;
-
+            observationData.appointmentUuid = primaryEncounter?.identifier?.[0].value
             // Remove unnecessary fields
             delete observationData.primaryEncounterId;
             delete observationData.practitionerId;
@@ -205,15 +201,11 @@ const getVitalData = async function(req, res) {
             const practitionerList = practitionerData.entry;
 
             // Extract vital encounters and main encounters
-            const vitalEncounterList = responseData.entry
-            .filter((e) => e.resource.type?.[0]?.coding?.[0]?.code === VITAL_ENCOUNTER_CODE)
+            const vitalEncounterList = responseData.entry .filter((e) => e.resource.type?.[0]?.coding?.[0]?.code === VITAL_ENCOUNTER_CODE)
             .map((e) => e.resource);
 
             const vitalEncounterIds = vitalEncounterList.map((e) => e.id).join(",");
-            const mainEncounterIds = vitalEncounterList
-            .map((e) => e.partOf?.reference?.split("/")[1])
-            .filter(Boolean)
-            .join(",");
+            const mainEncounterIds = vitalEncounterList.map((e) => e.partOf?.reference?.split("/")[1]).filter(Boolean).join(",");
 
             const [mainEncounterList, allObservations] = await Promise.all([
                 fetchResource(RESOURCE_TYPES.ENCOUNTER, { _id: mainEncounterIds, _count: 10000 }),
@@ -227,12 +219,8 @@ const getVitalData = async function(req, res) {
             const resourceResult = await getVitalObservationList(vitalEncounterList, practitionerList, mainEncounters, observations);
             
             const resStatus = bundleStructure.setResponse(resourceUrlData, responseData);
-        res.status(200).json({
-            status: resStatus,
-            message: "Data fetched",
-            total: resourceResult.length,
-            data: resourceResult
-        });
+            return res.status(200).json({ status: resStatus, message: "Data fetched", total: resourceResult.length, data: resourceResult
+            });
     } 
     catch(error) {
         console.error("getVitalData Error: ", error)
