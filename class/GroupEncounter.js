@@ -83,8 +83,13 @@ getEncounterTime() {
   }
 
   getPractitionerReference() {
+    console.log("this?.fhirResource?.participant: ", this?.fhirResource?.participant)
     this.groupEncounterObj.practitionerId = this?.fhirResource?.participant?.[0]?.individual?.reference?.split('/')[1] || null;
   }
+
+  setOrganizationReference(){
+    this.fhirResource.serviceProvider.reference = "Organization/" + this.groupEncounterObj.orgId;
+}
 
   setPractitionerReference() {
     console.log("encounter check", this.groupEncounterObj)
@@ -107,6 +112,7 @@ getEncounterTime() {
     this.setPartOf();
     this.setType()
     this.setEncounterTime();
+    this.setOrganizationReference();
     this.setPractitionerReference();
   }
 
@@ -127,15 +133,19 @@ getEncounterTime() {
     return this.groupEncounterObj;
   }
 
-  
-
   setBasicStructure() {
     this.fhirResource.identifier = [];
     this.fhirResource.subject = {};
+    this.fhirResource.serviceProvider = {}
     // this.fhirResource.note = [];
     // this.fhirResource.extension = []
   }
 
+
+  deleteEncounter(){
+    this.fhirResource.status = "entered-in-error";
+    return this.fhirResource;
+}
  
 }
 

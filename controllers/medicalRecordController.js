@@ -130,6 +130,7 @@ let getMedicalRecord = async function (req, res) {
                 resourceResult.push(reportData);
             }
         }
+        resStatus = bundleStructure.setResponse({ link: config.baseUrl + "Encounter", reqQuery: queryParams, allowNesting: 1, specialOffset: 1 }, resourceResult);   
         res.status(200).json({ status: resStatus, message: "Data fetched.", total: resourceResult.length,"offset": +queryParams?._offset, data: resourceResult  })
     }
     catch(e) {

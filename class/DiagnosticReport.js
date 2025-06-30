@@ -63,6 +63,13 @@ class DiagnosticReport {
         this.setIdentifier();
     }
 
+    getFHIRToUserData() {
+        this.reportObj.labReport = {};
+        this.reportObj.DiagnosticReport = [];
+        this.getResourceDetails();
+        return this.reportObj.labReport;
+    }
+
     getSimplifiedOutput() {
         return this.reportObj.labReport;
     }
