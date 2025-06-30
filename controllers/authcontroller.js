@@ -10,6 +10,7 @@ let { validationResult } = require('express-validator');
 let bundleOp = require("../services/bundleOperation");
 const crypto = require('crypto');
 let { client } = require('../services/redisConnect');
+const { fetchResource } = require("../services/helperFunctions");
  
 // login by using email or mobile number to send OTP
 let login = async function (req, res) {
@@ -189,23 +190,22 @@ async function getUserDetail(req, contact) {
     try {
         let queryParam ={"_total": "accurate", "_revinclude": "PractitionerRole:practitioner", "active" : true};
         queryParam[contact] = contact == "email" ? req.body.userContact.toLowerCase() : req.body.userContact;
-        let existingPractioner = await bundleOp.searchData(config.baseUrl + "Practitioner", queryParam);
-        console.info("existing Practitioner", existingPractioner.data);
-        if (existingPractioner.data.total == 0 || !existingPractioner?.data?.entry) {
+        let existingPractitioner = await fetchResource("Practitioner", queryParam);
+        if (existingPractitioner.total == 0 || !existingPractitioner?.entry) {
             return null;
         }
         else {
-            let user_id = existingPractioner.data.entry[0].resource.id;
-            let user_name = existingPractioner.data.entry[0].resource.name[0].given.join(' ');
-            // user_name += " " + existingPractioner?.data?.entry?.[0]?.resource?.name?.[0]?.family || '';
-            let email = existingPractioner.data.entry[0].resource.telecom.filter(e => e.system == "email");
-            let phone = existingPractioner.data.entry[0].resource.telecom.filter(e => e.system == "phone");
-            let orgId = existingPractioner.data.entry[1].resource.organization.reference.split('/')[1];
+            let user_id = existingPractitioner.entry[0].resource.id;
+            let user_name = existingPractitioner.entry[0].resource.name[0].given.join(' ');
+            // user_name += " " + existingPractitioner?.data?.entry?.[0]?.resource?.name?.[0]?.family || '';
+            let email = existingPractitioner.entry[0].resource.telecom.filter(e => e.system == "email");
+            let phone = existingPractitioner.entry[0].resource.telecom.filter(e => e.system == "phone");
+            let orgId = existingPractitioner.entry[1].resource.organization.reference.split('/')[1];
             let userDetail = {}; userDetail.dataValues = {
                 "user_name": user_name,
                 "user_email" : email[0].value,
                 "mobile_number" : phone[0].value,
-                "is_active":  existingPractioner.data.entry[0].resource.active,
+                "is_active":  existingPractitioner.entry[0].resource.active,
                 "user_id": user_id,
                 "org_id": orgId
             }

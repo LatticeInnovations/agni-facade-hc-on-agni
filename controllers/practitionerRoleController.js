@@ -1,8 +1,7 @@
 let Practitioner = require("../class/practitioner");
 let PractitionerRole = require("../class/practitionerRole");
 let Organization = require("../class/Organization");
-let config = require("../config/nodeConfig");
-const bundleStructure = require("../services/bundleOperation")
+const { fetchResource } = require("../services/helperFunctions");
 
 
 
@@ -10,20 +9,19 @@ const bundleStructure = require("../services/bundleOperation")
 let getPractitionerRoleData = async function (req, res) {
     try {
         let role = [];
-        const link = config.baseUrl + "PractitionerRole"
-        let queryParams = {
+        const queryParams = {
             "practitioner" : req.query.practitionerId,
             "_include": "*",
             "_total": "accurate"
         }
         let resourceResult = [];
-        let responseData = await bundleStructure.searchData(link, queryParams);
+        let responseData = await fetchResource("PractitionerRole", queryParams);
         let resStatus = 1;
-        if( !responseData.data.entry || responseData.data.total == 0) {
+        if( !responseData.entry || responseData.total == 0) {
                 return res.status(200).json({ status: resStatus, message: "Data fetched", total: 0, data: []  })
         }
         else { 
-            const FHIRData =  responseData.data.entry;      
+            const FHIRData =  responseData.entry;      
             let practitioner = FHIRData.find(e => e.resource.resourceType == "Practitioner");
             let practitionerData = new Practitioner({}, practitioner.resource);
             practitionerData.getFHIRToTransformedResult();

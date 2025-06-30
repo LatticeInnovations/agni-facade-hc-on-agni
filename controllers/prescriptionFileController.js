@@ -159,12 +159,12 @@ const fetchDocumentReferences = async (medReqList) => {
     const documents = medReqList[0]?.supportingInformation || [];
     const documentIds = documents.map((document) => document.reference.split("/")[1]);
 
-    const documentRefsResponse = await bundleStructure.searchData(config.baseUrl + "DocumentReference", {
+    const documentRefsResponse = await fetchResource("DocumentReference", {
         "_id": documentIds.join(","),
         "_count": 5000
     });
 
-    return documentRefsResponse?.data?.entry?.map((e) => e.resource) || [];
+    return documentRefsResponse?.entry?.map((e) => e.resource) || [];
 };
 
 /**

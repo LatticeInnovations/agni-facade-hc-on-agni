@@ -127,11 +127,10 @@ let getMedicationDispense = async function (req, res) {
         const prescriptionEncounterIds = mainEncounters.map(e => e.partOf.reference.split("/")[1]);
         //  get prescription's encounter ids with which the dispense in linked
         //  get appointment encounter ids
-        let appointmentEncounter = await bundleStructure.searchData( config.baseUrl + "Encounter",
-              { _id: prescriptionEncounterIds.join(","), _include: "Encounter:part-of",  _count: 2000}, token
-        );
-        const prescriptionEncounters = appointmentEncounter.data.entry.filter(e => e.resource.type).map(enc => enc.resource)
-        appointmentEncounter = appointmentEncounter.data.entry.filter(e => !e.resource.type).map(enc => enc.resource)
+        let appointmentEncounter = await fetchResource("Encounter", { _id: prescriptionEncounterIds.join(","), _include: "Encounter:part-of",  _count: 2000}, token)
+
+        const prescriptionEncounters = appointmentEncounter.entry.filter(e => e.resource.type).map(enc => enc.resource)
+        appointmentEncounter = appointmentEncounter.entry.filter(e => !e.resource.type).map(enc => enc.resource)
         // console.info("appointmentEncounter:", appointmentEncounter)
         // console.info("prescriptionEncounters:", prescriptionEncounters)
         mainEncounters = mainEncounters = await mapMainEncountersToSubEncounter(mainEncounters, prescriptionEncounters, appointmentEncounter);

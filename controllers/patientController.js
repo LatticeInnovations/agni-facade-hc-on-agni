@@ -203,11 +203,9 @@ const patchPatientData = async function(req, res) {
 
 const immunizationPatch = async function (inputData) {
     let resourceResult = [];
-    let immunizationRecommendationData = await bundleStructure.searchData(
-        config.baseUrl + "ImmunizationRecommendation",
-        { patient: inputData.id }
-      );
-      immunizationRecommendationData = immunizationRecommendationData?.data?.entry?.map((e) => e.resource) || [];
+    let immunizationRecommendationData = await fetchResource("ImmunizationRecommendation",
+        { patient: inputData.id })
+      immunizationRecommendationData = immunizationRecommendationData?.entry?.map((e) => e.resource) || [];
       for (let fhirData of immunizationRecommendationData) {
         let patchImmunizationRecommendation = new ImmunizationRecommendation({ birthDate: inputData?.birthDate.value }, fhirData).patchImmunizationRecommendation();
         patchImmunizationRecommendation = await bundleStructure.setBundlePatch( patchImmunizationRecommendation,"ImmunizationRecommendation/" + fhirData.id);

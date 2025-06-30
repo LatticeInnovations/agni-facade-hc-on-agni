@@ -131,11 +131,11 @@ const saveSymptomDiagnosisData = async function (req, res) {
         let resourceResult = [];
         const appointmentIds = req.body.map(e=> e.appointmentId).join(",");
         // fetch main encounter using appointment id
-            const getMainEncounters = await bundleStructure.searchData(config.baseUrl + "Encounter", { "appointment": appointmentIds, _count: 5000 , "_include": "Encounter:appointment" });
-            if(getMainEncounters.data.entry.length == 0) {
+            const getMainEncounters = await fetchResource("Encounter", { "appointment": appointmentIds, _count: 5000 , "_include": "Encounter:appointment" });
+            if(getMainEncounters.entry.length == 0) {
                 return []
             }
-            const mainEncounters = getMainEncounters.data.entry.map(e => e.resource)
+            const mainEncounters = getMainEncounters.entry.map(e => e.resource)
             
             for(let symDiagData of req.body) {
                 let mainEncounter = mainEncounters.filter(e => e.resourceType == "Encounter" && e.appointment[0]?.reference?.split('/')[1] == symDiagData.appointmentId)

@@ -4,6 +4,7 @@ let config = require("../config/nodeConfig");
 const { v4: uuidv4 } = require('uuid');
 const bundleStructure = require("../services/bundleOperation")
 const responseService = require("../services/responseService");
+const { fetchResource } = require("../services/helperFunctions");
 
 
 //  Save Practitioner data
@@ -23,14 +24,14 @@ let savePractitionerData = async function (req, res) {
 
             if(practitionerData.mobileNumber) {
                 queryParam.phone = practitionerData.mobileNumber;
-                let existingPractitionerMobile = await bundleStructure.searchData(config.baseUrl + "Practitioner", queryParam);
-                if (+existingPractitionerMobile.data.total != 0) {
+                let existingPractitionerMobile = await fetchResource("Practitioner", queryParam);
+                if (+existingPractitionerMobile.total != 0) {
                     return res.status(422).json( { status: 0, message: "Practitioner data already exists."})
                 }
             }
             if(practitionerData.email) {
-                let existingPractitionerEmail = await bundleStructure.searchData(config.baseUrl + "Practitioner", {email: practitionerData.email});
-                if (+existingPractitionerEmail.data.total != 0) {
+                let existingPractitionerEmail = await fetchResource("Practitioner", {email: practitionerData.email});
+                if (+existingPractitionerEmail.total != 0) {
                      return res.status(422).json( { status: 0, message: "Practitioner data already exists."})
                 }
             }
@@ -74,20 +75,20 @@ let getPractitionerData = async function (req, res) {
     try {
         const link = config.baseUrl + "Practitioner"
         let specialOffset = null;
-        let queryParams = req.query
+        const queryParams = req.query
         queryParams._total = "accurate";
         let resourceResult = []
         let resourceUrlData = { link: link, reqQuery: queryParams, allowNesting: 1, specialOffset: specialOffset }
-        let responseData = await bundleStructure.searchData(link, queryParams);
+        let responseData = await fetchResource("Practitioner", queryParams);
         let resStatus = 1;
-        if( !responseData.data.entry || responseData.data.total == 0) {
+        if( !responseData.entry || responseData.total == 0) {
                 return res.status(200).json({ status: resStatus, message: "Data fetched", total: 0, data: []  })
         }
         else {            
             resStatus = bundleStructure.setResponse(resourceUrlData, responseData);
             
-            for (let i = 0; i < responseData.data.entry.length; i++) {
-                let practitioner = new Practitioner({}, responseData.data.entry[i].resource, req.token);
+            for (let i = 0; i < responseData.entry.length; i++) {
+                let practitioner = new Practitioner({}, responseData.entry[i].resource, req.token);
                 practitioner.getFHIRToTransformedResult();
                 resourceResult.push(practitioner.getPersonResource())                
             }
@@ -120,12 +121,11 @@ let patchPractitionerData = async function (req, res) {
         let resourceResult = [];
         for (let inputData of req.body) {
             let practitioner = new Practitioner(inputData, []);
-            let link = config.baseUrl + resType;
-            let resourceSavedData = await bundleStructure.searchData(link, { "_id": inputData.id });
-            if (resourceSavedData.data.total != 1) {
+            let resourceSavedData = await fetchResource("Practitioner", { "_id": inputData.id })
+            if (resourceSavedData.total != 1) {
                return res.status(422).json({ status: 0, code: "ERR", message: "Practitioner Id " + inputData.id + " does not exist."})
             }
-            practitioner.patchUserInputToFHIR(resourceSavedData.data.entry[0].resource);
+            practitioner.patchUserInputToFHIR(resourceSavedData.entry[0].resource);
             let resourceData = [...practitioner.getFHIRResource()];
             const patchUrl = resType + "/" + inputData.id;
             let patchResource = await bundleStructure.setBundlePatch(resourceData, patchUrl);

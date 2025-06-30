@@ -217,8 +217,8 @@ const getMainEncountersForPrescription = async function (reqInput, token, prescr
       // fetch medication request resource with their data.
       let medReqData = []
       if(medReqIds.size > 0) {
-        const medRequestResources = await bundleStructure.searchData(config.baseUrl + "MedicationRequest", {_id: Array.from(medReqIds).join(","), _count: 200}, token)
-          medReqData = medRequestResources.data.entry.map(medReq => {
+        const medRequestResources = await fetchResource("MedicationRequest", {_id: Array.from(medReqIds).join(","), _count: 200}, token)
+          medReqData = medRequestResources.entry.map(medReq => {
             const medData = getTransformedResult(MedicationRequest, medReq.resource);
             medData.qtyPrescribed = medData.qtyPerDose * medData.frequency * medData.duration;
             medicationIds.add(medReq.resource.medicationReference.reference.split("/")[1])
@@ -226,8 +226,8 @@ const getMainEncountersForPrescription = async function (reqInput, token, prescr
         });
       }
   
-      let medicationResources = await bundleStructure.searchData(config.baseUrl + "Medication", {_id: Array.from(medicationIds).join(","), _count: 200}, token)
-      let medicationData = medicationResources.data.entry.map(element => {
+      let medicationResources = await fetchResource("Medication", {_id: Array.from(medicationIds).join(","), _count: 200}, token)
+      let medicationData = medicationResources.entry.map(element => {
         const medication = getTransformedResult(Medication, element.resource);
         return  medication
       });
@@ -323,16 +323,14 @@ const getMainEncountersForPrescription = async function (reqInput, token, prescr
         .map((e) => e.medReqFhirId)
         .join(",");
       //  get medReqFhirId to fetch MedicationRequest data for that prescriptionId
-      let medicationRequestResources = await bundleStructure.searchData(
-        config.baseUrl + "MedicationRequest",{encounter: prescriptionEncounterId,  _id: dispenseListMedReqIds,  _count: 2000}, token
-      );
+      let medicationRequestResources = await fetchResource("MedicationRequest",{encounter: prescriptionEncounterId,  _id: dispenseListMedReqIds,  _count: 2000}, token)
       // create lookup of medicines to be dispensed list
       const medDispenseLookup = new Map(
         medicineDispensedList.map((dispense) => [dispense.medReqFhirId, dispense])
       );
       // console.info("medicationRequestResources: ", medicationRequestResources)
       // combine both using medReqFhirId
-      const combined = medicationRequestResources.data.entry
+      const combined = medicationRequestResources.entry
       .map((obj1) => {
         const medReqFhirId =
           obj1.resource.id;

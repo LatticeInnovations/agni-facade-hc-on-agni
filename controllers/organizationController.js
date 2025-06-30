@@ -1,7 +1,8 @@
 let Organization = require("../class/Organization");
 let Location = require("../class/location");
 let config = require("../config/nodeConfig");
-const bundleStructure = require("../services/bundleOperation")
+const bundleStructure = require("../services/bundleOperation");
+const { fetchResource } = require("../services/helperFunctions");
 
 
 
@@ -10,23 +11,23 @@ let getOrganizationData = async function (req, res) {
     try {
         const link = config.baseUrl + "Organization"
         let specialOffset = null;
-        let queryParams = req.query
+        const queryParams = req.query
         queryParams.type = "prov";
         queryParams["_revinclude"] = "Location:organization:Organization";
         queryParams["_total"] = "accurate";
         let resourceResult = []
         let resourceUrlData = { link: link, reqQuery: queryParams, allowNesting: 1, specialOffset: specialOffset }
-        let responseData = await bundleStructure.searchData(link, queryParams);
+        let responseData = await fetchResource("Organization", queryParams);
         let resStatus = 1;
-        if( !responseData.data.entry || responseData.data.total == 0) {
+        if( !responseData.entry || responseData.total == 0) {
                 return res.status(200).json({ status: resStatus, message: "Data fetched", total: 0, data: []  })
         }
         else {            
             resStatus = bundleStructure.setResponse(resourceUrlData, responseData);
             
-            let orgList = responseData.data.entry.filter(e => e.resource.resourceType == "Organization").map(e => e.resource);
+            let orgList = responseData.entry.filter(e => e.resource.resourceType == "Organization").map(e => e.resource);
             for (let orgData of orgList) { 
-                let locationResource = responseData.data.entry.filter(e => e.resource.resourceType == "Location" && e.resource.managingOrganization.reference == "Organization/" + orgData.id).map(e => e.resource)[0];
+                let locationResource = responseData.entry.filter(e => e.resource.resourceType == "Location" && e.resource.managingOrganization.reference == "Organization/" + orgData.id).map(e => e.resource)[0];
                 let organization = new Organization({}, orgData );
                 organization.getFHIRToTransformedResult();
                 let organizationData = organization.getOrgResource();

@@ -1,6 +1,6 @@
 
 const bundleStructure = require("../services/bundleOperation");
-const {validateRequest, buildAndPost, getTransformedResult, handleError} = require("../services/helperFunctions");
+const {validateRequest, buildAndPost, getTransformedResult, handleError, fetchResource} = require("../services/helperFunctions");
 let PractitionerRole = require("../class/practitionerRole");
 let Organization = require("../class/Organization");
 let Practitioner = require("../class/practitioner");
@@ -25,9 +25,9 @@ let getUserProfile = async function (req, res) {
                 "_include": "*",
                 "_total": "accurate"
         }
-        let responseData = await bundleStructure.searchData(config.baseUrl + resourceType, queryParams);
+        let responseData = await fetchResource(resourceType, queryParams)
         let practitionerData = {};
-        if( !responseData.data.entry || responseData.data.total == 0) {
+        if( !responseData.entry || responseData.total == 0) {
             return res.status(200).json({ status: 1, message: "Profile detail fetched", total: 0, data: responseData})
         }
         else {
@@ -57,7 +57,7 @@ let getUserProfile = async function (req, res) {
 
 function getPractitioner(responseData) {
     try {
-            let practitioner = responseData.data.entry.find(e => e.resource.resourceType == "Practitioner");
+            let practitioner = responseData.entry.find(e => e.resource.resourceType == "Practitioner");
             let practitionerData = getTransformedResult(Practitioner, practitioner)
             let role = getPractitionerRole(responseData)
             const data = {
