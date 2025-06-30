@@ -64,6 +64,7 @@ class DocumentManifest {
     }
 
     getResourceDetails() {
+        console.log("this?.fhirResource?.content: ", this?.fhirResource?.content)
         this.reportObj.labReport.medicalRecordFhirId = this.fhirResource.id;
         this.reportObj.labReport.resourceType = this.fhirResource.resourceType;
         this.reportObj.labReport.documentIds = [];

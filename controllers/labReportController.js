@@ -8,8 +8,6 @@ const bundleStructure = require("../services/bundleOperation")
 const responseService = require("../services/responseService");
 const { v4: uuidv4 } = require('uuid');
 const { fetchResource, buildFHIRResource, handleError, getTransformedResult } = require("../services/helperFunctions");
-const GroupEncounter = require("../class/GroupEncounter");
-
 
 const createEncounterResource = async (labReport, encounterUuid, req) => {
     let encounterData = await fetchResource("Encounter", { "appointment": labReport.appointmentId, _count: 5000 , "_include": "Encounter:appointment" });
@@ -104,8 +102,8 @@ const getDiagnosticReport = async (reportList, reportData) => {
     for(let diagnosticReport of reportList){
         let diagReport = getTransformedResult(DiagnosticReport, diagnosticReport);
         if(diagReport.documentIds.length > 0){
-            let documentReferenceResponse = await bundleStructure.searchData(config.baseUrl + "DocumentReference", { "_id": diagReport.documentIds.join(','), _count: 5000 });
-            let documentReferenceData = documentReferenceResponse.data.entry;
+            let documentReferenceResponse = await fetchResource("DocumentReference", { "_id": diagReport.documentIds.join(','), _count: 5000 })
+            const documentReferenceData = documentReferenceResponse.entry;
             diagReport.documents = fetchDocumentData(documentReferenceData);
             delete diagReport.documentIds;
             reportData.diagnosticReport.push(diagReport);
