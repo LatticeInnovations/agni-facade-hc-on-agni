@@ -10,52 +10,8 @@ const { v4: uuidv4 } = require('uuid');
 const { fetchResource, buildFHIRResource, handleError, getTransformedResult } = require("../services/helperFunctions");
 const { medicalReportArraySchema } = require("../utils/Validator/medicalReportValidator");
 const {validateRequest} = require("../utils/validateRequest");
+const {deleteEncounter, createDocumentFiles, createEncounterResource, getDocumentReport} = require("../services/commonFunctions")
 
-
-const createEncounterResource = async (medicalRecord, encounterUuid, req) => {
-    let encounterData = await fetchResource("Encounter", { "appointment": medicalRecord.appointmentId, _count: 5000 , "_include": "Encounter:appointment" });   
-    
-    let encounter = buildFHIRResource(Encounter, { 
-        id: encounterUuid,
-        uuid: encounterUuid,
-        appointmentEncounterId: encounterData.entry[0].resource.id,
-        patientId: medicalRecord.patientId,
-        userId: req.decoded.userId,
-        generatedOn: medicalRecord.createdOn,
-        orgId: req.decoded.orgId
-    });
-    encounter.type = [
-        {
-            "coding": [
-                        {
-                            "system": "https://your-custom-coding-system",
-                            "code": "medical-report-encounter",
-                            "display": "medical Report encounter"
-                        }
-                    ]
-        }
-    ];
-    console.log("encounterData: ", encounter, encounterData.entry[0].resource.id)
-    let encounterBundle = await bundleStructure.setBundlePost(encounter, encounter.identifier, encounterUuid, "POST", "identifier");
-    return encounterBundle;
-}
-
-
-const createMedicalReportFiles = async (labReport) => {
-    const documents = [];
-    const result = [];
-    for(let file of labReport.files) {
-        let document = buildFHIRResource(DocumentReference, {
-            uuid: file.medicalDocumentUuid,
-            filename: file.filename, 
-            note: file.note
-        });
-        documents.push(document);
-        document = await bundleStructure.setBundlePost(document, document.identifier, document.id, "POST", "identifier");
-        result.push(document);
-    }
-    return {documents, result}
-}
 
 //  Save prescription File data
 let saveMedicalRecord = async function (req, res) {
@@ -65,11 +21,11 @@ let saveMedicalRecord = async function (req, res) {
         let resourceResult = [];
         for(let medicalRecord of req.body){ 
             const encounterUuid = uuidv4();
-            const encounterBundle = await createEncounterResource(medicalRecord, encounterUuid, req)
+            const encounterBundle = await createEncounterResource(Encounter, medicalRecord, {code: "medical-report-encounter", display:  "medical Report encounter"}, encounterUuid, req)
             resourceResult.push(encounterBundle);
             //  create labReport
             medicalRecord.encounterId = encounterUuid
-            const {documents, result} = await createMedicalReportFiles(medicalRecord)
+            const {documents, result} = await createDocumentFiles(DocumentReference, medicalRecord, "medicalDocumentUuid");
             medicalRecord.documents = documents;
             resourceResult = [...resourceResult, ...result];
             medicalRecord.practitionerId = req.decoded.userId;
@@ -97,26 +53,7 @@ let saveMedicalRecord = async function (req, res) {
 
 }
 
-const getDocumentManifest = async (reportList, reportData) => {
-    reportData.medicalRecord = []
-    for(let medicalRecord of reportList){
-        let docManifest = getTransformedResult(DocumentManifest, medicalRecord);
-        if(docManifest.documentIds.length > 0){
-            let documentReferenceResponse = await fetchResource("DocumentReference", { "_id": docManifest.documentIds.join(','), _count: 5000 })
-            const documentReferenceData = documentReferenceResponse.entry;
-            console.log("documentReferenceData: ", documentReferenceData)
-            docManifest.documents = fetchDocumentData(documentReferenceData);
-            delete docManifest.documentIds;
-            reportData.medicalRecord.push(docManifest);
-        }
-        else {
-            delete docManifest.documentIds;
-            docManifest.documents = [];
-            reportData.medicalRecord.push(docManifest);
-        }
-    }
-    return reportData.medicalRecord;
-}
+
 //  Get Practitioner data
 let getMedicalRecord = async function (req, res) {
     try {
@@ -149,8 +86,8 @@ let getMedicalRecord = async function (req, res) {
             delete reportData.prescriptionId;
             let reportList = documentManifestResources.entry.filter(e => e.resource?.related?.[0]?.ref?.reference == "Encounter/"+encounter.id).map(e => e.resource);
 
-            reportData.medicalRecord = await getDocumentManifest(reportList, reportData)            
-            delete reportData.labReport;
+            reportData.medicalRecord = await getDocumentReport(DocumentManifest, DocumentReference, reportList, reportData);           
+            delete reportData.report;
             if(reportData.medicalRecord.length > 0){
                 resourceResult.push(reportData);
             }
@@ -164,16 +101,6 @@ let getMedicalRecord = async function (req, res) {
     }
 }
 
-
-const deleteEncounter = async (encounterData) => {
-    const deleteList = [];
-    for(let enc of encounterData){
-        let encounter = new Encounter({}, enc).deleteEncounter();
-        let encounterDeleteBundle = await bundleStructure.setBundlePut(encounter, encounter.identifier, encounter.id, 'PUT'); 
-        deleteList.push(encounterDeleteBundle);
-    }
-    return deleteList;
-}
 
 const deleteDocumentManifestResources = async (documentManifestData, documentReferenceData) => {
     const deleteDocumentManifest = [];
@@ -202,7 +129,7 @@ const deleteMedicalRecord = async (req, res) => {
         encounterIds = encounterIds.join(',');
         let encounterData = await fetchResource("Encounter", { _id: encounterIds, _count: 5000});
         encounterData = encounterData?.entry?.map((e) => e?.resource) || [];
-        const deleteEncList = await deleteEncounter(encounterData);
+        const deleteEncList = await deleteEncounter(Encounter, encounterData);
         let documentReferenceIds = [];
         documentManifestData.forEach((report) => {
             let documents = report?.content || [];
@@ -236,15 +163,7 @@ const deleteMedicalRecord = async (req, res) => {
 }
 
 
-const fetchDocumentData = (documents) => {
-    let result = [];
-    for(let document of documents){
-        console.info("DocumentReference get data: ", document.resource)
-        let documentData = getTransformedResult(DocumentReference, document.resource);
-        result.push(documentData)
-    }
-    return result;
-}
+
 
 const setMedicalRecordResponse  = (reqBundleData, responseBundleData, type) => {
     let filteredData = [];

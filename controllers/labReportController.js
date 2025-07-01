@@ -10,52 +10,9 @@ const { v4: uuidv4 } = require('uuid');
 const { fetchResource, buildFHIRResource, handleError, getTransformedResult } = require("../services/helperFunctions");
 const { labReportArraySchema } = require("../utils/Validator/labReport");
 const {validateRequest} = require("../utils/validateRequest");
+const {deleteEncounter, createDocumentFiles, createEncounterResource, getDocumentReport} = require("../services/commonFunctions")
 
 
-const createEncounterResource = async (labReport, encounterUuid, req) => {
-    let encounterData = await fetchResource("Encounter", { "appointment": labReport.appointmentId, _count: 5000 , "_include": "Encounter:appointment" });
-    
-
-    let encounter = buildFHIRResource(Encounter, { 
-        id: encounterUuid,
-        uuid: encounterUuid,
-        appointmentEncounterId: encounterData.entry[0].resource.id,
-        patientId: labReport.patientId,
-        userId: req.decoded.userId,
-        generatedOn: labReport.createdOn,
-        orgId: req.decoded.orgId
-    });
-    encounter.type = [
-        {
-            "coding": [
-                        {
-                            "system": "https://your-custom-coding-system",
-                            "code": "lab-report-encounter",
-                            "display": "Lab Report encounter"
-                        }
-                    ]
-        }
-    ];
-    let encounterBundle = await bundleStructure.setBundlePost(encounter, encounter.identifier, encounterUuid, "POST", "identifier");
-    return encounterBundle;
-}
-
-
-const createLabReportFiles = async (labReport) => {
-    const documents = [];
-    const result = [];
-    for(let file of labReport.files) {
-        let document = buildFHIRResource(DocumentReference, {
-            uuid: file.labDocumentUuid,
-            filename: file.filename, 
-            note: file.note
-        });
-        documents.push(document);
-        document = await bundleStructure.setBundlePost(document, document.identifier, document.id, "POST", "identifier");
-        result.push(document);
-    }
-    return {documents, result}
-}
 //  Save prescription File data
 let saveLabReport = async function (req, res) {
     try {
@@ -64,12 +21,12 @@ let saveLabReport = async function (req, res) {
         let resourceResult = [];
         for(let labReport of req.body){ 
             const encounterUuid = uuidv4();
-            const encounterBundle = await createEncounterResource(labReport, encounterUuid, req)
+            const encounterBundle = await createEncounterResource(Encounter, labReport, {code: "lab-report-encounter", display: "Lab Report encounter"}, encounterUuid, req);
             resourceResult.push(encounterBundle);
             //  create labReport
             labReport.encounterId = encounterUuid
 
-            const {documents, result} = await createLabReportFiles(labReport)
+            const {documents, result} = await createDocumentFiles(DocumentReference, labReport, "labDocumentUuid")
             labReport.documents = documents;
             resourceResult = [...resourceResult, ...result];
             let report = buildFHIRResource(DiagnosticReport, labReport); 
@@ -93,26 +50,6 @@ let saveLabReport = async function (req, res) {
         return handleError(res, error);
     }
 
-}
-
-const getDiagnosticReport = async (reportList, reportData) => {
-    reportData.diagnosticReport = []
-    for(let diagnosticReport of reportList){
-        let diagReport = getTransformedResult(DiagnosticReport, diagnosticReport);
-        if(diagReport.documentIds.length > 0){
-            let documentReferenceResponse = await fetchResource("DocumentReference", { "_id": diagReport.documentIds.join(','), _count: 5000 })
-            const documentReferenceData = documentReferenceResponse.entry;
-            diagReport.documents = fetchDocumentData(documentReferenceData);
-            delete diagReport.documentIds;
-            reportData.diagnosticReport.push(diagReport);
-        }
-        else {
-            delete diagReport.documentIds;
-            diagReport.documents = [];
-            reportData.diagnosticReport.push(diagReport);
-        }
-    }
-    return reportData.diagnosticReport;
 }
 
 //  Get Practitioner data
@@ -148,8 +85,9 @@ let getLabReport = async function (req, res) {
         
             let reportList = diagnosticReportResources.entry.filter(e => e.resource.encounter.reference == "Encounter/"+encounter.id).map(e => e.resource);
 
-            reportData.diagnosticReport = await getDiagnosticReport(reportList, reportData)            
-            delete reportData.labReport;
+            reportData.diagnosticReport = await getDocumentReport(DiagnosticReport, DocumentReference, reportList, reportData)
+ 
+            delete reportData.report;
             if(reportData.diagnosticReport.length > 0){
                 resourceResult.push(reportData);
             }
@@ -164,15 +102,6 @@ let getLabReport = async function (req, res) {
     }
 }
 
-const deleteEncounter = async (encounterData) => {
-    const deleteList = [];
-    for(let enc of encounterData){
-        let encounter = new Encounter({}, enc).deleteEncounter();
-        let encounterDeleteBundle = await bundleStructure.setBundlePut(encounter, encounter.identifier, encounter.id, 'PUT'); 
-        deleteList.push(encounterDeleteBundle);
-    }
-    return deleteList;
-}
 
 const deleteDiagnosticReportResources = async (diagReportData, documentReferenceData) => {
     const deleteDiagReportList = [];
@@ -200,7 +129,7 @@ const deleteLabReport = async (req, res) => {
         const encounterIds = diagReportData.map((e) => e.encounter.reference.split('/')[1]).join(",");
         let encounterData = await fetchResource("Encounter", { _id: encounterIds, _count: 5000});
         encounterData = encounterData?.entry?.map((e) => e?.resource) || [];
-        const deleteEncList = await deleteEncounter(encounterData);
+        const deleteEncList = await deleteEncounter(Encounter, encounterData);
         let documentReferenceIds = [];
         diagReportData.forEach((diag) => {
             let documents = diag?.extension || [];
@@ -234,16 +163,6 @@ const deleteLabReport = async (req, res) => {
 }
 
 
-const fetchDocumentData = (documents) => {
-    let result = [];
-    for(let document of documents){
-        console.info("document.resource", document.resource, document.resource.content)
-        let documentData = getTransformedResult(DocumentReference, document.resource);
-        console.log("documentData: ", documentData)
-        result.push(documentData)
-    }
-    return result;
-}
 
 const setLabReportResponse  = (reqBundleData, responseBundleData, type) => {
     let filteredData = [];

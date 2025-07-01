@@ -4,12 +4,12 @@ let config = require("../config/nodeConfig");
 const Observation = require("../class/VitalCVDObservation");
 const Encounter = require("../class/CVDEncounter");
 let bundleFun = require("../services/bundleOperation");
-const { v4: uuidv4 } = require('uuid');
 let axios = require("axios");
-const {buildFHIRResource, fetchResource, handleError, getTransformedResult} = require("../services/helperFunctions");
+const {fetchResource, handleError, getTransformedResult} = require("../services/helperFunctions");
 const {cvdSaveSchema, cvdPatchArraySchema} = require("../utils/Validator/cvdValidator");
 const {validateRequest} = require("../utils/validateRequest")
 const {fhirTextToCVDType} = require("../utils/VitalObservationMap");
+const {createObservationBundle, createEncounterBundle, getPractitionerName, processObservationData} = require("../services/commonFunctions")
 
  const RESOURCE_TYPES = {
     ENCOUNTER: "Encounter",
@@ -18,52 +18,12 @@ const {fhirTextToCVDType} = require("../utils/VitalObservationMap");
 };
 
 const CVD_ENCOUNTER_CODE = "cvd-encounter";
-const HTTP_METHODS = {
-    POST: "POST",
-    GET: "GET"
-}
-
-const BUNDLE_TYPES = {
-    IDENTIFIER: "identifier"
-}
 
 const cvdTypes = ["height", "weight",  "bp", "cholesterol", "bmi", "diabetic", "smoker", "risk"];
 
 
-const createObservationBundle = async(CVD, type) => {
-    try {
-        CVD.module_type = "CVD";
-        const resource = buildFHIRResource(Observation, { ...CVD, optionalParam: type });
-        resource.id = uuidv4();
-        return await bundleStructure.setBundlePost(resource, null, resource.id, HTTP_METHODS.POST, BUNDLE_TYPES.IDENTIFIER);
-    }
-    catch (error) {
-        console.warn(`CVD '${type}' skipped:`, error.message);
-        return null; // Return null for skipped CVD types
-    }
-}
 
-const createEncounterBundle = async(cvd, encounterData, req) => {
-    try {
-        let encounterUuid = cvd.cvdUuid;
-        console.log(cvd)
-        const encounter = buildFHIRResource(Encounter, { 
-                id: encounterUuid,
-                encounterId: encounterData.entry[0].resource.id,
-                patientId: cvd.patientId,
-                cvdUuid: encounterUuid,
-                practitionerId: req.decoded.userId,
-                generatedOn: cvd.createdOn,
-                orgId: req.decoded.orgId
-            });
-        console.log("encounter data: ", encounter)
-    return await bundleStructure.setBundlePost(encounter, null, cvd.cvdUuid, HTTP_METHODS.POST, BUNDLE_TYPES.IDENTIFIER);
-    }
-    catch (error) {
-        console.error(`createEncounterBundle Error:`, error.message);
-        throw error;
-    }
-}
+
 
 const saveCVDData = async (req, res) => {
     try {
@@ -80,7 +40,16 @@ const saveCVDData = async (req, res) => {
                     });
         
                     // Create encounter bundle
-                    const encounterBundle = await createEncounterBundle(cvd, encounterData, req);
+                    let encounterUuid = cvd.cvdUuid;
+                    const encounterBundle = await createEncounterBundle(Encounter, { 
+                        id: encounterUuid,
+                        encounterId: encounterData.entry[0].resource.id,
+                        patientId: cvd.patientId,
+                        cvdUuid: encounterUuid,
+                        practitionerId: req.decoded.userId,
+                        generatedOn: cvd.createdOn,
+                        orgId: req.decoded.orgId
+                    });
                     resourceResult.push(encounterBundle);
                     console.log("encounterBundle: ", encounterBundle)
                     cvd.encounterId = cvd.cvdUuid;
@@ -115,34 +84,9 @@ const saveCVDData = async (req, res) => {
 
 }
 
-/**
- * Fetch practitioner name based on practitioner ID.
- */
-const getPractitionerName = (practitionerId, practitionerData) => {
-    const practitioner = practitionerData.find((e) => e?.resource?.id === practitionerId);
-
-    if (!practitioner) return "";
-
-    const givenName = practitioner?.resource?.name?.[0]?.given?.join(" ") || "";
-    const familyName = practitioner?.resource?.name?.[0]?.family || "";
-    return `${givenName} ${familyName}`.trim();
-};
-
 // Process observation data and merge with encounter data.
 
-const processObservationData = (observationList, observationData) => {
-    return observationList.map((observation) => {
-        try {
-            // Dynamically transform the observation using the helper function
-            observation.module_type = "cvd";
-            const transformedObservation = getTransformedResult(Observation, observation);
-            return { ...observationData, ...transformedObservation };
-        } catch (error) {
-            console.warn(`Error processing observation: ${observation.id}`, error.message);
-            return observationData; // Return original data if transformation fails
-        }
-    }).reduce((mergedData, data) => ({ ...mergedData, ...data }), observationData);
-};
+
 
 
 const getCVDObservationList = async (CVDEncounterList, practitionerList, mainEncounters, observations) => {
@@ -168,7 +112,7 @@ const getCVDObservationList = async (CVDEncounterList, practitionerList, mainEnc
             const observationList = observations.filter(
                 (obs) => obs.encounter.reference === `${RESOURCE_TYPES.ENCOUNTER}/${encounter.id}`
             );
-            observationData = processObservationData(observationList, observationData);
+            observationData = processObservationData(observationList, observationData, "cvd");
 
             return observationData;
         });

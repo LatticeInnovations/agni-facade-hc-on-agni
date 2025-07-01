@@ -1,13 +1,12 @@
 let axios = require("axios");
-const Observation = require("../class/VitalCVDObservation");
 const Encounter = require("../class/VitalEncounter");
 const bundleStructure = require("../services/bundleOperation");
 const responseService = require("../services/responseService");
-const {buildFHIRResource, fetchResource, handleError, getTransformedResult} = require("../services/helperFunctions");
+const {fetchResource, handleError, getTransformedResult} = require("../services/helperFunctions");
 let { vitalSaveSchema } = require("../utils/Validator/vitalValidator");
-const {validateRequest} = require("../utils/validateRequest")
+const {validateRequest} = require("../utils/validateRequest");
+const {createObservationBundle, createEncounterBundle, getPractitionerName, processObservationData} = require("../services/commonFunctions");
 
-const { v4: uuidv4 } = require('uuid');
 let config = require("../config/nodeConfig");
 const resourceType = "Observation";
 
@@ -18,14 +17,7 @@ const RESOURCE_TYPES = {
 };
 
 const VITAL_ENCOUNTER_CODE = "vital-encounter";
-const HTTP_METHODS = {
-    POST: "POST",
-    GET: "GET"
-}
 
-const BUNDLE_TYPES = {
-    IDENTIFIER: "identifier"
-}
 
 // Step 1: vital types list
 const vitalTypes = [
@@ -33,39 +25,6 @@ const vitalTypes = [
     "bloodGlucose", "eyeTest"
   ];
 
-const createObservationBundle = async(vital, type) => {
-    try {
-        vital.module_type = "vital";
-        const resource = buildFHIRResource(Observation, { ...vital, optionalParam: type });
-        resource.id = uuidv4();
-        return await bundleStructure.setBundlePost(resource, null, resource.id, HTTP_METHODS.POST, BUNDLE_TYPES.IDENTIFIER);
-    }
-    catch (error) {
-        console.warn(`Vital '${type}' skipped:`, error.message);
-        return null; // Return null for skipped vital types
-    }
-}
-
-const createEncounterBundle = async(vital, encounterData, req) => {
-    try {
-        // const encounterUuid = uuidv4();
-        console.log(vital)
-        const encounter = buildFHIRResource(Encounter, {
-            id: vital.vitalUuid,
-            encounterId: encounterData.entry[0].resource.id,
-            patientId: vital.patientId,
-            vitalUuid: vital.vitalUuid,
-            practitionerId: req.decoded.userId,
-            generatedOn: vital.createdOn,
-            orgId: req.decoded.orgId
-        });
-    return await bundleStructure.setBundlePost(encounter, null, vital.vitalUuid, HTTP_METHODS.POST, BUNDLE_TYPES.IDENTIFIER);
-    }
-    catch (error) {
-        console.error(`createEncounterBundle Error:`, error.message);
-        throw error;
-    }
-}
 
 let setVitalData = async function (req, res) {
     try {
@@ -79,7 +38,15 @@ let setVitalData = async function (req, res) {
             });
 
             // Create encounter bundle
-            const encounterBundle = await createEncounterBundle(vital, encounterData, req);
+            const encounterBundle = await createEncounterBundle(Encounter, {
+                id: vital.vitalUuid,
+                encounterId: encounterData.entry[0].resource.id,
+                patientId: vital.patientId,
+                vitalUuid: vital.vitalUuid,
+                practitionerId: req.decoded.userId,
+                generatedOn: vital.createdOn,
+                orgId: req.decoded.orgId
+            });
             resourceResult.push(encounterBundle);
             console.log("encounterBundle: ", encounterBundle)
             vital.encounterId = vital.vitalUuid;
@@ -115,35 +82,6 @@ let setVitalData = async function (req, res) {
 
 }
 
-/**
- * Fetch practitioner name based on practitioner ID.
- */
-const getPractitionerName = (practitionerId, practitionerData) => {
-    const practitioner = practitionerData.find((e) => e?.resource?.id === practitionerId);
-
-    if (!practitioner) return "";
-
-    const givenName = practitioner?.resource?.name?.[0]?.given?.join(" ") || "";
-    const familyName = practitioner?.resource?.name?.[0]?.family || "";
-    return `${givenName} ${familyName}`.trim();
-};
-
-// Process observation data and merge with encounter data.
-
-const processObservationData = (observationList, observationData) => {
-    return observationList.map((observation) => {
-        try {
-            // Dynamically transform the observation using the helper function
-            observation.module_type = "vital";
-            const transformedObservation = getTransformedResult(Observation, observation);
-            return { ...observationData, ...transformedObservation };
-        } catch (error) {
-            console.warn(`Error processing observation: ${observation.id}`, error.message);
-            return observationData; // Return original data if transformation fails
-        }
-    }).reduce((mergedData, data) => ({ ...mergedData, ...data }), observationData);
-};
-
 
 const getVitalObservationList = async (vitalEncounterList, practitionerList, mainEncounters, observations) => {
     try {
@@ -168,7 +106,7 @@ const getVitalObservationList = async (vitalEncounterList, practitionerList, mai
             const observationList = observations.filter(
                 (obs) => obs.encounter.reference === `${RESOURCE_TYPES.ENCOUNTER}/${encounter.id}`
             );
-            observationData = processObservationData(observationList, observationData);
+            observationData = processObservationData(observationList, observationData, "vital");
 
             return observationData;
         });

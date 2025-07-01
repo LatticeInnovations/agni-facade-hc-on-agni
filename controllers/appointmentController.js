@@ -114,11 +114,11 @@ const mapAppointments = (FHIRData) => {
     return {apptResult, locationIds, apptIds, slotIds}
 }
 
-const combineAppointmentData = (apptResult, locationOrg, slotAppt, apptEncounter, apptStatus) =>{
+const combineAppointmentData = (apptResult, slotAppt, apptEncounter, apptStatus) =>{
 
     return apptResult.map(obj1 => {
         const obj2 = slotAppt.find(obj2 => obj2.slotId === obj1.slotId) || {slot: null, slotId: null}
-        const obj3 = apptEncounappointmentSaveSchemater.find(obj3 => obj3.appointmentId === obj1.appointmentId) || {};
+        const obj3 = apptEncounter.find(obj3 => obj3.appointmentId === obj1.appointmentId) || {};
         const statusData = apptStatus.find(e => e.fhirStatus === obj1.apptStatus && e.encounter === obj3.encStatus && e.type === obj1.apptType);
 
         obj1.status = statusData?.uiStatus || "Unknown";
@@ -193,7 +193,7 @@ const getAppointment = async function(req, res) {
             const slotAppt = await getSlotObject(slotIds);
             const apptEncounter = await getAppointmentEncounterObject(apptIds)
              //combine appointment with slot and encounter status
-             const resourceResult = combineAppointmentData(apptResult, locationOrg, slotAppt, apptEncounter, apptStatus);
+             const resourceResult = combineAppointmentData(apptResult, slotAppt, apptEncounter, apptStatus);
             const resStatus = bundleStructure.setResponse({ link: config.baseUrl + "Appointment", reqQuery: queryParams }, FHIRData);
             return res.status(200).json({ status: resStatus, message: "Data fetched", total: resourceResult.length, data: resourceResult  })
         }  
