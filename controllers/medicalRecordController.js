@@ -8,7 +8,8 @@ const bundleStructure = require("../services/bundleOperation")
 const responseService = require("../services/responseService");
 const { v4: uuidv4 } = require('uuid');
 const { fetchResource, buildFHIRResource, handleError, getTransformedResult } = require("../services/helperFunctions");
-
+const { medicalReportArraySchema } = require("../utils/Validator/medicalReportValidator");
+const {validateRequest} = require("../utils/validateRequest");
 
 
 const createEncounterResource = async (medicalRecord, encounterUuid, req) => {
@@ -59,12 +60,8 @@ const createMedicalReportFiles = async (labReport) => {
 //  Save prescription File data
 let saveMedicalRecord = async function (req, res) {
     try {
-        // let response = resourceValid(req.params);
-        // if (response.error) {
-        //     console.error(response.error.details)
-        //     let errData = { status: 0, response: { data: response.error.details }, message: "Invalid input" }
-        //     return res.status(422).json(errData);
-        // }
+        const validatedBody = validateRequest(req.body, medicalReportArraySchema, res);
+        if (!validatedBody) return;
         let resourceResult = [];
         for(let medicalRecord of req.body){ 
             const encounterUuid = uuidv4();

@@ -7,8 +7,11 @@ let bundleFun = require("../services/bundleOperation");
 const { v4: uuidv4 } = require('uuid');
 let axios = require("axios");
 const {buildFHIRResource, fetchResource, handleError, getTransformedResult} = require("../services/helperFunctions");
+const {cvdSaveSchema, cvdPatchArraySchema} = require("../utils/Validator/cvdValidator");
+const {validateRequest} = require("../utils/validateRequest")
+const {fhirTextToCVDType} = require("../utils/VitalObservationMap");
 
-const RESOURCE_TYPES = {
+ const RESOURCE_TYPES = {
     ENCOUNTER: "Encounter",
     PRACTITIONER: "Practitioner",
     OBSERVATION: "Observation"
@@ -64,6 +67,8 @@ const createEncounterBundle = async(cvd, encounterData, req) => {
 
 const saveCVDData = async (req, res) => {
     try {
+        const validatedBody = validateRequest(req.body, cvdSaveSchema, res);
+        if (!validatedBody) return;
         const allResourceResults = [];
         await Promise.all(req.body.map(async (cvd) => {
                     const resourceResult = [];
@@ -254,12 +259,8 @@ const patchToBundle = async(type, cvd, observation) => {
 
 const updateCVDData = async (req, res) => {
     try {
-        // let response = resourceValid(req.params);
-        // if (response.error) {
-        //     console.error(response.error.details)
-        //     let errData = { status: 0, response: { data: response.error.details }, message: "Invalid input" }
-        //     return res.status(422).json(errData);
-        // }
+        const validatedBody = validateRequest(req.body, cvdPatchArraySchema, res);
+        if (!validatedBody) return;
         let resourceResult = [];
         await Promise.all(req.body.map(async (cvd) => {
             let observations = await fetchResource(RESOURCE_TYPES.OBSERVATION, { "encounter": cvd.cvdFhirId, "code:text": cvd.key })
@@ -328,7 +329,7 @@ const setCVDResponse  = (reqBundleData, responseBundleData, type) => {
     return response;
 }
 
-const {fhirTextToCVDType} = require("../utils/VitalObservationMap");
+
 
 const getPatchComponent = (key, input, FHIRData) => {
 const vitalType = fhirTextToCVDType[key];

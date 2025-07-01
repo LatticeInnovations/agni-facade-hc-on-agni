@@ -1,12 +1,9 @@
-
-const bundleStructure = require("../services/bundleOperation");
 const {validateRequest, buildAndPost, getTransformedResult, handleError, fetchResource} = require("../services/helperFunctions");
 let PractitionerRole = require("../class/practitionerRole");
 let Organization = require("../class/Organization");
 let Practitioner = require("../class/practitioner");
 let Location = require("../class/location");
 let model = require('../models/index');
-let resourceValid = require("../utils/Validator/validateRsource").validTimestamp;
 const config = require("../config/nodeConfig");
 let jwt = require("jsonwebtoken");
 let secretKey = require('../config/nodeConfig').jwtSecretKey;

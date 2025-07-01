@@ -4,19 +4,17 @@ let axios = require("axios");
 let config = require("../config/nodeConfig");
 const bundleStructure = require("../services/bundleOperation")
 const responseService = require("../services/responseService");
-const {buildFHIRResource, fetchResource, handleError, getTransformedResult, patchFHIRResource} = require("../services/helperFunctions");
+const {buildFHIRResource, fetchResource, handleError} = require("../services/helperFunctions");
+const {relatedPersonSaveSchema, relatedPersonPatchSchema} = require("../utils/Validator/relatedPersonValidator");
+const {validateRequest} = require("../utils/validateRequest");
 
 
 //  Save Practitioner data
 let saveRelatedPersonData = async function (req, res) {
     try {
         let patientArrayById = {};
-        // let response = resourceValid(req.params);
-        // if (response.error) {
-        //     console.error(response.error.details)
-        //     let errData = { status: 0, response: { data: response.error.details }, message: "Invalid input" }
-        //     return res.status(422).json(errData);
-        // }
+        const validatedBody = validateRequest(req.body, relatedPersonSaveSchema, res);
+        if (!validatedBody) return;
         let resourceResult = [];
         for (let inputData of req.body) {
             if (!patientArrayById.hasOwnProperty(inputData.id)) {
@@ -186,12 +184,8 @@ let getRelatedPersonData = async function (req, res) {
 let patchRelatedPersonData = async function (req, res) {
     try {
         let patientArrayById = {};
-        // let response = resourceValid(req.params);
-        // if (response.error) {
-        //     console.error(response.error.details)
-        //     let errData = { status: 0, response: { data: response.error.details }, message: "Invalid input" }
-        //     return res.status(422).json(errData);
-        // }
+        const validatedBody = validateRequest(req.body, relatedPersonPatchSchema, res);
+        if (!validatedBody) return;
         let resourceResult = [];
         let deleteList = [];
         for (let inputData of req.body) {

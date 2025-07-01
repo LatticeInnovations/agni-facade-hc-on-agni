@@ -1,15 +1,11 @@
 const Joi = require("joi");
 
-function validateImmunization(userInput) {
-  let JoiSchema = Joi.array().items(immunizationDataObject).min(1).required()
-  return JoiSchema.validate(userInput);
-}
 
 const fileSchema = Joi.object({
   'filename': Joi.string().min(1).max(40).required()
 })
 
-const immunizationDataObject = Joi.object({
+const immunizationSaveObject = Joi.object({
   immunizationUuid: Joi.string()
     .min(30)
     .max(100)
@@ -25,4 +21,4 @@ const immunizationDataObject = Joi.object({
   immunizationFiles: Joi.array().items(fileSchema).optional()
 });
 
-module.exports = { validateImmunization }
+module.exports = { immunizationSaveObject }

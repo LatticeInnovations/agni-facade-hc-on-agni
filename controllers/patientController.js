@@ -7,14 +7,16 @@ let config = require("../config/nodeConfig");
 const { v4: uuidv4 } = require('uuid');
 const bundleStructure = require("../services/bundleOperation")
 const responseService = require("../services/responseService");
-// let resourceValid = require("../utils/Validator/validateRsource").resourceValidation;
 let ImmunizationRecommendation = require('../class/ImmunizationRecommendation');
 const vaccines = require('../utils/vaccines.json');
-
+let {patientSaveSchema, patientPatchSchema} = require("../utils/Validator/patientValidator");
+const {validateRequest} = require("../utils/validateRequest");
 
 //  save patient data
-let savePatientData = async function (req, res) {
+let savePatientData = async function (req, res) {    
     try {
+        const validatedBody = validateRequest(req.body, patientSaveSchema, res);
+        if (!validatedBody) return;
         let token = req.token;
         req.queueMeta = {
             data: req.data,
@@ -40,14 +42,15 @@ let savePatientData = async function (req, res) {
             }                
             resourceResult.push(patientBundle, personBundle);            
         }
-        let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
+        let bundleData = await bundleStructure.getBundleJSON({resourceResult});
+        // return res.status(201).json({ status: 1, message: "Patient data saved.", data: bundleData.bundle })  
         console.info("main bundle transaction resource: ", bundleData)
         let response = await axios.post(config.baseUrl, bundleData.bundle); 
         console.log("get bundle json response: ", response)  
         if (response.status == 200 || response.status == 201) {
             let resourceResponse = setPatientSaveResponse(bundleData.bundle.entry, response.data.entry, "post");
             let responseData = [...resourceResponse, ...bundleData.errData];
-            res.status(201).json({ status: 1, message: "Patient data saved.", data: responseData })
+            return res.status(201).json({ status: 1, message: "Patient data saved.", data: responseData })
         }
         else {
             return handleError(res, response)
@@ -156,15 +159,11 @@ let getPatientData = async function (req, res) {
 
 const patchPatientData = async function(req, res) {
     try {
-      // let response = resourceValid(req.params);
-      // if (response.error) {
-      //     console.error(response.error.details)
-      //     let errData = { status: 0, response: { data: response.error.details }, message: "Invalid input" }
-      //     return res.status(422).json(errData);
-      // }
-      const resourceType = "Patient";
-      const reqInput = req.body;
-      let resourceResult = [];
+        const validatedBody = validateRequest(req.body, patientPatchSchema, res);
+        if (!validatedBody) return;
+        const resourceType = "Patient";
+        const reqInput = req.body;
+        let resourceResult = [];
       for (let inputData of reqInput) {
         const resourceSavedResult = await fetchResource(resourceType, {_id: inputData.id })
         const resourceSavedData = resourceSavedResult.entry || [];
@@ -182,7 +181,6 @@ const patchPatientData = async function(req, res) {
             resourceResult = resourceResult.concat(immunizationPatchResources)
         }        
       }
-    console.info(resourceResult)
     const bundleData = await bundleStructure.getBundleJSON({resourceResult: resourceResult, errData: []})  
     console.info(bundleData)
     const response = await axios.post(config.baseUrl, bundleData.bundle); 

@@ -3,14 +3,15 @@ let Schedule = require("../class/Schedule");
 const bundleStructure = require("../services/bundleOperation");
 const responseService = require("../services/responseService");
 let config = require("../config/nodeConfig");
-let {validateScheduleArray} = require("../utils/Validator/scheduleAppointment");
+let {scheduleSaveSchema} = require("../utils/Validator/scheduleAppointment");
 const {validateRequest} = require("../utils/validateRequest");
 const {buildFHIRResource, fetchResource, handleError, getTransformedResult} = require("../services/helperFunctions");
 
 let setScheduleData = async function (req, res) {
     try {
+        const validatedBody = validateRequest(req.body, scheduleSaveSchema, res);
+        if (!validatedBody) return;
         let resourceResult = [], errData = [];
-        validateRequest(req, res, validateScheduleArray);
         for (let scheduleData of req.body) {
             let locationResource = await fetchResource("Location", { organization: "Organization/" + scheduleData.orgId, _elements: "id", _total: "accurate" });
             console.log("locationResource: ", locationResource)

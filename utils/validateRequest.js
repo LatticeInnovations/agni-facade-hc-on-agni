@@ -1,18 +1,23 @@
+function validateInput(userInput, dataSchema) {
+  return dataSchema.validate(userInput);
+}
 
-const validateRequest = (req, res, validationFn) => {
-    const result = validationFn(req.body);
 
+const validateRequest = (userInput, dataSchema, res) => {
+    console.log("userInput:", userInput, dataSchema)
+    const result = validateInput(userInput, dataSchema);
     if (result.error) {
         console.error(result.error.details);
-        return res.status(422).json({
+        res.status(422).json({
             code: "ERR",
             statusCode: 422,
             response: { data: result.error.details[0] },
             message: "Invalid input"
         });
+        return null
     }
 
-    return result;
+    return result.value;
 };
 
 // You can add more shared utility functions here as needed

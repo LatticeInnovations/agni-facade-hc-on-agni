@@ -1,9 +1,5 @@
 const Joi = require("joi");
 
-function validateScheduleArray(userInput) {
-  let JoiSchema = Joi.array().items(scheduleValidation).min(1).required()
-  return JoiSchema.validate(userInput);
-}
 
 const scheduleValidation = Joi.object({
     uuid: Joi.string()
@@ -17,13 +13,9 @@ const scheduleValidation = Joi.object({
     orgId: Joi.string().required()
   })
 
-function validateAppointmentArray(userInput) {
-  let JoiSchema = Joi.array().items(appointmentSchema).min(1).required()
-  return JoiSchema.validate(userInput);
-}
+let scheduleSaveSchema = Joi.array().items(scheduleValidation).min(1).required()
 
-
-  let appointmentSchema = Joi.object({
+let appointmentSchema = Joi.object({
     uuid: Joi.string()
       .min(30)
       .max(100)
@@ -41,10 +33,9 @@ function validateAppointmentArray(userInput) {
     generatedOn: Joi.date()
   });
 
-  function validateAppointmentPatch(userInput) {
-    let JoiSchema = Joi.array().items(apptPatchSchema).min(1).required()
-    return JoiSchema.validate(userInput);
-  }
+  const appointmentSaveSchema = Joi.array().items(appointmentSchema).min(1).required()
+
+
 
   let apptPatchSchema = Joi.object({
     "appointmentId": Joi.string().required(),
@@ -68,6 +59,9 @@ function validateAppointmentArray(userInput) {
       "value": Joi.string().required()
     }).when('status.value', { is: "scheduled", then: Joi.required(), otherwise: Joi.optional() })
   });
+  
+  let appointmentPatchSchema = Joi.array().items(apptPatchSchema).min(1).required()
 
 
-module.exports = { validateScheduleArray, validateAppointmentArray, validateAppointmentPatch }
+
+module.exports = { scheduleSaveSchema, appointmentSaveSchema, appointmentPatchSchema }

@@ -7,6 +7,9 @@ let config = require("../config/nodeConfig");
 const bundleStructure = require("../services/bundleOperation")
 const responseService = require("../services/responseService");
 const { buildFHIRResource, handleError, fetchResource, getTransformedResult } = require("../services/helperFunctions");
+const { prescriptionArraySchema } = require("../utils/Validator/prescriptionValidator");
+const {validateRequest} = require("../utils/validateRequest");
+
 
 const HTTP_METHODS = {
     POST: "POST"
@@ -16,10 +19,6 @@ const BUNDLE_TYPES = {
     IDENTIFIER: "identifier"
 };
 
-const RESOURCE_TYPES = {
-    MEDICATION_REQUEST: "MedicationRequest",
-    ENCOUNTER: "Encounter"
-};
 
 const createEncounterBundle = async (patPres, apptData, token) => {
     patPres.uuid = patPres.prescriptionId;
@@ -70,10 +69,8 @@ const createMedicationRequestBundle = async (prescription, patPres, encounterDat
 //  Save prescription data
 let savePrescriptionData = async function (req, res) {
     try {
-        // Validate input
-        // if (!Array.isArray(req.body) || req.body.length === 0) {
-        //     return res.status(400).json({ status: 0, message: "Invalid input data." });
-        // }
+        const validatedBody = validateRequest(req.body, prescriptionArraySchema, res);
+        if (!validatedBody) return;
         const resourceResult = await Promise.all(
             req.body.map(async (patPres) => {
                 try {

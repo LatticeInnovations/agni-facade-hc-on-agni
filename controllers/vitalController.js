@@ -4,7 +4,8 @@ const Encounter = require("../class/VitalEncounter");
 const bundleStructure = require("../services/bundleOperation");
 const responseService = require("../services/responseService");
 const {buildFHIRResource, fetchResource, handleError, getTransformedResult} = require("../services/helperFunctions");
-
+let { vitalSaveSchema } = require("../utils/Validator/vitalValidator");
+const {validateRequest} = require("../utils/validateRequest")
 
 const { v4: uuidv4 } = require('uuid');
 let config = require("../config/nodeConfig");
@@ -68,8 +69,9 @@ const createEncounterBundle = async(vital, encounterData, req) => {
 
 let setVitalData = async function (req, res) {
     try {
+        const validatedBody = validateRequest(req.body, vitalSaveSchema, res);
+        if (!validatedBody) return;
         const allResourceResults = [];
-
         await Promise.all(req.body.map(async (vital) => {
             const resourceResult = [];
             // Fetch encounter data

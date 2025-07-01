@@ -8,6 +8,8 @@ let config = require("../config/nodeConfig");
 const bundleStructure = require("../services/bundleOperation")
 const responseService = require("../services/responseService");
 const { fetchResource, buildFHIRResource, handleError, getTransformedResult } = require("../services/helperFunctions");
+const { prescriptionFileArraySchema } = require("../utils/Validator/prescriptionValidator");
+const {validateRequest} = require("../utils/validateRequest");
 
 const createEncounterResource = async (patPres, token) => {
     try {
@@ -71,11 +73,8 @@ const createDocumentReference = async (patPres) => {
 //  Save prescription File data
 const savePrescriptionFile = async function (req, res) {
     try {
-        // Validate input
-        if (!Array.isArray(req.body) || req.body.length === 0) {
-            return res.status(400).json({ status: 0, message: "Invalid input data." });
-        }
-
+        const validatedBody = validateRequest(req.body, prescriptionFileArraySchema, res);
+        if (!validatedBody) return;
         const resourceResult = await Promise.all(
             req.body.map(async (patPres) => {
                 try {

@@ -10,6 +10,9 @@ let config = require("../config/nodeConfig");
 const diagnosisList = require("../utils/diagnosisList.json").compose.include[0].concept;
 const symptomList = require("../utils/symptomsList.json").compose.include[0].concept;
 const {buildFHIRResource, fetchResource, handleError, getTransformedResult} = require("../services/helperFunctions");
+const { symDiagSaveArraySchema, symDiagPatchArraySchema } = require("../utils/Validator/symDxValidator");
+const {validateRequest} = require("../utils/validateRequest");
+
 
 
 global.diagnosisMap = new Map();
@@ -128,6 +131,8 @@ const createDiagnosisBundle = async (patientId, symDiagData, token) => {
 
 const saveSymptomDiagnosisData = async function (req, res) {
     try {
+        const validatedBody = validateRequest(req.body, symDiagSaveArraySchema, res);
+        if (!validatedBody) return;
         let resourceResult = [];
         const appointmentIds = req.body.map(e=> e.appointmentId).join(",");
         // fetch main encounter using appointment id
@@ -320,12 +325,8 @@ const createPatchArray = async (reqInput, subEncounterResources, allResources, t
 }
 const patchSymptomDiagnosisData = async (req, res) => {
     try {
-        // let response = resourceValid(req.params);
-        // if (response.error) {
-        //     console.error(response.error.details)
-        //     let errData = { status: 0, response: { data: response.error.details }, message: "Invalid input" }
-        //     return res.status(422).json(errData);
-        // }   
+        const validatedBody = validateRequest(req.body, symDiagPatchArraySchema, res);
+        if (!validatedBody) return;  
         console.log("Symptom and Diagnosis Patch");
         const allSymptomEncounterIds = req.body.map(e=> e.symDiagFhirId).join(",");
         console.log("allSymptomEncounterIds: ", allSymptomEncounterIds)

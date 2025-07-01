@@ -1,7 +1,7 @@
 let express = require("express");
 let router = express.Router();
 let authController = require("../../controllers/authcontroller");
-let { check, oneOf, checkIf, body } = require('express-validator');
+let { check, oneOf} = require('express-validator');
 /**
  * @typedef login
  * @property {string} userContact.required User mobile number or email address - eg: tulika@thelattice.in

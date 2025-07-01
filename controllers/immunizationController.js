@@ -6,8 +6,10 @@ let config = require("../config/nodeConfig");
 let Encounter = require("../class/GroupEncounter");
 let Immunization = require("../class/Immunization")
 let DocumentReference = require("../class/BaseDocumentReference");
-const { validateImmunization } = require("../utils/Validator/immunizationValidation");
+const { immunizationSaveObject } = require("../utils/Validator/immunizationValidation");
 const { handleError, buildFHIRResource, fetchResource, getTransformedResult } = require("../services/helperFunctions");
+const {validateRequest} = require("../utils/validateRequest");
+
 
 function createSubEncounter(parameters) {
   try {
@@ -81,11 +83,8 @@ const saveImmunizationData = async function (req, res) {
     try {
         const token = req.decoded.encodedToken;
         const reqInput = req.body;
-        let validationResponse = validateImmunization(reqInput);
-        if (validationResponse.error) {
-            console.error(validationResponse.error.details);
-            return res.status(422).json({ status: 1, data: validationResponse.error.details[0] , message: "Invalid input" })
-        }
+        const validatedBody = validateRequest(reqInput, immunizationSaveObject, res);
+        if (!validatedBody) return;
         const mainEncounters = await getMainEncounter(reqInput, token);
         // Get immunization recommendation resources of the patients
         const immunizationRecommendations = await getImmunizationRecommendation(reqInput, token);

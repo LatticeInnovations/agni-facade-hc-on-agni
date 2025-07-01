@@ -7,10 +7,9 @@ let sendEmail = require("../utils/sendgrid.util").sendEmail
 let jwt = require("jsonwebtoken");
 const config = require("../config/nodeConfig");
 let { validationResult } = require('express-validator');
-let bundleOp = require("../services/bundleOperation");
 const crypto = require('crypto');
 let { client } = require('../services/redisConnect');
-const { fetchResource } = require("../services/helperFunctions");
+const { fetchResource, handleError } = require("../services/helperFunctions");
  
 // login by using email or mobile number to send OTP
 let login = async function (req, res) {
@@ -63,7 +62,7 @@ let login = async function (req, res) {
                 await sendOTP(isEmail, userDetail, otp);
             }
             catch (e) {
-                return res.status(500).json({ status: 0, message: "Unable to process. Please try again." })
+                return handleError(res, null)
             }
         }
 
@@ -71,12 +70,9 @@ let login = async function (req, res) {
         res.status(200).json({ status: 1, "message": "Authorized user" });
     }
     catch (e) {
-        console.error(e);
-        return res.status(500).json({
-            status: 0,
-            message: "Unable to process. Please try again.",
-            error: e
-        })
+        console.error("login Error:" , e);
+        return handleError(res, e)
+ 
     }
 
 }
@@ -337,16 +333,12 @@ const userVerification = async (req, res, next) => {
         res.json({ status: 1, message: `OTP sent to ${req.body.userContact}`});
     }
     catch(e){
-        console.error(e);
-        return res.status(500).json({
-            status: 0,
-            message: "Unable to process. Please try again.",
-            error: e
-        })
+        console.error("userVerification Error:" , e);
+        return handleError(res, e)
     }
 }
 
-const userVerificationVerifyOTP = async (req, res, next) => {
+const userVerificationVerifyOTP = async (req, res) => {
     try{
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
@@ -427,12 +419,8 @@ const userVerificationVerifyOTP = async (req, res, next) => {
         return res.status(200).json({ status: 1, message: "User Verified", data: { token: 'Bearer ' + token } });
     }
     catch(e){
-        console.error(e);
-        return res.status(500).json({
-            status: 0,
-            message: "Unable to process. Please try again.",
-            error: e
-        })
+        console.error("userVerificationVerifyOTP Error:" , e);
+        return handleError(res, e)
     }
 }
 

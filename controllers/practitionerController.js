@@ -5,18 +5,16 @@ const { v4: uuidv4 } = require('uuid');
 const bundleStructure = require("../services/bundleOperation")
 const responseService = require("../services/responseService");
 const { fetchResource, buildFHIRResource, getTransformedResult } = require("../services/helperFunctions");
+const { practitionerSaveArraySchema } = require("../utils/Validator/practitionerValidator");
+const {validateRequest} = require("../utils/validateRequest");
 
 
 //  Save Practitioner data
 let savePractitionerData = async function (req, res) {
     try {
         const resType = "Practitioner"
-        // let response = resourceValid(req.params);
-        // if (response.error) {
-        //     console.error(response.error.details)
-        //     let errData = { status: 0, response: { data: response.error.details }, message: "Invalid input" }
-        //     return res.status(422).json(errData);
-        // }
+        const validatedBody = validateRequest(req.body, practitionerSaveArraySchema, res);
+        if (!validatedBody) return;
         let resourceResult = [];
         for (let practitionerData of req.body) {
             // Check if practitioner    

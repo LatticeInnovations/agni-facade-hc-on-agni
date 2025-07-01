@@ -4,7 +4,6 @@ const DispenseEncounter = require("../class/DispenseEncounter");
 const Medication = require("../class/medication");
 const MedicationRequest = require("../class/MedicationRequest");
 const { v4: uuidv4 } = require("uuid");
-let config = require("../config/nodeConfig");
 const bundleStructure = require("./bundleOperation");
 const { buildFHIRResource, getTransformedResult, fetchResource } = require("./helperFunctions");
 

@@ -7,6 +7,8 @@ const responseService = require("../services/responseService");
 const dispenseService = require("../services/medicationDispenseService");
 const { fetchResource, handleError } = require("../services/helperFunctions");
 const resType = "MedicationDispense";
+const { unifiedDispenseSchema } = require("../utils/Validator/medicationDispenseValidator");
+const {validateRequest} = require("../utils/validateRequest");
 
 const createdDispenseResources = async (req, existingMainEncountersList, token) => {
     try {
@@ -45,12 +47,8 @@ const createdDispenseResources = async (req, existingMainEncountersList, token) 
 //  Save prescription data
 const saveMedicationDispense = async function (req, res) {
     try {
-        // let response = resourceValid(req.params);
-        // if (response.error) {
-        //     console.error(response.error.details)
-        //     let errData = { status: 0, response: { data: response.error.details }, message: "Invalid input" }
-        //     return res.status(422).json(errData);
-        // }
+      const validatedBody = validateRequest(req.body, unifiedDispenseSchema, res);
+      if (!validatedBody) return;
         const token = req.token.encodedToken;
         
         const prescriptionFhirIds = [ ...new Set(req.body.map(e=> e.prescriptionFhirId).filter(value => value !== undefined))];
@@ -69,7 +67,7 @@ const saveMedicationDispense = async function (req, res) {
         if (response.status == 200 || response.status == 201) {
             // let responseData = setMedicationDispenseResponse(req.body, response.data.entry, "post");
             const responseData = setMedicationDispenseResponse("post", response.data.entry, req.body, bundleData.bundle.entry)   
-            res.status(201).json({ status: 1, message: "Practitioner data saved.", data: responseData })
+            res.status(201).json({ status: 1, message: "Medication dispense data saved.", data: responseData })
         }
         else {
              return  handleError(res, response)
