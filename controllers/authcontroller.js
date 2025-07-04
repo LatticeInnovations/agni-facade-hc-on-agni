@@ -187,6 +187,7 @@ async function getUserDetail(req, contact) {
         let queryParam ={"_total": "accurate", "_revinclude": "PractitionerRole:practitioner", "active" : true};
         queryParam[contact] = contact == "email" ? req.body.userContact.toLowerCase() : req.body.userContact;
         let existingPractitioner = await fetchResource("Practitioner", queryParam);
+        console.log("existingPractitioner: ", existingPractitioner)
         if (existingPractitioner.total == 0 || !existingPractitioner?.entry) {
             return null;
         }

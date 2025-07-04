@@ -4,7 +4,6 @@ function validateInput(userInput, dataSchema) {
 
 
 const validateRequest = (userInput, dataSchema, res) => {
-    console.log("userInput:", userInput, dataSchema)
     const result = validateInput(userInput, dataSchema);
     if (result.error) {
         console.error(result.error.details);

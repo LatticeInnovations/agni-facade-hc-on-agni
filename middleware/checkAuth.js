@@ -18,13 +18,14 @@ router.use(function (req, res, next) {
         // verifies secret and checks exp
         jwt.verify(token, secretKey,function (err, decoded) {
             if (err) {
-                    console.error(err, err.name )
+                    console.error("Error:", err, err.name )
                     if(err.name == 'TokenExpiredError')
                         return res.status(401).json({ status: 0, message: 'Session expired.' });
                     else
                         return res.status(401).json({ status: 0, message: 'Unauthorized' });
             } else {
                 // if everything is good, save to request for use in other routes
+                console.log("passed")
                 req.decoded = decoded;
                 req.token = {"userId": decoded.userId, "orgId": decoded.orgId, "type": decoded?.type || null, "userName": decoded.userName, "encodedToken": token || null };
                 next();

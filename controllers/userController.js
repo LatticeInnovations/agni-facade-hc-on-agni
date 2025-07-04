@@ -232,9 +232,9 @@ const createUser = async (req, res) => {
         const validation = validateRequest(req, res);
         if (!validation.isValid) return;
         const { type } = req.token;
-        if(type != "register"){
-            return res.status(401).json({ status: 0, message: "Invalid Token" });
-        }
+        // if(type != "register"){
+        //     return res.status(401).json({ status: 0, message: "Invalid Token" });
+        // }
         
         const { firstName, lastName, mobile, email, clinicName } = req.body;
         const orgObj = { contactNumber: mobile, email: email, orgName: clinicName, orgType: "prov" }

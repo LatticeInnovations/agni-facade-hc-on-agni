@@ -1,5 +1,4 @@
 const { sendToQueue, connectRabbitMQ } = require("../config/rabbitMQ");
-const {getChannel} = require("../config/rabbitMQ")
 const queues = {
     "patients": "AGNI_TO_HEARTCARE_MAIN"
 }
@@ -8,7 +7,9 @@ function queueLoggerMiddleware(req, res, next) {
     const originalJson = res.json;
     console.info("req: ", req.queueMeta, req.body, req.url, req.method)
     console.log("----------------------------------------------------")
-    
+    if (req.headers['x-sync-origin']) {
+        return
+      }
     res.json = async function (body){
         console.log("body: ", body)
         try {
@@ -17,7 +18,7 @@ function queueLoggerMiddleware(req, res, next) {
                 const channel = await connectRabbitMQ();
                 const queueName = queues[req.queueMeta.entity];
                 console.log("channel: ", channel, "queue name: ", queueName)
-                if(!channel || !queueName) {
+                if(!channel || !queueName || queueName != "AGNI_TO_HEARTCARE_MAIN") {
                     console.error("Queue or channel not available. Skipping queue logging.");
                     return originalJson.call(this, body);
                 }

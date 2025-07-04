@@ -1,0 +1,12 @@
+1. Admin-division
+Add or update province /Area council        
+{
+    "level" : "one",
+    "code" : "",
+    "uuid": "",
+    "population" : "",
+    "name": "",
+    "secondaryName" : "",
+    precedingLevelId: 14
+}
+
