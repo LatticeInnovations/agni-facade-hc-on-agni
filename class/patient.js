@@ -83,6 +83,32 @@ class Patient extends Person {
     }
   }
 
+  setDeceased() {
+    
+  }
+
+  getDeceased() {
+    
+  }
+
+  getRelationData(relationCode) {
+    const relationData = this.fhirResource.contact?.find(e => e.relationship[0].coding[0].code === relationCode) || null
+    return relationData
+  }
+  getMothersName() {
+    const relationData = getRelationData("MTH")
+    this.patient_obj.mothersName = relationData?.name || null;
+  }
+
+  getFathersName() {
+    const relationData = getRelationData("FTH")
+    this.patient_obj.fathersName = relationData?.name || null;
+  }
+  getSpouseName() {
+    const relationData = getRelationData("SPS")
+    this.patient_obj.fathersName = relationData?.name || null;  
+  }
+
   setFhirId() {
     if(this.patient_obj?.fhirId) {
       this.fhir_resource.id = this.patient_obj?.fhirId
@@ -105,6 +131,9 @@ class Patient extends Person {
     this.setAddress("temp");
     this.setManagingOrg();
     this.setGeneralPractitioner();
+    this.setMothersName();
+    this.setFathersName();
+    this.setSpouseName();
 }
 
 getFHIRToTransformedResult() {
@@ -121,7 +150,11 @@ getFHIRToTransformedResult() {
   this.getAddress();
   this.getManagingOrg();
   this.getGeneralPractitioner();
+  this.getMothersName();
+  this.getFathersName();
+  this.getSpouseName();
 }
+
 
 setPatchData(fetchedResourceData) {
   this.patchFirstName(fetchedResourceData);
@@ -133,9 +166,8 @@ setPatchData(fetchedResourceData) {
   this.patchBirthDate();
   if(this.personObj.mobileNumber || this.personObj.email)
       this.patchTelecom(fetchedResourceData);
-  if(!fetchedResourceData.address) {
-      this.addAddress();
-  }        
+  if(!fetchedResourceData.address) 
+      this.addAddress() 
   if (this.personObj["permanentAddress"] !== undefined && fetchedResourceData.address)
       this.patchAddress("home", fetchedResourceData);
   if (this.personObj["tempAddress"] !== undefined && fetchedResourceData.address)
@@ -143,6 +175,8 @@ setPatchData(fetchedResourceData) {
 }
 
 }
+
+
 
 
 

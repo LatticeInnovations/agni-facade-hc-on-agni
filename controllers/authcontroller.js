@@ -47,7 +47,7 @@ let login = async function (req, res) {
             loginAttempts = authentication_detail.dataValues.login_attempts;
             OTPGenerateAttempt = authentication_detail.dataValues.otp_generate_attempt + 1;
         }
-
+        console.log("process.env.bypassNumbers: ", process.env.bypassNumbers)
         if (process.env.bypassNumbers.includes(req.body.userContact)) {
             otp = process.env.bypassOTP;
         } else if (process.env.playstoreNumber.includes(req.body.userContact)) {

@@ -29,6 +29,7 @@ let getUserProfile = async function (req, res) {
         }
         else {
             practitionerData = getPractitioner(responseData)
+            console.log(practitionerData)
             practitionerData.userName = practitionerData.firstName + " " + (practitionerData.middleName? practitionerData.middleName + " " : "") + (practitionerData?.lastName || '');
             console.info(practitionerData)
             res.status(200).json({ status: 1, message: "Profile detail fetched", total: 1, data: practitionerData  })
@@ -55,8 +56,10 @@ let getUserProfile = async function (req, res) {
 function getPractitioner(responseData) {
     try {
             let practitioner = responseData.entry.find(e => e.resource.resourceType == "Practitioner");
-            let practitionerData = getTransformedResult(Practitioner, practitioner)
+            let practitionerData = getTransformedResult(Practitioner, practitioner.resource)
+            console.log("practitionerData: ", practitionerData)
             let role = getPractitionerRole(responseData)
+            console.log("role check:", role)
             const data = {
                 "userId": practitionerData.fhirId,
                 "firstName": practitionerData.firstName,
@@ -81,13 +84,17 @@ function getPractitionerRole(responseData) {
         let roleArray = responseData.entry.filter(e => e.resource.resourceType == "PractitionerRole");
         for (let i = 0; i < roleArray.length; i++) {                        
                 let roleObj = getTransformedResult(PractitionerRole, roleArray[i].resource)
+                
                 let orgResource = responseData.entry.find(e => e.resource.resourceType == "Organization" && e.fullUrl.includes(roleArray[i].resource.organization.reference));
                 let orgData = getTransformedResult(Organization, orgResource.resource)
+                console.log("orgData: ", orgData)
                 roleObj.orgId = orgData.orgId;
                 roleObj.orgName = orgData.orgName,
                 roleObj.orgType = orgData.orgType;
+                console.log("roleObj: ", roleObj)
                 role.push(roleObj);
             }
+            return role;
     }
     catch(e) {
         console.error("addPractitionerRole error: ", e)
