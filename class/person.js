@@ -20,7 +20,9 @@ class Person {
         this.fhirResource.address = [];
         this.fhirResource.managingOrganization = {};
         this.fhirResource.generalPractitioner = [];
+        this.fhirResource.contact = [];
     }
+
 
     setIdAsIdentifier() {
         if (this.personObj.id) {
@@ -189,7 +191,16 @@ class Person {
 
     patchActive() {
         if (!checkEmptyData(this.personObj.active))
-            this.fhirResource.push({ "op": this.personObj.active.operation, "path": "/active", "value": this.personObj.active.value })
+            this.fhirResource.push({ "op": this.personObj.active.operation, "path": "/active", "value": this.personObj.active.value },
+                {"op": "add", path: "/extension", value: [
+                    {
+                        "url": "http://example.org/fhir/StructureDefinition/patient-deletion-reason",
+                        "valueCodeableConcept": {
+                            "text": this.personObj.active.deletedReason
+                        }
+                        
+                    }
+                ]})
     }
 
     getActive() {
