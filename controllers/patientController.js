@@ -155,8 +155,8 @@ let getPatientData = async function (req, res) {
         let resourceResult = []
         const responseResult = await fetchResource("Patient", queryParams);
         const responseData = responseResult.entry || []
-        console.log("==================>", responseResult)
-        if( !responseData) {
+        console.log("==================>", responseData)
+        if(!responseData.length) {
             return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })
         }
         else {            
