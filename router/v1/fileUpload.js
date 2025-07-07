@@ -5,7 +5,7 @@ const { uploadFiles, downloadFile, getAllFiles, downloadMultipleFiles } = requir
 const auth = require("../../middleware/checkAuth");
 const uploadMiddleware = require('../../middleware/uploadMiddleware');
 
-router.post('/file', uploadMiddleware, uploadFiles);
+router.post('/files', uploadMiddleware, uploadFiles);
 
 router.get('/file', [query('name').notEmpty() ], downloadFile);
 
