@@ -96,16 +96,16 @@ class Patient extends Person {
     return relationData
   }
   getMothersName() {
-    const relationData = getRelationData("MTH")
+    const relationData = this.getRelationData("MTH")
     this.patient_obj.mothersName = relationData?.name || null;
   }
 
   getFathersName() {
-    const relationData = getRelationData("FTH")
+    const relationData = this.getRelationData("FTH")
     this.patient_obj.fathersName = relationData?.name || null;
   }
   getSpouseName() {
-    const relationData = getRelationData("SPS")
+    const relationData = this.getRelationData("SPS")
     this.patient_obj.fathersName = relationData?.name || null;  
   }
 
