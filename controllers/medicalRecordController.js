@@ -59,7 +59,7 @@ let getMedicalRecord = async function (req, res) {
     try {
         const queryParams = {
             type :  "medical-report-encounter",
-            // "service-provider" :  req.decoded.orgId,
+            "service-provider" :  req.decoded.orgId,
             "_count": req.query.count,
             "_offset": req.query.offset
         }
