@@ -76,6 +76,7 @@ let getLevelData = async function (req, res) {
         const queryParams = req.query;
         let resStatus = 1;
         queryParams._total = "accurate"
+        queryParams._count=2000
         let resourceResult = []
         const responseResult = await fetchResource("Location", queryParams);
         const responseData = responseResult.entry || []

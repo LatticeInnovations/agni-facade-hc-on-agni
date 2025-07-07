@@ -118,12 +118,12 @@ class Person {
                 },
                 system: element.identifierType,
                 value: element.identifierNumber,
-                use: element?.code || null
+                use: element?.use || null
 
             }
         }
         else {
-            jsonObj = { value: element.identifierNumber, system: element.identifierType }
+            jsonObj = { value: element.identifierNumber, system: element.identifierType ,  use: element?.use || null}
         }
         return jsonObj;
     }
@@ -162,7 +162,8 @@ class Person {
                 this.personObj.identifier.push({
                     identifierType: element.system,
                     identifierNumber: element.value,
-                    code: element.type ? element.type.coding[0].code : null
+                    code: element.type ? element.type.coding[0].code : null,
+                    use: element?.use || null
                 })
                 this.personObj.id = element.type && element.type.coding[0].code == "MR" ? element.value : this.personObj.id;
             });

@@ -11,7 +11,9 @@ const patientSchema = Joi.object({
   identifier: Joi.array().items(
     Joi.object({
       identifierType: Joi.string().uri().required(),
-      identifierNumber: Joi.string().required()
+      identifierNumber: Joi.string().required(),
+      code: Joi.string().allow(null).optional(),
+      use: Joi.string().allow(null).optional()
     })
   ).optional(),
 
@@ -21,7 +23,7 @@ const patientSchema = Joi.object({
 
   permanentAddress: Joi.object({
     addressLine1: Joi.string().optional(),
-    addressLine2: Joi.string().optional(),
+    addressLine2: Joi.string().allow(null).optional(),
     district: Joi.string().optional(),
     city: Joi.string().required(),
     state: Joi.string().required(),
