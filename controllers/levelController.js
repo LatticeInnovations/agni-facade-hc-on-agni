@@ -5,7 +5,7 @@ let axios = require("axios");
 let config = require("../config/nodeConfig");
 const bundleStructure = require("../services/bundleOperation")
 const responseService = require("../services/responseService");
-let {levelSaveSchema, levelPatchSchema} = require("../utils/Validator/levelValidator");
+let {levelSaveSchema} = require("../utils/Validator/levelValidator");
 const {validateRequest} = require("../utils/validateRequest");
 const urlList = require("../utils/heartcareSystemUrl");
 
@@ -36,6 +36,59 @@ let saveLevelData = async function (req, res) {
             
             console.log("LevelId: ", levelResource);     
             let levelBundle = await bundleStructure.setBundlePost(levelResource, levelResource.identifier, levelData.uuid, "POST", "identifier");
+            console.info("Level bundle: ", levelBundle)                           
+            resourceResult.push(levelBundle);   
+        }
+        let bundleData = await bundleStructure.getBundleJSON({resourceResult});
+        // return res.status(201).json({ status: 1, message: "Level data saved.", data: bundleData.bundle })  
+        console.info("main bundle transaction resource: ", bundleData)
+        let response = await axios.post(config.baseUrl, bundleData.bundle); 
+        console.log("get bundle json response: ", response)  
+        if (response.status == 200 || response.status == 201) {
+            let resourceResponse = setLevelSaveResponse(bundleData.bundle.entry, response.data.entry, "post");
+            let responseData = [...resourceResponse, ...bundleData.errData];
+            return res.status(201).json({ status: 1, message: "Level data saved.", data: responseData })
+        }
+        else {
+            return handleError(res, response)
+        }
+    }
+    catch (error) {
+        console.error("saveLevelData Error: ", error);
+        error.code && error.code == "ERR" ? handleError(res, error, error.statusCode, error.message ) :  handleError(res, error)
+
+    }
+
+}
+
+//  save Level data
+let updateLevelData = async function (req, res) {    
+    try {
+        // const validatedBody = validateRequest(req.body, levelSaveSchema, res);
+        // if (!validatedBody) return;
+        let resourceResult = [];
+        let levelResource = null;
+        console.log("req body: ", req.body)
+        for (let levelData of req.body) {
+            if(levelData.levelType == "village") {
+                const islandData = await fetchResource("Organization", {_id: levelData.precedingLevelId, type: "health-facility"});                
+                const locationData = islandData.entry[0].resource.extension.find(e => e.url == urlList.locationReferenceUrl)
+                console.log("locationData: ", locationData)
+                levelData.orgId = levelData.precedingLevelId;
+                levelData.precedingLevelId = locationData?.valueReference?.reference?.split("/")[1] || null
+            }
+            console.log(levelData)
+            if(levelData.levelType != "health-facility") {
+                
+                levelResource = buildFHIRResource(Location, levelData);
+            }
+            else {
+                levelResource = buildFHIRResource(Organization, levelData)
+                
+            }
+            levelResource.id = levelData.fhirId
+            console.log("LevelId: ", levelResource);     
+            let levelBundle = await bundleStructure.setBundlePost(levelResource, null, levelData.fhirId, "PUT", "identifier");
             console.info("Level bundle: ", levelBundle)                           
             resourceResult.push(levelBundle);   
         }
@@ -144,5 +197,6 @@ const patchLevelData = async function(req, res) {
 module.exports = {
     saveLevelData,
     getLevelData,
-    patchLevelData
+    patchLevelData,
+    updateLevelData
 }

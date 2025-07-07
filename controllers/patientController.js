@@ -22,7 +22,9 @@ let savePatientData = async function (req, res) {
         req.queueMeta = {
             data: req.data,
             entity: "patients",
-            requestType: "post"
+            requestType: "post",
+            apiName: "save-patient",
+            tokenData: req.decoded
           };
         let resourceResult = [];
         console.log("req body: ", req.body)
@@ -70,7 +72,9 @@ let updatePatientData = async function(req, res) {
         req.queueMeta = {
             data: req.data,
             entity: "patients",
-            requestType: "put"
+            requestType: "put",
+            apiName: "update-patient",
+            tokenData: req.decoded
           };
         let resourceResult = [];
         console.log("req body: ", req.body)
