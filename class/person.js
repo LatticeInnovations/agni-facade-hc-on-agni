@@ -29,7 +29,8 @@ class Person {
             let jsonObj = this.setIdentifierJSON({
                 "identifierType": "https://www.thelattice.in/",
                 "identifierNumber": this.personObj.id,
-                "code": "MR"
+                "code": "MR",
+                
             })
             this.fhirResource.identifier.push(jsonObj)
         }
@@ -117,6 +118,7 @@ class Person {
                 },
                 system: element.identifierType,
                 value: element.identifierNumber,
+                use: element?.code || null
 
             }
         }
@@ -130,6 +132,8 @@ class Person {
         if (!checkEmptyData(this.personObj.identifier) && this.personObj.identifier.length > 0) {
             this.personObj.identifier.forEach(element => {
                 let jsonObj = this.setIdentifierJSON(element);
+                if(element.system == "https://crvsd.gov.vu/services/national-id-cards-and-e-id")
+                    jsonObj
                 this.fhirResource.identifier.push(jsonObj)
             });
         }

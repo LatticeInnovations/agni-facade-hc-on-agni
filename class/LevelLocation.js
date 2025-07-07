@@ -66,6 +66,10 @@ class LevelLocation {
         }
     }
 
+    getPartOf() {
+        this.locationObj.precedingLevelId = this.fhirResource?.partOf?.reference?.split("/")[1] || null;
+    }
+
     setStatus() {
         this.fhirResource.status = "active";
        }
@@ -127,6 +131,7 @@ class LevelLocation {
         this.getTypeAndDescription();
         this.getPopulation();
         this.getAliasName();
+        this.getPartOf();
         // this.getOrganizationReference();
         this.getStatus();
     }

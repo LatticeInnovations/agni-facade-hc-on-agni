@@ -119,22 +119,6 @@ let updatePatientData = async function(req, res) {
     }
 }
 
-const createImmunizationData = async function(patientData, token) {
-    let immunizationResources = []
-    const vaccineCodes = Object.keys(vaccines);
-
-    for (let code of vaccineCodes) {
-        const immunizationRecommendationResource = buildFHIRResource(ImmunizationRecommendation, {
-            patientId: patientData.id,
-            orgId: token.orgId,
-            code: code,
-            birthDate: patientData.birthDate
-        })
-        let ImmunizationRecommendationBundle = await bundleStructure.setBundlePost(immunizationRecommendationResource, null, immunizationRecommendationResource.id, "POST", "identifier");
-        immunizationResources.push(ImmunizationRecommendationBundle);
-    }
-    return immunizationResources
-}
 
 const setPatientSaveResponse  = (reqBundleData, responseBundleData, type) => {
     let filteredData = [];
