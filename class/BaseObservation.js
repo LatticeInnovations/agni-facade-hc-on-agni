@@ -16,7 +16,10 @@ class BaseObservation {
     }
 
     setEncounterReference() {
-        this.fhirResource.encounter.reference = 'urn:uuid:' + this.observationObj?.encounterId;
+        if(this.observationObj?.encounterId) {
+            this.fhirResource.encounter.reference = 'urn:uuid:' + this.observationObj?.encounterId;
+        }
+       
     }
 
     getSimplifiedOutput() {

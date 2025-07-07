@@ -36,10 +36,7 @@ let savePatientData = async function (req, res) {
             let patientBundle = await bundleStructure.setBundlePost(patientResource, patientResource.identifier, patientData.id, "POST", "identifier");
             console.info("patient bundle: ", patientBundle)
             let personBundle = await bundleStructure.setBundlePost(personResource, null, personId, "POST", "identifier");
-            if (!('blockImmunization' in patientData)) {
-                let immunizationResources = await createImmunizationData(patientData, token)
-                resourceResult = resourceResult.concat(immunizationResources)
-            }                
+        
             resourceResult.push(patientBundle, personBundle);            
         }
         let bundleData = await bundleStructure.getBundleJSON({resourceResult});

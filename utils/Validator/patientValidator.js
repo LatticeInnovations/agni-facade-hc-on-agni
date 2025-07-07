@@ -30,7 +30,10 @@ const patientSchema = Joi.object({
   }).required(),
 
   mobileNumber: Joi.string().pattern(/^[0-9]{10,15}$/).required(),
-  mothersName: Joi.string().optional(),
+  mothersName: Joi.string().required(),
+  fathersName: Joi.string().optional(),
+  spouseName: Joi.string().optional(),
+  deceasedReason: Joi.string().allow(null).optional(),
   email: Joi.string().email().optional()
 });
 

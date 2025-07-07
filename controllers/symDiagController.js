@@ -61,7 +61,7 @@ const getSymptomsDiagnosisList = async function (req, res) {
             }
             let valueSet = new ValueSet({}, FHIRData, type);            
             resourceResult = valueSet.getFHIRToJSONOutput();
-            return res.status(200).json({ status: resStatus, message: "Data fetched", total: resourceResult.length, data: resourceResult  })
+            return res.status(200).json({ status: resStatus, message: "Data fetched", total: resourceResult.length, data: type == "symptoms"? resourceResult.symptoms : resourceResult.diagnosis  })
     }
     catch (error) {
         console.error(error)

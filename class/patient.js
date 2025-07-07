@@ -115,6 +115,14 @@ class Patient extends Person {
     }
   }
 
+  setDeceasedReason() {
+    if(this.patient_obj.deceasedReason && this.patient_obj.deceasedReason != null) {
+      this.fhirResource.deceasedBoolean = true
+    }
+    else {
+      this.fhirResource.deceasedBoolean = false
+    }
+  }
   getJsonToFhirTranslator() {
     this.setBasicStructure()
     this.setIdAsIdentifier();
