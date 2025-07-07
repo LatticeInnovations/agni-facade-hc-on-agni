@@ -1,5 +1,5 @@
 const DocumentManifest = require("../class/DocumentManifest");
-const DocumentReference = require("../class/BaseDocumentReference");
+const DocumentReference = require("../class/MedicalDocumentReference");
 const Encounter = require("../class/GroupEncounter");
 const BaseEncounter = require("../class/BaseEncounter");
 let axios = require("axios");
@@ -59,7 +59,7 @@ let getMedicalRecord = async function (req, res) {
     try {
         const queryParams = {
             type :  "medical-report-encounter",
-            "service-provider" :  req.decoded.orgId,
+            // "service-provider" :  req.decoded.orgId,
             "_count": req.query.count,
             "_offset": req.query.offset
         }

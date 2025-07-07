@@ -1,5 +1,5 @@
 const DiagnosticReport = require("../class/DiagnosticReport");
-const DocumentReference = require("../class/BaseDocumentReference");
+const DocumentReference = require("../class/LabDocumentReference");
 const Encounter = require("../class/GroupEncounter");
 const BaseEncounter = require("../class/BaseEncounter");
 let axios = require("axios");
@@ -57,7 +57,7 @@ let getLabReport = async function (req, res) {
     try {
         const queryParams = {
             type :  "lab-report-encounter",
-            "service-provider" :  req.decoded.orgId,
+            // "service-provider" :  req.decoded.orgId,
             "_count": req.query.count,
             "_offset": req.query.offset
         }
