@@ -14,7 +14,7 @@ let getMedicationList = async function (req, res) {
         let responseData = await fetchResource("Medication", queryParams);
         let resStatus = 1;
         if( !responseData.entry || responseData.total == 0) {
-                return res.status(200).json({ status: resStatus, message: "Data fetched", total: 0, data: []  })
+                return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })
         }          
         resStatus = bundleStructure.setResponse(resourceUrlData, responseData);
         responseData.entry.forEach(element => {

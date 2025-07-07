@@ -139,7 +139,7 @@ let getPatientData = async function (req, res) {
         const responseData = responseResult.entry || []
         console.log("==================>", responseResult)
         if( !responseData) {
-            return res.status(200).json({ status: resStatus, message: "Data fetched", total: 0, data: []  })
+            return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })
         }
         else {            
             resStatus = bundleStructure.setResponse({ link: link, reqQuery: queryParams, allowNesting: 1, specialOffset: true }, responseResult);            

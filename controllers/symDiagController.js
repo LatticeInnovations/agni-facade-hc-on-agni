@@ -233,7 +233,7 @@ const getSymptomDiagnosisData = async function(req, res) {
         console.info("responseData: ", responseData)
         let resStatus = 1;
         if( !responseData.entry || responseData.total == 0) {
-                return res.status(200).json({ status: resStatus, message: "Data fetched", total: 0, data: []  })
+                return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })
         }
         const FHIRData =  responseData.entry 
         const mainEncounterIds = responseData.entry.map(e=> e.resource.partOf.reference.split("/")[1]).join(",");

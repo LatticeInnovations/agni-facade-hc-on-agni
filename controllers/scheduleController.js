@@ -126,7 +126,7 @@ const getScheduleData = async function(req, res) {
             let responseData = await fetchResource(resourceType, queryParams);
             console.log(responseData)
             if( !responseData.entry) {
-                return res.status(200).json({ status: resStatus, message: "Data fetched", total: 0, data: []  })
+                return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })
             }
             const { scheduleResult, locationIds, scheduleIds } = mapScheduleData(responseData.entry);
             // to get organization id from location of the schedule and join it with schedule data

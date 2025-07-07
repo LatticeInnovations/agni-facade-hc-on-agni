@@ -65,7 +65,7 @@ let getLabReport = async function (req, res) {
         let responseData = await fetchResource("Encounter", queryParams);
         let resStatus = 1;
         if( !responseData.entry || responseData.total == 0) {
-                return res.status(200).json({ status: resStatus, message: "Data fetched", total: 0, data: []  })
+                return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })
         }
 
         const encounterList = responseData.entry.map(e=> e.resource);
