@@ -167,11 +167,11 @@ let getPatientData = async function (req, res) {
             for (let i = 0; i < responseData.length; i++) {
                 console.log("check resource of patient: ", responseData[i].resource)
                 const patient = getTransformedResult(Patient, responseData[i].resource);
-                const deceasedData = deceasedResources.entry.find(e => e.resource.subject.reference.split("/")[1] == patient.fhirId)
-                const deceasedObject = getTransformedResult(Observation, deceasedData?.resource || null)
+                const deceasedData = deceasedResources.entry? deceasedResources.entry.find(e => e.resource.subject.reference.split("/")[1] == patient.fhirId) : null
+                const deceasedObject = deceasedData? getTransformedResult(Observation, deceasedData?.resource) : null;
                 console.log("deceasedObject: ", deceasedObject)
-                patient.patientDeceasedReasonId = deceasedObject.patientDeceasedReasonId,
-                patient.patientDeceasedReason =deceasedObject.patientDeceasedReason
+                patient.patientDeceasedReasonId = deceasedObject?.patientDeceasedReasonId || null;
+                patient.patientDeceasedReason =deceasedObject?.patientDeceasedReason || null
                 resourceResult.push(patient)                
             }
         }

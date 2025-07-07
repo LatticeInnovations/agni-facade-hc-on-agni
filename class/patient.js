@@ -74,7 +74,7 @@ class Patient extends Person {
   }
   getMothersName() {
     const relationData = this.getRelationData("MTH")
-    this.patient_obj.mothersName = relationData;
+    this.patient_obj.mothersName = relationData || null;
   }
 
   getFathersName() {
