@@ -1,6 +1,7 @@
 let { validationResult } = require('express-validator');
 let validationResponse = require("../utils/responseStatus");
 const fs = require('fs');
+const zip = require("express-zip")
 
 const uploadFiles = async (req, res) => {
     console.log("inside uploads controller");
