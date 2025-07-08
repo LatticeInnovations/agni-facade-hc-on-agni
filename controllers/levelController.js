@@ -14,6 +14,13 @@ let saveLevelData = async function (req, res) {
     try {
         const validatedBody = validateRequest(req.body, levelSaveSchema, res);
         if (!validatedBody) return;
+        req.queueMeta = {
+            data: req.data,
+            entity: "level",
+            requestType: "post",
+            apiName: "add-level",
+            tokenData: req.decoded
+          };
         let resourceResult = [];
         let levelResource = null;
         console.log("req body: ", req.body)
@@ -68,6 +75,13 @@ let updateLevelData = async function (req, res) {
         // if (!validatedBody) return;
         let resourceResult = [];
         let levelResource = null;
+        req.queueMeta = {
+            data: req.data,
+            entity: "level",
+            requestType: "put",
+            apiName: "update-level",
+            tokenData: req.decoded
+          };
         console.log("req body: ", req.body)
         for (let levelData of req.body) {
             if(levelData.levelType == "village") {

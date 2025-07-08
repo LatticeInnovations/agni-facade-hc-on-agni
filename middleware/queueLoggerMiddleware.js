@@ -1,6 +1,7 @@
 const { sendToQueue, connectRabbitMQ } = require("../config/rabbitMQ");
 const queues = {
-    "patients": "AGNI_TO_HEARTCARE_MAIN"
+    "patients": "AGNI_TO_HEARTCARE_MAIN",
+    "level": "AGNI_TO_HEARTCARE_MAIN"
 }
 
 function queueLoggerMiddleware(req, res, next) {
@@ -13,7 +14,7 @@ function queueLoggerMiddleware(req, res, next) {
     res.json = async function (body){
         console.log("body: ", body)
         try {
-            if(req.queueMeta && Array.isArray(req.body)) {
+            if(req.queueMeta && Array.isArray(req.body) && body.status && body?.status == 1) {
                 console.log("Entered here ")
                 const channel = await connectRabbitMQ();
                 const queueName = queues[req.queueMeta.entity];
@@ -31,6 +32,8 @@ function queueLoggerMiddleware(req, res, next) {
                         entity: req.queueMeta.entity,
                         requestType: req.queueMeta.requestType,
                         reqUrl: req.baseUrl,
+                        apiName: req.queueMeta.apiName,
+                        decodedToken: req.decoded,
                         result: {
                             "status": status,
                             "message": body?.message,
