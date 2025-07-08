@@ -1,5 +1,5 @@
 const DocumentManifest = require("../class/DocumentManifest");
-const DocumentReference = require("../class/BaseDocumentReference");
+const DocumentReference = require("../class/MedicalDocumentReference");
 const Encounter = require("../class/GroupEncounter");
 const BaseEncounter = require("../class/BaseEncounter");
 let axios = require("axios");
@@ -67,7 +67,7 @@ let getMedicalRecord = async function (req, res) {
         let responseData = await fetchResource("Encounter", queryParams);
         let resStatus = 1;
         if( !responseData.entry || responseData.total == 0) {
-                return res.status(200).json({ status: resStatus, message: "Data fetched", total: 0, data: []  })
+                return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })
         }
         const encounterList = responseData.entry.map(e=> e.resource);
         console.log("encounterList: ", encounterList)

@@ -7,10 +7,10 @@ const uploadMiddleware = require('../../middleware/uploadMiddleware');
 
 router.post('/file', uploadMiddleware, uploadFiles);
 
+router.post('/files', [check('files').isArray({min: 1, max: 10})], downloadMultipleFiles);
+
 router.get('/file', [query('name').notEmpty() ], downloadFile);
 
 router.get('/filenames', getAllFiles);
-
-router.post('/files', [check('files').isArray({min: 1, max: 10})], downloadMultipleFiles);
 
 module.exports = router;

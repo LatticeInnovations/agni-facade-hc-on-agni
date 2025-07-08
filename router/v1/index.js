@@ -23,7 +23,8 @@ router.use("/MedicationDispense", auth, require("./medicationDispenseRoute"));
 router.use("/DispenseLog", auth, require("./dispenseLogRoute"));
 router.use("/LabReport", auth, require("./LabReportRoute"));
 router.use("/MedicalRecord", auth, require("./medicalRecordRoute"));
-router.use("/Immunization", auth, require("./immunizationRoute"));
-router.use("/ImmunizationRecommendation", auth, require("./immunizationRecommendationRoute"));
+// router.use("/Immunization", auth, require("./immunizationRoute"));
+// router.use("/ImmunizationRecommendation", auth, require("./immunizationRecommendationRoute"));
+router.use("/level",auth, require("./levelRouter"))
 
 module.exports = router;

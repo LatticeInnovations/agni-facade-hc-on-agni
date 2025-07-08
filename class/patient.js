@@ -10,7 +10,6 @@ class Patient extends Person {
     this.patient_obj = patient_obj;
     this.fhir_resource = fhir_resource;
     this.fhir_resource.resourceType = "Patient"
-    this.fhir_resource.contact = [];
   }
 
   setPatientLink() {
@@ -29,64 +28,85 @@ class Patient extends Person {
     });
   }
 
+  setRelation(relationCode, name) {
+    this.fhir_resource.contact.push({
+      name:{
+        "given": [name]
+      }
+       ,
+      relationship: [
+        {
+          coding: [
+            {
+              system: "http://terminology.hl7.org/CodeSystem/v3-RoleCode",
+              code: relationCode,
+            },
+          ],
+        },
+      ],
+    });
+  }
   setSpouseName() {
     if (this.patient_obj?.spouseName) {
-      this.fhir_resource.contact.push({
-        name: this.patient_obj?.spouseName,
-        relationship: [
-          {
-            coding: [
-              {
-                system: "http://terminology.hl7.org/CodeSystem/v3-RoleCode",
-                code: "SPS",
-              },
-            ],
-          },
-        ],
-      });
+      this.setRelation("SPS", this.patient_obj?.spouseName)
     }
   }
 
   setMothersName() {
     if (this.patient_obj?.mothersName) {
-      this.fhir_resource.contact.push({
-        name: this.patient_obj?.mothersName,
-        relationship: [
-          {
-            coding: [
-              {
-                system: "http://terminology.hl7.org/CodeSystem/v3-RoleCode",
-                code: "MTH",
-              },
-            ],
-          },
-        ],
-      });
+      this.setRelation("MTH", this.patient_obj?.mothersName)
     }
   }
 
   setFathersName() {
     if (this.patient_obj?.fathersName) {
-      this.fhir_resource.contact.push({
-        name: this.patient_obj?.fathersName,
-        relationship: [
-          {
-            coding: [
-              {
-                system: "http://terminology.hl7.org/CodeSystem/v3-RoleCode",
-                code: "FTH",
-              },
-            ],
-          },
-        ],
-      });
+      this.setRelation("FTH", this.patient_obj?.fathersName)
     }
+  }
+
+ 
+  getRelationData(relationCode) {
+    const relationData = this.fhirResource.contact?.find(e => e.relationship[0].coding[0].code === relationCode);
+    console.log("check relationData: ", relationData)
+    if(relationData)
+      return relationData.name.given[0]
+    return relationData
+  }
+  getMothersName() {
+    const relationData = this.getRelationData("MTH")
+    this.patient_obj.mothersName = relationData || null;
+  }
+
+  getFathersName() {
+    const relationData = this.getRelationData("FTH")
+    this.patient_obj.fathersName = relationData || null;
+  }
+  getSpouseName() {
+    const relationData = this.getRelationData("SPS")
+    this.patient_obj.spouseName = relationData || null;
   }
 
   setFhirId() {
     if(this.patient_obj?.fhirId) {
       this.fhir_resource.id = this.patient_obj?.fhirId
     }
+  }
+
+  setDeceasedBoolean() {
+    if(this.patient_obj.deceasedReason && this.patient_obj.deceasedReason != null) {
+      this.fhirResource.deceasedBoolean = true
+    }
+    else {
+      this.fhirResource.deceasedBoolean = false
+    }
+  }
+
+  // getDeceasedBoolean() {
+  // this.patient_obj.deceasedReason  = this.fhirResource.deceasedBoolean 
+  // }
+
+  getActive() {
+    this.patient_obj.isDeleted = !this.fhirResource.active
   }
 
   getJsonToFhirTranslator() {
@@ -105,6 +125,10 @@ class Patient extends Person {
     this.setAddress("temp");
     this.setManagingOrg();
     this.setGeneralPractitioner();
+    this.setMothersName();
+    this.setFathersName();
+    this.setSpouseName();
+    this.setDeceasedBoolean();
 }
 
 getFHIRToTransformedResult() {
@@ -121,28 +145,36 @@ getFHIRToTransformedResult() {
   this.getAddress();
   this.getManagingOrg();
   this.getGeneralPractitioner();
+  this.getMothersName();
+  this.getFathersName();
+  this.getSpouseName();
+  // this.getDeceasedBoolean();
+}
+getSimplifiedOutput() {
+  return this.patient_obj
 }
 
 setPatchData(fetchedResourceData) {
-  this.patchFirstName(fetchedResourceData);
-  this.patchMiddleName(fetchedResourceData);
-  this.patchLastName(fetchedResourceData);
-  this.patchIdentifier(fetchedResourceData);
+  // this.patchFirstName(fetchedResourceData);
+  // this.patchMiddleName(fetchedResourceData);
+  // this.patchLastName(fetchedResourceData);
+  // this.patchIdentifier(fetchedResourceData);
   this.patchActive();
-  this.patchGender();
-  this.patchBirthDate();
-  if(this.personObj.mobileNumber || this.personObj.email)
-      this.patchTelecom(fetchedResourceData);
-  if(!fetchedResourceData.address) {
-      this.addAddress();
-  }        
-  if (this.personObj["permanentAddress"] !== undefined && fetchedResourceData.address)
-      this.patchAddress("home", fetchedResourceData);
-  if (this.personObj["tempAddress"] !== undefined && fetchedResourceData.address)
-      this.patchAddress("temp", fetchedResourceData);
+  // this.patchGender();
+  // this.patchBirthDate();
+  // if(this.personObj.mobileNumber || this.personObj.email)
+  //     this.patchTelecom(fetchedResourceData);
+  // if(!fetchedResourceData.address) 
+  //     this.addAddress() 
+  // if (this.personObj["permanentAddress"] !== undefined && fetchedResourceData.address)
+  //     this.patchAddress("home", fetchedResourceData);
+  // if (this.personObj["tempAddress"] !== undefined && fetchedResourceData.address)
+  //     this.patchAddress("temp", fetchedResourceData);
 }
 
 }
+
+
 
 
 

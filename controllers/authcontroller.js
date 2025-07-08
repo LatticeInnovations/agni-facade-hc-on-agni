@@ -47,7 +47,7 @@ let login = async function (req, res) {
             loginAttempts = authentication_detail.dataValues.login_attempts;
             OTPGenerateAttempt = authentication_detail.dataValues.otp_generate_attempt + 1;
         }
-
+        console.log("process.env.bypassNumbers: ", process.env.bypassNumbers)
         if (process.env.bypassNumbers.includes(req.body.userContact)) {
             otp = process.env.bypassOTP;
         } else if (process.env.playstoreNumber.includes(req.body.userContact)) {
@@ -187,6 +187,7 @@ async function getUserDetail(req, contact) {
         let queryParam ={"_total": "accurate", "_revinclude": "PractitionerRole:practitioner", "active" : true};
         queryParam[contact] = contact == "email" ? req.body.userContact.toLowerCase() : req.body.userContact;
         let existingPractitioner = await fetchResource("Practitioner", queryParam);
+        console.log("existingPractitioner: ", existingPractitioner)
         if (existingPractitioner.total == 0 || !existingPractitioner?.entry) {
             return null;
         }

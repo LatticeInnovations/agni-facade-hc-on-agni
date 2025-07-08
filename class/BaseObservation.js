@@ -16,7 +16,10 @@ class BaseObservation {
     }
 
     setEncounterReference() {
-        this.fhirResource.encounter.reference = 'urn:uuid:' + this.observationObj?.encounterId;
+        if(this.observationObj?.encounterId) {
+            this.fhirResource.encounter.reference = 'urn:uuid:' + this.observationObj?.encounterId;
+        }
+       
     }
 
     getSimplifiedOutput() {
@@ -29,7 +32,10 @@ class BaseObservation {
 
 
     setPatientReference() {
-        this.fhirResource.subject.reference = "Patient/" + this.observationObj?.patientId;
+        if(this.observationObj.patientId)
+            this.fhirResource.subject.reference = "Patient/" + this.observationObj?.patientId;
+        else if(this.observationObj?.patientUuid)
+            this.fhirResource.subject.reference = "urn:uuid:" + this.observationObj?.patientUuid;
     }
 
     getPatientId() {
@@ -41,7 +47,7 @@ class BaseObservation {
     }
     
     getEncounter() {
-        this.observationObj.encounterId = this.fhirResource.encounter.reference.split('/')[1];
+        this.observationObj.encounterId = this.fhirResource?.encounter?.reference?.split('/')[1] || null;
     }
 
     setBasicStructure() {
@@ -70,6 +76,53 @@ class BaseObservation {
         this.setPatientReference();
         this.setPractitionerReference();
       }
+
+    setDeceasedReason() {
+        console.log("check entered here")
+        if(this.observationObj.patientDeceasedReasonId) {
+            this.fhirResource.valueCodeableConcept =  {
+                "coding": [
+                    {
+                        "system": process.env.heartcare_url,
+                        "code": this.observationObj?.patientDeceasedReasonId || null
+                    }
+                ],
+                "text": this.observationObj?.patientDeceasedReason || null
+            }
+        }
+
+    }
+
+    getDeceasedReason() {
+        if(this.fhirResource.valueCodeableConcept) {
+            const deceasedIndex = this.fhirResource.valueCodeableConcept.coding.findIndex(e => e.system === process.env.heartcare_url)
+            if(deceasedIndex != -1) {
+                this.observationObj.patientDeceasedReasonId = this.fhirResource?.valueCodeableConcept?.coding[deceasedIndex]?.code || null;
+                this.observationObj.patientDeceasedReason = this.fhirResource?.valueCodeableConcept?.text || null
+            }
+            
+        }
+        else {
+            this.observationObj.patientDeceasedReasonId = null;
+            this.observationObj.patientDeceasedReason = null
+        }
+        }
+
+
+      getJsonToFhirTranslator() {
+        this.setBasicStructure();
+        this.setEncounterReference();
+        this.setPatientReference();
+        this.setPractitionerReference();
+        this.setDeceasedReason();
+      }
+
+      getFHIRToTransformedResult() {
+        this.getPatientId()
+        this.getFhirId();
+        this.getDeceasedReason();
+      }
+
 }
 
 module.exports = BaseObservation;

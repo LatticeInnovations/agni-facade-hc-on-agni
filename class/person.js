@@ -20,14 +20,17 @@ class Person {
         this.fhirResource.address = [];
         this.fhirResource.managingOrganization = {};
         this.fhirResource.generalPractitioner = [];
+        this.fhirResource.contact = [];
     }
+
 
     setIdAsIdentifier() {
         if (this.personObj.id) {
             let jsonObj = this.setIdentifierJSON({
                 "identifierType": "https://www.thelattice.in/",
                 "identifierNumber": this.personObj.id,
-                "code": "MR"
+                "code": "MR",
+                
             })
             this.fhirResource.identifier.push(jsonObj)
         }
@@ -115,11 +118,12 @@ class Person {
                 },
                 system: element.identifierType,
                 value: element.identifierNumber,
+                use: element?.use || null
 
             }
         }
         else {
-            jsonObj = { value: element.identifierNumber, system: element.identifierType }
+            jsonObj = { value: element.identifierNumber, system: element.identifierType ,  use: element?.use || null}
         }
         return jsonObj;
     }
@@ -128,6 +132,8 @@ class Person {
         if (!checkEmptyData(this.personObj.identifier) && this.personObj.identifier.length > 0) {
             this.personObj.identifier.forEach(element => {
                 let jsonObj = this.setIdentifierJSON(element);
+                if(element.system == "https://crvsd.gov.vu/services/national-id-cards-and-e-id")
+                    jsonObj
                 this.fhirResource.identifier.push(jsonObj)
             });
         }
@@ -156,7 +162,8 @@ class Person {
                 this.personObj.identifier.push({
                     identifierType: element.system,
                     identifierNumber: element.value,
-                    code: element.type ? element.type.coding[0].code : null
+                    code: element.type ? element.type.coding[0].code : null,
+                    use: element?.use || null
                 })
                 this.personObj.id = element.type && element.type.coding[0].code == "MR" ? element.value : this.personObj.id;
             });
@@ -189,7 +196,16 @@ class Person {
 
     patchActive() {
         if (!checkEmptyData(this.personObj.active))
-            this.fhirResource.push({ "op": this.personObj.active.operation, "path": "/active", "value": this.personObj.active.value })
+            this.fhirResource.push({ "op": this.personObj.active.operation, "path": "/active", "value": this.personObj.active.value },
+                {"op": "add", path: "/extension", value: [
+                    {
+                        "url": "http://example.org/fhir/StructureDefinition/patient-deletion-reason",
+                        "valueCodeableConcept": {
+                            "text": this.personObj.active.deletedReason
+                        }
+                        
+                    }
+                ]})
     }
 
     getActive() {

@@ -130,6 +130,7 @@ class Practitioner  extends Person{
 
     }
 
+
     getFHIRToTransformedResult() {
         this.getId();
         this.getFirstName();

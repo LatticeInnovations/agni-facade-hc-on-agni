@@ -11,7 +11,9 @@ const patientSchema = Joi.object({
   identifier: Joi.array().items(
     Joi.object({
       identifierType: Joi.string().uri().required(),
-      identifierNumber: Joi.string().required()
+      identifierNumber: Joi.string().required(),
+      code: Joi.string().allow(null).optional(),
+      use: Joi.string().allow(null).optional()
     })
   ).optional(),
 
@@ -21,7 +23,7 @@ const patientSchema = Joi.object({
 
   permanentAddress: Joi.object({
     addressLine1: Joi.string().optional(),
-    addressLine2: Joi.string().optional(),
+    addressLine2: Joi.string().allow(null).optional(),
     district: Joi.string().optional(),
     city: Joi.string().required(),
     state: Joi.string().required(),
@@ -30,7 +32,11 @@ const patientSchema = Joi.object({
   }).required(),
 
   mobileNumber: Joi.string().pattern(/^[0-9]{10,15}$/).required(),
-  mothersName: Joi.string().optional(),
+  mothersName: Joi.string().allow(null).required(),
+  fathersName: Joi.string().allow(null).optional(),
+  spouseName: Joi.string().allow(null).optional(),
+  patientDeceasedReasonId: Joi.number().allow(null).optional(),
+  patientDeceasedReason: Joi.string().allow(null).optional(),
   email: Joi.string().email().optional()
 });
 
@@ -42,10 +48,11 @@ const patchField = (valueSchema) =>
   Joi.object({
     operation: operationEnum,
     value: valueSchema.when("operation", {
-      is: Joi.string().valid("add", "replace"),
+      is: Joi.string().valid("replace"),
       then: Joi.required(),
       otherwise: Joi.forbidden()
-    })
+    }),
+    "deletedReason": Joi.string().required()
   });
 
 // Address schema used inside permanentAddress
@@ -63,17 +70,17 @@ const addressSchema = Joi.object({
 const patientPatchObject = Joi.object({
   id: Joi.number().required(),
 
-  firstName: patchField(Joi.string()).optional(),
-  middleName: patchField(Joi.string().allow(null, '')).optional(),
-  lastName: patchField(Joi.string()).optional(),
+  // firstName: patchField(Joi.string()).optional(),
+  // middleName: patchField(Joi.string().allow(null, '')).optional(),
+  // lastName: patchField(Joi.string()).optional(),
 
-  gender: patchField(Joi.string().valid("male", "female", "other", "unknown")).optional(),
-  active: patchField(Joi.boolean()).optional(),
-  birthDate: patchField(Joi.string().isoDate()).optional(),
+  // gender: patchField(Joi.string().valid("male", "female", "other", "unknown")).optional(),
+  active: patchField(Joi.boolean()).required(),
+  // birthDate: patchField(Joi.string().isoDate()).optional(),
 
-  permanentAddress: patchField(addressSchema).optional(),
+  // permanentAddress: patchField(addressSchema).optional(),
 
-  email: patchField(Joi.string().email()).optional(),
+  // email: patchField(Joi.string().email()).optional(),
   mobileNumber: patchField(Joi.string().pattern(/^[0-9]{10}$/)).optional()
 });
 

@@ -164,7 +164,7 @@ let getRelatedPersonData = async function (req, res) {
         let responseData = await fetchResource("Person", queryParams)
         const FHIRData = responseData.entry;
         if( !FHIRData) {
-                return res.status(200).json({ status: resStatus, message: "Data fetched", total: 0, data: []  })
+                return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })
         }
         let personResource = FHIRData.filter(e => e.resource.resourceType == "Person");
         const resStatus = bundleStructure.setResponse(resourceUrlData, responseData)

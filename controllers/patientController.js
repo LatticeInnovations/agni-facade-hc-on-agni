@@ -11,6 +11,7 @@ let ImmunizationRecommendation = require('../class/ImmunizationRecommendation');
 const vaccines = require('../utils/vaccines.json');
 let {patientSaveSchema, patientPatchSchema} = require("../utils/Validator/patientValidator");
 const {validateRequest} = require("../utils/validateRequest");
+const Observation = require("../class/BaseObservation");
 
 //  save patient data
 let savePatientData = async function (req, res) {    
@@ -21,7 +22,9 @@ let savePatientData = async function (req, res) {
         req.queueMeta = {
             data: req.data,
             entity: "patients",
-            requestType: "post"
+            requestType: "post",
+            apiName: "save-patient",
+            tokenData: req.decoded
           };
         let resourceResult = [];
         console.log("req body: ", req.body)
@@ -36,11 +39,11 @@ let savePatientData = async function (req, res) {
             let patientBundle = await bundleStructure.setBundlePost(patientResource, patientResource.identifier, patientData.id, "POST", "identifier");
             console.info("patient bundle: ", patientBundle)
             let personBundle = await bundleStructure.setBundlePost(personResource, null, personId, "POST", "identifier");
-            if (!('blockImmunization' in patientData)) {
-                let immunizationResources = await createImmunizationData(patientData, token)
-                resourceResult = resourceResult.concat(immunizationResources)
-            }                
-            resourceResult.push(patientBundle, personBundle);            
+            const observationUuid = uuidv4();
+            const observationResource = buildFHIRResource(Observation, {categoryCode: "deceased-reason", categoryDisplay: "deceased-reason", patientUuid: patientData.id, practitionerId: req.decoded.userId, patientDeceasedReasonId: patientData.patientDeceasedReasonId, patientDeceasedReason: patientData.patientDeceasedReason})
+            const deceasedBundle = await bundleStructure.setBundlePost(observationResource, null, observationUuid, "POST", "identifier");
+            resourceResult.push(patientBundle, personBundle, deceasedBundle);            
+            console.log("observationResource: ", observationResource)
         }
         let bundleData = await bundleStructure.getBundleJSON({resourceResult});
         // return res.status(201).json({ status: 1, message: "Patient data saved.", data: bundleData.bundle })  
@@ -69,19 +72,38 @@ let updatePatientData = async function(req, res) {
         req.queueMeta = {
             data: req.data,
             entity: "patients",
-            requestType: "put"
+            requestType: "put",
+            apiName: "update-patient",
+            tokenData: req.decoded
           };
         let resourceResult = [];
         console.log("req body: ", req.body)
+        const patientIds = req.body.map(e => e.fhirId).join(",")       
+        const deceasedResources = await fetchResource("Observation", {patient: patientIds, category: "deceased-reason"})
+        console.log("deceasedResources: ", deceasedResources)
         for (let patientData of req.body) {
+            let deceasedBundle = null
+            patientData.userId = req.decoded.userId;
+            patientData.orgId = req.decoded.orgId;
             const patientResource = buildFHIRResource(Patient, patientData)
-            console.log("patientResource 2: ", patientResource)
             let patientBundle = await bundleStructure.setBundlePut(patientResource, patientResource.identifier, patientData.fhirId, "put", "identifier");
-            console.info("patient bundle: ", patientBundle)
-        
-            resourceResult.push(patientBundle);            
+            // Add deceased response
+             const deceasedData = deceasedResources.entry.find(e => e.resource.subject.reference.split("/")[1] == patientData.fhirId)
+            const observationResource = buildFHIRResource(Observation, {categoryCode: "deceased-reason", categoryDisplay: "deceased-reason", patientId: patientData.fhirId, practitionerId: req.decoded.userId, patientDeceasedReasonId: patientData.patientDeceasedReasonId, patientDeceasedReason: patientData.patientDeceasedReason});
+            if(deceasedData) {
+                observationResource.id = deceasedData.resource.id
+                deceasedBundle = await bundleStructure.setBundlePut(observationResource, null, observationResource.id, "PUT", "identifier");
+            }
+            else {
+                const observationUuid = uuidv4();
+                deceasedBundle = await bundleStructure.setBundlePost(observationResource, null, observationUuid, "POST", "identifier");
+ 
+            }
+            
+            resourceResult.push(patientBundle, deceasedBundle);            
         }
         let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
+        // return res.status(201).json({ status: 1, message: "Patient data updated.", data: bundleData.bundle })
         console.info("main bundle transaction resource: ", bundleData)
         let response = await axios.post(config.baseUrl, bundleData.bundle); 
         console.log("get bundle json response: ", response.status)  
@@ -101,22 +123,6 @@ let updatePatientData = async function(req, res) {
     }
 }
 
-const createImmunizationData = async function(patientData, token) {
-    let immunizationResources = []
-    const vaccineCodes = Object.keys(vaccines);
-
-    for (let code of vaccineCodes) {
-        const immunizationRecommendationResource = buildFHIRResource(ImmunizationRecommendation, {
-            patientId: patientData.id,
-            orgId: token.orgId,
-            code: code,
-            birthDate: patientData.birthDate
-        })
-        let ImmunizationRecommendationBundle = await bundleStructure.setBundlePost(immunizationRecommendationResource, null, immunizationRecommendationResource.id, "POST", "identifier");
-        immunizationResources.push(ImmunizationRecommendationBundle);
-    }
-    return immunizationResources
-}
 
 const setPatientSaveResponse  = (reqBundleData, responseBundleData, type) => {
     let filteredData = [];
@@ -137,14 +143,23 @@ let getPatientData = async function (req, res) {
         let resourceResult = []
         const responseResult = await fetchResource("Patient", queryParams);
         const responseData = responseResult.entry || []
-        console.log("==================>", responseResult)
-        if( !responseData) {
-            return res.status(200).json({ status: resStatus, message: "Data fetched", total: 0, data: []  })
+        console.log("==================>", responseData)
+        if(!responseData.length) {
+            return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })
         }
         else {            
-            resStatus = bundleStructure.setResponse({ link: link, reqQuery: queryParams, allowNesting: 1, specialOffset: true }, responseResult);            
+            resStatus = bundleStructure.setResponse({ link: link, reqQuery: queryParams, allowNesting: 1, specialOffset: true }, responseResult);  
+            const patientIds = responseData.map(e => e.resource.id)   .join(",")       
+            const deceasedResources = await fetchResource("Observation", {patient: patientIds, category: "deceased-reason"})
+            console.log("deceasedResources: ", deceasedResources)
             for (let i = 0; i < responseData.length; i++) {
+                console.log("check resource of patient: ", responseData[i].resource)
                 const patient = getTransformedResult(Patient, responseData[i].resource);
+                const deceasedData = deceasedResources.entry? deceasedResources.entry.find(e => e.resource.subject.reference.split("/")[1] == patient.fhirId) : null
+                const deceasedObject = deceasedData? getTransformedResult(Observation, deceasedData?.resource) : null;
+                console.log("deceasedObject: ", deceasedObject)
+                patient.patientDeceasedReasonId = deceasedObject?.patientDeceasedReasonId || null;
+                patient.patientDeceasedReason =deceasedObject?.patientDeceasedReason || null
                 resourceResult.push(patient)                
             }
         }
@@ -173,7 +188,8 @@ const patchPatientData = async function(req, res) {
         }        
         const patientPatchResource = patchFHIRResource(Patient, inputData, resourceSavedData[0].resource)
         let resourceData = [...patientPatchResource];
-        let patchResource = await bundleStructure.setBundlePatch(resourceData,resourceType + "/"+inputData.id);        
+        let patchResource = await bundleStructure.setBundlePatch(resourceData,resourceType + "/"+inputData.id);     
+        //  deleted a user reason   
         resourceResult.push(patchResource);
         //  Update immunization record
         if (inputData?.birthDate) {
@@ -212,6 +228,7 @@ const immunizationPatch = async function (inputData) {
 
       return resourceResult;
 }
+
 
 module.exports = {
     savePatientData,

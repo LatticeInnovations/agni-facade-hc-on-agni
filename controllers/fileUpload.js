@@ -1,7 +1,6 @@
 let { validationResult } = require('express-validator');
 let validationResponse = require("../utils/responseStatus");
 const fs = require('fs');
-const zip = require('express-zip');
 
 const uploadFiles = async (req, res) => {
     console.log("inside uploads controller");
@@ -62,11 +61,11 @@ const getAllFiles = async (req, res) => {
         res.json({ status: 1, files});
     }
     catch(error){
-        console.error(e);
+        console.error(error);
         return res.status(500).json({
             status: 0,
             message: "Unable to process. Please try again.",
-            error: e
+            error: error
         })
     }
 }
@@ -87,11 +86,11 @@ const downloadMultipleFiles = async (req, res) => {
         res.zip(validFiles);
     }
     catch(error){
-        console.error(e);
+        console.error(error);
         return res.status(500).json({
             status: 0,
             message: "Unable to process. Please try again.",
-            error: e
+            error: error
         })
     }
 }

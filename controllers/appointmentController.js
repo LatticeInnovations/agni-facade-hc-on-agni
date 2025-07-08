@@ -178,8 +178,8 @@ const getAppointment = async function(req, res) {
             }
 
             const FHIRData = await fetchResource("Appointment", queryParams)
-            if (!FHIRData.entry.length) {
-                return res.status(200).json({ status: 1, message: "Data fetched", total: 0, data: [] });
+            if (!FHIRData.entry) {
+                return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: [] });
             }
             let { apptResult, locationIds, apptIds, slotIds } = mapAppointments(FHIRData.entry);
 
