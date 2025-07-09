@@ -16,7 +16,7 @@ const patientSchema = Joi.object({
       use: Joi.string().allow(null).optional()
     })
   ).optional(),
-
+  appUpdatedDate: Joi.string().optional(),
   gender: Joi.string().valid("male", "female", "other").required(),
   active: Joi.boolean().required(),
   birthDate: Joi.string().isoDate().required(), // Ensures YYYY-MM-DD format
@@ -75,6 +75,7 @@ const patientPatchObject = Joi.object({
   // lastName: patchField(Joi.string()).optional(),
 
   // gender: patchField(Joi.string().valid("male", "female", "other", "unknown")).optional(),
+  
   active: patchField(Joi.boolean()).required(),
   // birthDate: patchField(Joi.string().isoDate()).optional(),
 
