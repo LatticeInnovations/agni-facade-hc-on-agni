@@ -1,20 +1,19 @@
 const { sendToQueue, connectRabbitMQ } = require("../config/rabbitMQ");
 const queues = {
-    "patients": "AGNI_TO_HEARTCARE_MAIN",
-    "level": "AGNI_TO_HEARTCARE_MAIN"
+    "patients": "AGNI_TO_HEARTCARE_MAIN"
 }
 
 function queueLoggerMiddleware(req, res, next) {
     const originalJson = res.json;
     console.info("req: ", req.queueMeta, req.body, req.url, req.method)
     console.log("----------------------------------------------------")
-    if (req.headers['x-sync-origin']) {
-        return
-      }
+    console.log("req.headers: ", req.headers)
+    const isSyncOrigin = req.headers['x-sync-origin'] === 'true'; // Normalize check
+
     res.json = async function (body){
         console.log("body: ", body)
         try {
-            if(req.queueMeta && Array.isArray(req.body) && body.status && body?.status == 1) {
+            if(!isSyncOrigin && req.queueMeta && Array.isArray(req.body) && body.status && body?.status == 1) {
                 console.log("Entered here ")
                 const channel = await connectRabbitMQ();
                 const queueName = queues[req.queueMeta.entity];

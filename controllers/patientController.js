@@ -40,7 +40,7 @@ let savePatientData = async function (req, res) {
             console.info("patient bundle: ", patientBundle)
             let personBundle = await bundleStructure.setBundlePost(personResource, null, personId, "POST", "identifier");
             const observationUuid = uuidv4();
-            const observationResource = buildFHIRResource(Observation, {categoryCode: "deceased-reason", categoryDisplay: "deceased-reason", patientUuid: patientData.id, practitionerId: req.decoded.userId, patientDeceasedReasonId: patientData.patientDeceasedReasonId, patientDeceasedReason: patientData.patientDeceasedReason})
+            const observationResource = buildFHIRResource(Observation, {categoryCode: "deceased-reason", categoryDisplay: "deceased-reason", patientUuid: patientData.id, practitionerId: req.decoded.userId, patientDeceasedReasonId: null, patientDeceasedReason: patientData.patientDeceasedReason})
             const deceasedBundle = await bundleStructure.setBundlePost(observationResource, null, observationUuid, "POST", "identifier");
             resourceResult.push(patientBundle, personBundle, deceasedBundle);            
             console.log("observationResource: ", observationResource)

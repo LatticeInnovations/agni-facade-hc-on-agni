@@ -119,7 +119,7 @@ let patchPractitionerData = async function (req, res) {
             if (resourceSavedData.total != 1) {
                return res.status(422).json({ status: 0, code: "ERR", message: "Practitioner Id " + inputData.id + " does not exist."})
             }
-            practitioner.patchUserInputToFHIR(resourceSavedData.entry[0].resource);
+            practitioner.setPatchData(resourceSavedData.entry[0].resource);
             let resourceData = [...practitioner.getFHIRResource()];
             const patchUrl = resType + "/" + inputData.id;
             let patchResource = await bundleStructure.setBundlePatch(resourceData, patchUrl);

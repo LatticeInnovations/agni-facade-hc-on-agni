@@ -84,7 +84,7 @@ class BaseObservation {
                 "coding": [
                     {
                         "system": process.env.heartcare_url,
-                        "code": this.observationObj?.patientDeceasedReasonId || null
+                        "code": null
                     }
                 ],
                 "text": this.observationObj?.patientDeceasedReason || null
@@ -97,8 +97,7 @@ class BaseObservation {
         if(this.fhirResource.valueCodeableConcept) {
             const deceasedIndex = this.fhirResource.valueCodeableConcept.coding.findIndex(e => e.system === process.env.heartcare_url)
             if(deceasedIndex != -1) {
-                this.observationObj.patientDeceasedReasonId = this.fhirResource?.valueCodeableConcept?.coding[deceasedIndex]?.code || null;
-                this.observationObj.patientDeceasedReason = this.fhirResource?.valueCodeableConcept?.text || null
+                 this.observationObj.patientDeceasedReason = this.fhirResource?.valueCodeableConcept?.text || null
             }
             
         }

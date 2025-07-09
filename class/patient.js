@@ -67,9 +67,9 @@ class Patient extends Person {
  
   getRelationData(relationCode) {
     const relationData = this.fhirResource.contact?.find(e => e.relationship[0].coding[0].code === relationCode);
-    console.log("check relationData: ", relationData)
+    console.log("check relationData: ", relationData, relationCode)
     if(relationData)
-      return relationData.name.given[0]
+      return relationData?.name?.given?.[0]
     return relationData
   }
   getMothersName() {
