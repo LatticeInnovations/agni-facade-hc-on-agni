@@ -27,11 +27,11 @@ const patientSchema = Joi.object({
     district: Joi.string().optional(),
     city: Joi.string().required(),
     state: Joi.string().required(),
-    postalCode: Joi.string().required(),
+    postalCode: Joi.string().optional().allow(null, ""),
     country: Joi.string().required()
   }).required(),
 
-  mobileNumber: Joi.string().pattern(/^[0-9]{10,15}$/).required(),
+  mobileNumber: Joi.string().pattern(/^[0-9]{10,15}$/).optional().allow(null, ""),
   mothersName: Joi.string().allow(null).required(),
   fathersName: Joi.string().allow(null).optional(),
   spouseName: Joi.string().allow(null).optional(),
@@ -68,7 +68,8 @@ const addressSchema = Joi.object({
 
 // Main PATCH schema for Patient
 const patientPatchObject = Joi.object({
-  id: Joi.number().required(),
+  fhirId: Joi.number().required(),
+  id: Joi.string().optional(),
 
   // firstName: patchField(Joi.string()).optional(),
   // middleName: patchField(Joi.string().allow(null, '')).optional(),
@@ -82,7 +83,7 @@ const patientPatchObject = Joi.object({
   // permanentAddress: patchField(addressSchema).optional(),
 
   // email: patchField(Joi.string().email()).optional(),
-  mobileNumber: patchField(Joi.string().pattern(/^[0-9]{10}$/)).optional()
+  mobileNumber: patchField(Joi.string().pattern(/^[0-9]{10}$/)).optional().allow(null, "")
 });
 
 // Array of practitioners
