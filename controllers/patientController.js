@@ -180,22 +180,18 @@ const patchPatientData = async function(req, res) {
         const reqInput = req.body;
         let resourceResult = [];
       for (let inputData of reqInput) {
-        const resourceSavedResult = await fetchResource(resourceType, {_id: inputData.id })
+        const resourceSavedResult = await fetchResource(resourceType, {_id: inputData.fhirId })
         const resourceSavedData = resourceSavedResult.entry || [];
         if (resourceSavedData.length != 1) {
             const statusCode = 500
-            return handleError(res, "Patient Id " + inputData.id + " does not exist.", statusCode, "Patient Id " + inputData.id + " does not exist.")
+            return handleError(res, "Patient Id " + inputData.fhirId + " does not exist.", statusCode, "Patient Id " + inputData.fhirId + " does not exist.")
         }        
         const patientPatchResource = patchFHIRResource(Patient, inputData, resourceSavedData[0].resource)
         let resourceData = [...patientPatchResource];
-        let patchResource = await bundleStructure.setBundlePatch(resourceData,resourceType + "/"+inputData.id);     
+        let patchResource = await bundleStructure.setBundlePatch(resourceData,resourceType + "/"+inputData.fhirId);     
         //  deleted a user reason   
         resourceResult.push(patchResource);
-        //  Update immunization record
-        if (inputData?.birthDate) {
-            let immunizationPatchResources = await immunizationPatch(inputData)
-            resourceResult = resourceResult.concat(immunizationPatchResources)
-        }        
+      
       }
     const bundleData = await bundleStructure.getBundleJSON({resourceResult: resourceResult, errData: []})  
     console.info(bundleData)
