@@ -1,6 +1,6 @@
 let { checkEmptyData } = require("../services/CheckEmpty");
 const Person = require("./person");
-
+const heartcareUrls = require("../utils/heartcareSystemUrl")
 class Patient extends Person {
   patient_obj;
   fhir_resource;
@@ -101,9 +101,37 @@ class Patient extends Person {
     }
   }
 
-  // getDeceasedBoolean() {
-  // this.patient_obj.deceasedReason  = this.fhirResource.deceasedBoolean 
-  // }
+  setHeartcareId() {
+    console.log("heartcareUrls: ", heartcareUrls)
+    this.fhirResource.identifier.push({
+      "system": heartcareUrls.heartCareIdUrl,
+      "value": this.patient_obj?.heartcareId || null
+    })
+  }
+
+  getHeartcareId() {
+    if(this.fhirResource.identifier) {
+      const idData = this.fhirResource.identifier.find(e=> e.system === heartcareUrls.heartCareIdUrl) || {}
+      console.log("id data: ", idData ,this.fhirResource.identifier)
+      this.patient_obj.heartcareId = idData?.value || null
+    }
+    else {
+      this.patient_obj.heartcareId =  null
+    }
+   
+  }
+
+  patchHeartcareId() {
+    if(this.patient_obj.heartcareId) {
+      this.fhirResource.push(
+        { "op": this.patient_obj.heartcareId.operation, "path": this.patient_obj.heartcareId.path, "value": {
+          "system": heartcareUrls.heartCareIdUrl,
+          "value": this.patient_obj.heartcareId.value
+        } });
+    }
+   
+}
+  
 
   getActive() {
     this.patient_obj.isDeleted = !this.fhirResource.active
@@ -129,6 +157,7 @@ class Patient extends Person {
     this.setFathersName();
     this.setSpouseName();
     this.setDeceasedBoolean();
+    this.setHeartcareId();
 }
 
 getFHIRToTransformedResult() {
@@ -148,18 +177,20 @@ getFHIRToTransformedResult() {
   this.getMothersName();
   this.getFathersName();
   this.getSpouseName();
+  this.getHeartcareId();
   // this.getDeceasedBoolean();
 }
 getSimplifiedOutput() {
   return this.patient_obj
 }
 
-setPatchData(fetchedResourceData) {
+setPatchData() {
   // this.patchFirstName(fetchedResourceData);
   // this.patchMiddleName(fetchedResourceData);
   // this.patchLastName(fetchedResourceData);
   // this.patchIdentifier(fetchedResourceData);
   this.patchActive();
+  this.patchHeartcareId();
   // this.patchGender();
   // this.patchBirthDate();
   // if(this.personObj.mobileNumber || this.personObj.email)
@@ -171,6 +202,8 @@ setPatchData(fetchedResourceData) {
   // if (this.personObj["tempAddress"] !== undefined && fetchedResourceData.address)
   //     this.patchAddress("temp", fetchedResourceData);
 }
+
+
 
 }
 

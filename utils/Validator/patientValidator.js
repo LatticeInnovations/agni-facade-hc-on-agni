@@ -37,7 +37,8 @@ const patientSchema = Joi.object({
   spouseName: Joi.string().allow(null).optional(),
   patientDeceasedReasonId: Joi.number().allow(null).optional(),
   patientDeceasedReason: Joi.string().allow(null).optional(),
-  email: Joi.string().email().optional()
+  email: Joi.string().email().optional(),
+  heartcareId: Joi.string().optional().allow(null, "")
 });
 
 // Define allowed operations
@@ -48,11 +49,11 @@ const patchField = (valueSchema) =>
   Joi.object({
     operation: operationEnum,
     value: valueSchema.when("operation", {
-      is: Joi.string().valid("replace"),
+      is: Joi.string().valid("replace", "add"),
       then: Joi.required(),
       otherwise: Joi.forbidden()
     }),
-    "deletedReason": Joi.string().required()
+    "deletedReason": Joi.string().optional()
   });
 
 // Address schema used inside permanentAddress
@@ -77,13 +78,14 @@ const patientPatchObject = Joi.object({
 
   // gender: patchField(Joi.string().valid("male", "female", "other", "unknown")).optional(),
   
-  active: patchField(Joi.boolean()).required(),
+  active: patchField(Joi.boolean()).optional(),
   // birthDate: patchField(Joi.string().isoDate()).optional(),
 
   // permanentAddress: patchField(addressSchema).optional(),
 
   // email: patchField(Joi.string().email()).optional(),
-  mobileNumber: patchField(Joi.string().pattern(/^[0-9]{10}$/)).optional().allow(null, "")
+  mobileNumber: patchField(Joi.string().pattern(/^[0-9]{10}$/)).optional().allow(null, ""),
+  heartcareId: patchField(Joi.string().optional())
 });
 
 // Array of practitioners
