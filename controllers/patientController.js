@@ -7,12 +7,10 @@ let config = require("../config/nodeConfig");
 const { v4: uuidv4 } = require('uuid');
 const bundleStructure = require("../services/bundleOperation")
 const responseService = require("../services/responseService");
-let ImmunizationRecommendation = require('../class/ImmunizationRecommendation');
-const vaccines = require('../utils/vaccines.json');
 let {patientSaveSchema, patientPatchSchema} = require("../utils/Validator/patientValidator");
 const {validateRequest} = require("../utils/validateRequest");
 const Observation = require("../class/BaseObservation");
-
+const heartcareUrls = require("../utils/heartcareSystemUrl")
 //  save patient data
 let savePatientData = async function (req, res) {    
     try {
@@ -36,7 +34,7 @@ let savePatientData = async function (req, res) {
             console.log("patientId: ", patientData.id)
             let personResource = buildFHIRResource(Person, {patientId: patientData.id, id: personId})
             console.log("personResource: ", personResource)      
-            let patientBundle = await bundleStructure.setBundlePost(patientResource, patientResource.identifier, patientData.id, "POST", "identifier");
+            let patientBundle = await bundleStructure.setBundlePost(patientResource, [patientResource.identifier[0]], patientData.id, "POST", "identifier");
             console.info("patient bundle: ", patientBundle)
             let personBundle = await bundleStructure.setBundlePost(personResource, null, personId, "POST", "identifier");
             const observationUuid = uuidv4();
@@ -79,12 +77,18 @@ let updatePatientData = async function(req, res) {
         let resourceResult = [];
         console.log("req body: ", req.body)
         const patientIds = req.body.map(e => e.fhirId).join(",")       
-        const deceasedResources = await fetchResource("Observation", {patient: patientIds, category: "deceased-reason"})
+        const deceasedResources = await fetchResource("Observation", {patient: patientIds, category: "deceased-reason", _count:1000})
+        const patientResources = await fetchResource("Patient", {_id: patientIds, _count: 1000})
         console.log("deceasedResources: ", deceasedResources)
         for (let patientData of req.body) {
+            let patientPrevData = patientResources.entry.find(e => e.resource.id == patientData.fhirId)
+            console.log("previous patient data: ", patientPrevData)
+            const identifierData = patientPrevData.resource.identifier.find(e => e.system === heartcareUrls.heartCareIdUrl)
+            console.log("previous patient data: identifier ", identifierData)
             let deceasedBundle = null
             patientData.userId = req.decoded.userId;
             patientData.orgId = req.decoded.orgId;
+            patientData.heartcareId = identifierData?.value || null
             const patientResource = buildFHIRResource(Patient, patientData)
             let patientBundle = await bundleStructure.setBundlePut(patientResource, patientResource.identifier, patientData.fhirId, "put", "identifier");
             // Add deceased response
@@ -179,20 +183,29 @@ const patchPatientData = async function(req, res) {
         const resourceType = "Patient";
         const reqInput = req.body;
         let resourceResult = [];
-      for (let inputData of reqInput) {
-        const resourceSavedResult = await fetchResource(resourceType, {_id: inputData.fhirId })
-        const resourceSavedData = resourceSavedResult.entry || [];
-        if (resourceSavedData.length != 1) {
-            const statusCode = 500
-            return handleError(res, "Patient Id " + inputData.fhirId + " does not exist.", statusCode, "Patient Id " + inputData.fhirId + " does not exist.")
-        }        
-        const patientPatchResource = patchFHIRResource(Patient, inputData, resourceSavedData[0].resource)
-        let resourceData = [...patientPatchResource];
-        let patchResource = await bundleStructure.setBundlePatch(resourceData,resourceType + "/"+inputData.fhirId);     
-        //  deleted a user reason   
-        resourceResult.push(patchResource);
+        for (let inputData of reqInput) {
+            const resourceSavedResult = await fetchResource(resourceType, {_id: inputData.fhirId })
+            const resourceSavedData = resourceSavedResult.entry || [];
+            if (resourceSavedData.length != 1) {
+                const statusCode = 500
+                return handleError(res, "Patient Id " + inputData.fhirId + " does not exist.", statusCode, "Patient Id " + inputData.fhirId + " does not exist.")
+            }    
+            
+            if("heartcareId" in inputData) {
+                const heartcareIndex = resourceSavedData[0].resource.identifier.findIndex(e => e.system === heartcareUrls.heartCareIdUrl)
+                inputData.heartcareId = {
+                    "operation": heartcareIndex == -1 ? inputData.heartcareId.operation: "replace",
+                    "path": heartcareIndex == -1 ? "/identifier/"+ resourceSavedData[0].resource.identifier.length: "/identifier/" + heartcareIndex,
+                    "value": inputData.heartcareId.value
+                }
+            }
+            const patientPatchResource = patchFHIRResource(Patient, inputData, resourceSavedData[0].resource)
+            let resourceData = [...patientPatchResource];
+            let patchResource = await bundleStructure.setBundlePatch(resourceData,resourceType + "/"+inputData.fhirId);     
+            //  deleted a user reason   
+            resourceResult.push(patchResource);
       
-      }
+        }
     const bundleData = await bundleStructure.getBundleJSON({resourceResult: resourceResult, errData: []})  
     console.info(bundleData)
     const response = await axios.post(config.baseUrl, bundleData.bundle); 
@@ -209,20 +222,6 @@ const patchPatientData = async function(req, res) {
             console.error("patchPatientData Error",error)
             return handleError(res, error)
     }
-}
-
-const immunizationPatch = async function (inputData) {
-    let resourceResult = [];
-    let immunizationRecommendationData = await fetchResource("ImmunizationRecommendation",
-        { patient: inputData.id })
-      immunizationRecommendationData = immunizationRecommendationData?.entry?.map((e) => e.resource) || [];
-      for (let fhirData of immunizationRecommendationData) {
-        let patchImmunizationRecommendation = new ImmunizationRecommendation({ birthDate: inputData?.birthDate.value }, fhirData).patchImmunizationRecommendation();
-        patchImmunizationRecommendation = await bundleStructure.setBundlePatch( patchImmunizationRecommendation,"ImmunizationRecommendation/" + fhirData.id);
-        resourceResult.push(patchImmunizationRecommendation);
-      }
-
-      return resourceResult;
 }
 
 
