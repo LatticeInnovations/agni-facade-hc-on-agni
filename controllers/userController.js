@@ -3,7 +3,6 @@ let PractitionerRole = require("../class/practitionerRole");
 let Organization = require("../class/Organization");
 let Practitioner = require("../class/practitioner");
 let Location = require("../class/location");
-let model = require('../models/index');
 const config = require("../config/nodeConfig");
 let jwt = require("jsonwebtoken");
 let secretKey = require('../config/nodeConfig').jwtSecretKey;
@@ -102,46 +101,7 @@ function getPractitionerRole(responseData) {
     }
 }
 
-const getTimestamp = async (req, res) => {
-    try{
-        let token = req.token;
-        let timestamp = await model.userTimeMap.findAll({ attributes: ['uuid', 'timestamp'], where : { orgId : token.orgId }});
-        res.json({ status: 1, message: "timestamp fetched", data : timestamp });
-    }
-    catch(e){
-        return res.status(500).json({
-            status: 0,
-            message: "Unable to process. Please try again.",
-            error: e
-        });
-    }
-} 
 
-const updateTimestamp = async (req, res) => {
-    try{
-        let token = req.token;
-        let data = req.body;
-        let response = resourceValid(data);
-        if (response.error) {
-            console.error(response.error.details)
-            let errData = { status: 0, response: { data: response.error.details }, message: "Invalid input" }
-            return res.status(422).json(errData);
-        }
-        data = data.map((d) => {
-            d.orgId = token.orgId;
-            return d;
-        });      
-        await model.userTimeMap.bulkCreate(data, { updateOnDuplicate: [ 'timestamp', 'orgId' ] });
-        res.json({ status: 1, message: "timestamp updated", data });
-    }
-    catch(e){
-        return res.status(500).json({
-            status: 0,
-            message: "Unable to process. Please try again.",
-            error: e
-        });
-    }
-}
 
 const deleteUserData = async (req, res) => {
     try{
