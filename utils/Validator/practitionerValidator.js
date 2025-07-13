@@ -16,6 +16,7 @@ const identifierSchema = Joi.alternatives().try(
 
 // Practitioner object schema
 const practitionerSchema = Joi.object({
+  fhirId: Joi.string().optional(),
   userId: Joi.string().required(),
   heartcareId: Joi.number().required(),
   firstName: Joi.string().required(),

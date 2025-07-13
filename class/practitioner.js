@@ -141,6 +141,10 @@ class Practitioner  extends Person{
         }
     }
 
+    getActive() {
+            this.practitionerObj.active = this.fhirResource.active;
+    }
+
     getFHIRResource() {
         return this.fhirResource;
     }
@@ -188,20 +192,20 @@ class Practitioner  extends Person{
 
 
 
-    setPatchData(fetchedResourceData) {
-        this.patchFirstName(fetchedResourceData);
-        this.patchMiddleName(fetchedResourceData);
-        this.patchLastName(fetchedResourceData);
-        this.patchIdentifier(fetchedResourceData);
+    setPatchData() {
+        // this.patchFirstName(fetchedResourceData);
+        // this.patchMiddleName(fetchedResourceData);
+        // this.patchLastName(fetchedResourceData);
+        // this.patchIdentifier(fetchedResourceData);
         this.patchActive();
-        this.patchGender();
-        if(this.personObj.mobileNumber || this.personObj.email)
-            this.patchTelecom(fetchedResourceData);
-        if(!fetchedResourceData.address) {
-            this.addWorkAddress();
-        }        
-        if (this.practitionerObj["address"] !== undefined && fetchedResourceData.address)
-            this.patchWorkAddress("work", fetchedResourceData);
+        // this.patchGender();
+        // if(this.personObj.mobileNumber || this.personObj.email)
+        //     this.patchTelecom(fetchedResourceData);
+        // if(!fetchedResourceData.address) {
+        //     this.addWorkAddress();
+        // }        
+        // if (this.practitionerObj["address"] !== undefined && fetchedResourceData.address)
+        //     this.patchWorkAddress("work", fetchedResourceData);
 
     }
 }
