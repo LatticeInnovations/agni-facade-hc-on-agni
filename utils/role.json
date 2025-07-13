@@ -1,5 +1,10 @@
 [
     {
+        "system" : "https://snomed.info/sct",
+        "code": "6868009",
+        "display": "Health facility admin"
+    },
+    {
         "system" : "https://terminology.hl7.org/CodeSystem/practitioner-rol",
         "code": "doctor",
         "display": "Doctor"
@@ -17,7 +22,7 @@
     {
         "system" : "https://terminology.hl7.org/CodeSystem/practitioner-rol",
         "code": "ict",
-        "display": "Front-office staff"
+        "display": "Receptionist"
     },
     {
         "system" : "https://snomed.info/sct",

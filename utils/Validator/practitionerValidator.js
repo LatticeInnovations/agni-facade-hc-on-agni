@@ -12,27 +12,21 @@ const identifierSchema = Joi.alternatives().try(
   Joi.valid(null)
 );
 
-// Address schema
-const addressSchema = Joi.object({
-  addressLine1: Joi.string().required(),
-  district: Joi.alternatives().try(Joi.string(), Joi.allow(null)).optional(),
-  city: Joi.string().required(),
-  state: Joi.string().required(),
-  postalCode: Joi.string().required(),
-  country: Joi.string().required()
-});
+
 
 // Practitioner object schema
 const practitionerSchema = Joi.object({
+  userId: Joi.string().required(),
+  heartcareId: Joi.number().required(),
   firstName: Joi.string().required(),
+  middleName: Joi.string().optional().allow(null, ""),
   lastName: Joi.string().required(),
   identifier: identifierSchema.optional(),
-  gender: Joi.string().valid("male", "female", "other").required(),
   active: Joi.boolean().required(),
-  birthDate: Joi.string().isoDate().required(),
-  address: addressSchema.required(),
   email: Joi.alternatives().try(Joi.string().email(), Joi.allow(null)).optional(),
-  mobileNumber: Joi.string().required()
+  role: Joi.string().required(),
+  mobileNumber: Joi.string().required(),
+  healthFacilityCode: Joi.string().allow(null, "").optional()
 });
 
 // Array of practitioners

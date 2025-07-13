@@ -7,6 +7,7 @@ const responseService = require("../services/responseService");
 const { fetchResource, buildFHIRResource, getTransformedResult } = require("../services/helperFunctions");
 const { practitionerSaveArraySchema } = require("../utils/Validator/practitionerValidator");
 const {validateRequest} = require("../utils/validateRequest");
+const PractitionerRole = require("../class/practitionerRole");
 
 
 //  Save Practitioner data
@@ -18,7 +19,7 @@ let savePractitionerData = async function (req, res) {
         let resourceResult = [];
         for (let practitionerData of req.body) {
             // Check if practitioner    
-            let queryParam ={"_total": "accurate"};
+            let queryParam ={email: practitionerData.email, phone: practitionerData.mobileNumber, "_total": "accurate"};
 
             if(practitionerData.mobileNumber) {
                 queryParam.phone = practitionerData.mobileNumber;
@@ -37,11 +38,21 @@ let savePractitionerData = async function (req, res) {
             practitionerResource.resourceType = resType;
             practitionerResource.id = uuidv4();
             let practitionerBundle = await bundleStructure.setBundlePost(practitionerResource, practitionerResource.telecom, practitionerResource.id, "POST", "telecom"); 
+
+            //  add PractitionerRole
+            // 1. Find healthcare Id for practitioner
+            const healthCareResource = await fetchResource("Organization", {type: "health-facility", identifier: practitionerData.healthFacilityCode})
+            console.log("healthCareResource; ", healthCareResource)
+            const practitionerRoleResource = buildFHIRResource(PractitionerRole, {userId: "urn:uuid:"+practitionerResource.id, role: practitionerData.role, orgId: healthCareResource?.entry?.[0]?.resource?.id|| null});
+            
+            const practitionerRoleBundle = await bundleStructure.setBundlePost(practitionerRoleResource, null, uuidv4(), "POST", "identifier"); 
+
             console.info("Practitioner bundle: ", practitionerBundle) 
-            resourceResult.push(practitionerBundle);  
+            resourceResult.push(practitionerBundle, practitionerRoleBundle);  
         
        }
         let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
+        // return res.status(201).json({ status: 1, message: "Practitioner data saved.", data: bundleData.bundle })
         let response = await axios.post(config.baseUrl, bundleData.bundle); 
         console.info("get bundle json response: ", response.status)  
         if (response.status == 200 || response.status == 201) {
@@ -81,10 +92,19 @@ let getPractitionerData = async function (req, res) {
         }
         else {            
             resStatus = bundleStructure.setResponse(resourceUrlData, responseData);
+            // get practitionerRole
+            const practitionerIds = responseData.entry.map(e=>e.resource.id).join(",");
             
+            const practitionerRoleData = await fetchResource("PractitionerRole", {practitioner: practitionerIds});
             for (let i = 0; i < responseData.entry.length; i++) {
                 let practitioner = getTransformedResult(Practitioner, responseData.entry[i].resource);
-                resourceResult.push(practitioner.getPersonResource())                
+                const roleResourceIndex = practitionerRoleData.entry.findIndex(e => e.resource.practitioner.reference.split("/")[1] == practitioner.fhirId)
+                // console.log("roleResource: ",practitionerRoleData.entry[roleResourceIndex], practitioner.fhirId)
+                const roleObj = getTransformedResult(PractitionerRole, practitionerRoleData?.entry?.[roleResourceIndex]?.resource || {})
+                console.log("roleObj: ", roleObj)
+                practitioner.role = roleObj?.role || null;
+                practitioner.healthFacilityId = roleObj?.orgId || null
+                resourceResult.push(practitioner)                
             }
         }
         
