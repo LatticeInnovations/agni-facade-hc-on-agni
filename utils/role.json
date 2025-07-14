@@ -2,36 +2,43 @@
     {
         "system" : "https://snomed.info/sct",
         "code": "6868009",
-        "display": "Health facility admin"
+        "display": "Health facility admin",
+        "userTypeId": 3
     },
     {
         "system" : "https://terminology.hl7.org/CodeSystem/practitioner-rol",
         "code": "doctor",
-        "display": "Doctor"
+        "display": "Doctor",
+        "userTypeId": 5
     },
     {
         "system" : "https://terminology.hl7.org/CodeSystem/practitioner-rol",
         "code": "nurse",
-        "display": "Nurse"
+        "display": "Nurse",
+        "userTypeId": 7
     },
     {
         "system" : "https://terminology.hl7.org/CodeSystem/practitioner-rol",
         "code": "pharmacist",
-        "display": "Pharmacist"
+        "display": "Pharmacist",
+        "userTypeId": 6
     },
     {
         "system" : "https://terminology.hl7.org/CodeSystem/practitioner-rol",
         "code": "ict",
-        "display": "Receptionist"
+        "display": "Receptionist",
+        "userTypeId": 4
     },
     {
         "system" : "https://snomed.info/sct",
-        "code": "307988006",
-        "display": "Lab technician"
+        "code": "224608005",
+        "display": "country admin",
+        "userTypeId": 2
     },
     {
         "system" : "https://snomed.info/sct",
-        "code": "397897005",
-        "display": "Paramedics"
+        "code": "6868009",
+        "display": "super admin",
+        "userTypeId": 1
     }
 ]
