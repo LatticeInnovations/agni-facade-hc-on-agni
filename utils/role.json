@@ -3,42 +3,42 @@
         "system" : "https://snomed.info/sct",
         "code": "6868009",
         "display": "Health facility admin",
-        "userTypeId": 3
+        "roleTypeId": 3
     },
     {
         "system" : "https://terminology.hl7.org/CodeSystem/practitioner-rol",
         "code": "doctor",
         "display": "Doctor",
-        "userTypeId": 5
+        "roleTypeId": 5
     },
     {
         "system" : "https://terminology.hl7.org/CodeSystem/practitioner-rol",
         "code": "nurse",
         "display": "Nurse",
-        "userTypeId": 7
+        "roleTypeId": 7
     },
     {
         "system" : "https://terminology.hl7.org/CodeSystem/practitioner-rol",
         "code": "pharmacist",
         "display": "Pharmacist",
-        "userTypeId": 6
+        "roleTypeId": 6
     },
     {
         "system" : "https://terminology.hl7.org/CodeSystem/practitioner-rol",
         "code": "ict",
         "display": "Receptionist",
-        "userTypeId": 4
+        "roleTypeId": 4
     },
     {
         "system" : "https://snomed.info/sct",
         "code": "224608005",
         "display": "country admin",
-        "userTypeId": 2
+        "roleTypeId": 2
     },
     {
         "system" : "https://snomed.info/sct",
         "code": "6868009",
         "display": "super admin",
-        "userTypeId": 1
+        "roleTypeId": 1
     }
 ]
