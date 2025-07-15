@@ -13,6 +13,10 @@ class PractitionerRole {
             this.fhirResource.organization.reference = "Organization/"+this.roleObj.orgId;
     }
 
+    getOrganizationReference() {
+        this.roleObj.orgId = this.fhirResource?.organization?.reference?.split("/")[1] || null
+    }
+
     getOrganizationRole() {
         let result = roleJson.find(a => a.code === this.fhirResource.code?.[0]?.coding?.[0]?.code || null);
             this.roleObj.role =  this.fhirResource?.code?.[0]?.coding?.[0]?.code || null;
@@ -22,32 +26,74 @@ class PractitionerRole {
         this.fhirResource.practitioner.reference = "Practitioner/"+this.roleObj.userId;
     }
 
-    setRole() {
-        console.log("check role here: ", this.roleObj.role)
-        let result = roleJson.find(a => a.code === this.roleObj.role);
+    setRoleId() {
+        console.log("check role here: ", this.roleObj.roleId)
+        let result = roleJson.find(a => a.roleTypeId === parseInt(this.roleObj.roleId));
         console.log("result: ", result)
-        this.fhirResource.code.push({
-            coding:  [
+        if(result)
+            this.fhirResource.code.push({
+                coding:  [
 
-                {
-                    "system" : result.system,
-                    "code": result.code,
-                }
-            ]
-        })
-        console.log(this.fhirResource)
+                    {
+                        "system" : result.system,
+                        "code": result.code,
+                    }
+                ],
+                "text": "userTypeId"
+            })
     }
 
+    setRoleGroupId() {
+        console.log("check role group here: ", this.roleObj)
+        let result = roleJson.find(a => a.roleTypeId === parseInt(this.roleObj.roleGroupId));
+        console.log("result: ", result)
+        if(result)
+            this.fhirResource.code.push({
+                coding:  [
+
+                    {
+                        "system" : result?.system,
+                        "code": result.code,
+                    }
+                ],
+                "text": "roleGroupTypeId"
+            })
+    }
+
+    getRole() {
+        console.log(this.fhirResource.code)
+        if(this.fhirResource.code) {
+            const roleIndex = this.fhirResource.code.findIndex(e => e.text === "userTypeId");
+        this.roleObj.role = this.fhirResource?.code?.[roleIndex]?.coding?.[0]?.code || null
+        }
+        else {
+            this.roleObj.roleGroup = null;
+        }
+        
+    }
+
+    getRoleGroup() {
+        if(this.fhirResource.code) {
+            const roleGroupIndex = this.fhirResource.code.findIndex(e => e.text === "roleGroupTypeId");
+            this.roleObj.roleGroup = this.fhirResource?.code?.[roleGroupIndex]?.coding?.[0]?.code || null
+        }
+        else {
+            this.roleObj.roleGroup = null;
+        }
+    }
 
     getJsonToFhirTranslator() {
         this.setBasicStructure();
         this.setOrganizationReference();
         this.setPractitionerReference();
-        this.setRole();
+        this.setRoleId();
+        this.setRoleGroupId();
     }
 
     getFHIRToTransformedResult() {
-        this.getOrganizationRole();
+        this.getOrganizationReference();
+        this.getRole();
+        this.getRoleGroup();
     }
 
     getFHIRResource() {

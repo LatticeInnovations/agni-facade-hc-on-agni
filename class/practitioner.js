@@ -153,6 +153,17 @@ class Practitioner  extends Person{
         return this.practitionerObj;
     }
 
+
+    setPhone() {
+        if (!checkEmptyData(this.practitionerObj.mobileNumber)) {
+            this.fhirResource.telecom.push({
+                system: "phone",
+                value: this.practitionerObj.countryCode? "(" + this.practitionerObj.countryCode + ")" + this.practitionerObj?.mobileNumber || null: this.practitionerObj?.mobileNumber,
+                rank: 1
+            });
+        }
+    }
+
     getJsonToFhirTranslator() {
         this.setBasicStructure();
         this.setIdentifierData();

@@ -16,7 +16,6 @@ const identifierSchema = Joi.alternatives().try(
 
 // Practitioner object schema
 const practitionerSchema = Joi.object({
-  fhirId: Joi.string().optional(),
   userId: Joi.string().required(),
   heartcareId: Joi.number().required(),
   firstName: Joi.string().required(),
@@ -25,9 +24,11 @@ const practitionerSchema = Joi.object({
   identifier: identifierSchema.optional(),
   active: Joi.boolean().required(),
   email: Joi.alternatives().try(Joi.string().email(), Joi.allow(null)).optional(),
-  role: Joi.string().required(),
+  roleId: Joi.string().required(),
+  roleGroupId: Joi.number().required(),
   mobileNumber: Joi.string().required(),
-  healthFacilityCode: Joi.string().allow(null, "").optional()
+  healthFacilityCode: Joi.string().allow(null, "").optional(),
+  countryCode: Joi.string().required()
 });
 
 // Array of practitioners
@@ -35,4 +36,27 @@ const practitionerSaveArraySchema = Joi.array().items(practitionerSchema)
 .min(1) // 👈 ensures array is not empty
 .required();
 
-module.exports = {practitionerSaveArraySchema}
+// Practitioner object schema
+const practitionerUpdateSchema = Joi.object({
+  fhirId: Joi.string().optional(),
+  userId: Joi.string().required(),
+  heartcareId: Joi.number().required(),
+  firstName: Joi.string().required(),
+  middleName: Joi.string().optional().allow(null, ""),
+  lastName: Joi.string().required(),
+  active: Joi.boolean().required(),
+  email: Joi.alternatives().try(Joi.string().email(), Joi.allow(null)).optional(),
+  roleId: Joi.string().required(),
+  roleGroupId: Joi.number().required(),
+  mobileNumber: Joi.string().required(),
+  healthFacilityId: Joi.string().allow(null, "").optional(),
+  countryCode: Joi.string().required()
+});
+
+// Array of practitioners
+const practitionerUpdateArraySchema = Joi.array().items(practitionerUpdateSchema)
+.min(1) // 👈 ensures array is not empty
+.required();
+
+
+module.exports = {practitionerSaveArraySchema, practitionerUpdateArraySchema}

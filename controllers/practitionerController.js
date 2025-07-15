@@ -5,7 +5,7 @@ const { v4: uuidv4 } = require('uuid');
 const bundleStructure = require("../services/bundleOperation")
 const responseService = require("../services/responseService");
 const { fetchResource, buildFHIRResource, getTransformedResult } = require("../services/helperFunctions");
-const { practitionerSaveArraySchema } = require("../utils/Validator/practitionerValidator");
+const { practitionerSaveArraySchema, practitionerUpdateArraySchema } = require("../utils/Validator/practitionerValidator");
 const {validateRequest} = require("../utils/validateRequest");
 const PractitionerRole = require("../class/practitionerRole");
 
@@ -43,7 +43,7 @@ let savePractitionerData = async function (req, res) {
             // 1. Find healthcare Id for practitioner
             const healthCareResource = await fetchResource("Organization", {type: "health-facility", identifier: practitionerData.healthFacilityCode})
             console.log("healthCareResource; ", healthCareResource)
-            const practitionerRoleResource = buildFHIRResource(PractitionerRole, {userId: "urn:uuid:"+practitionerResource.id, role: practitionerData.role, orgId: healthCareResource?.entry?.[0]?.resource?.id|| null});
+            const practitionerRoleResource = buildFHIRResource(PractitionerRole, {userId: "urn:uuid:"+practitionerResource.id, roleId: practitionerData.roleId, roleGroupId:practitionerData.roleGroupId, orgId: healthCareResource?.entry?.[0]?.resource?.id|| null});
             
             const practitionerRoleBundle = await bundleStructure.setBundlePost(practitionerRoleResource, null, uuidv4(), "POST", "identifier"); 
 
@@ -80,7 +80,7 @@ let savePractitionerData = async function (req, res) {
 let updatePractitionerData = async function (req, res) {
     try {
         const resType = "Practitioner"
-        const validatedBody = validateRequest(req.body, practitionerSaveArraySchema, res);
+        const validatedBody = validateRequest(req.body, practitionerUpdateArraySchema, res);
         if (!validatedBody) return;
         let resourceResult = [];
         const practitionerIds = req.body.map(e=>e.fhirId).join(",");
@@ -109,10 +109,10 @@ let updatePractitionerData = async function (req, res) {
 
             //  add PractitionerRole
             // 1. Find healthcare Id for practitioner
-            const healthCareResource = practitionerData.healthFacilityCode != null? await fetchResource("Organization", {type: "health-facility", identifier: practitionerData.healthFacilityCode}) : []
+            const healthCareResource = practitionerData.healthFacilityId != null? await fetchResource("Organization", {type: "health-facility", _id: practitionerData.healthFacilityId}) : []
             console.log("healthCareResource; ", healthCareResource)
             const roleResourceIndex = practitionerRoleData.entry.findIndex(e => e.resource.practitioner.reference.split("/")[1] == practitionerData.fhirId)
-            const practitionerRoleResource = buildFHIRResource(PractitionerRole, {userId: practitionerData.fhirId, role: practitionerData.role, orgId: healthCareResource?.entry?.[0]?.resource?.id|| null});
+            const practitionerRoleResource = buildFHIRResource(PractitionerRole, {userId: practitionerData.fhirId, roleId: practitionerData.roleId, roleGroupId:practitionerData.roleGroupId, orgId: healthCareResource?.entry?.[0]?.resource?.id|| null});
             
             const practitionerRoleBundle = await bundleStructure.setBundlePut(practitionerRoleResource, null, practitionerRoleData.entry[roleResourceIndex].resource.id, "PUT", "identifier"); 
 
@@ -174,6 +174,7 @@ let getPractitionerData = async function (req, res) {
                 const roleObj = getTransformedResult(PractitionerRole, practitionerRoleData?.entry?.[roleResourceIndex]?.resource || {})
                 console.log("roleObj: ", roleObj)
                 practitioner.role = roleObj?.role || null;
+                practitioner.roleGroup = roleObj?.roleGroup || null;
                 practitioner.healthFacilityId = roleObj?.orgId || null
                 resourceResult.push(practitioner)                
             }
