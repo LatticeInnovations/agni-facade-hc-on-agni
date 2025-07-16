@@ -3,7 +3,7 @@ const Joi = require("joi");
 
 // Define schema for a single object
 const patientSchema = Joi.object({
-  id: Joi.string().uuid().required(),
+  id: Joi.string().uuid().optional().allow(null, ""),
   firstName: Joi.string().required(),
   lastName: Joi.string().required(),
   middleName: Joi.string().allow(null, '').optional(),
