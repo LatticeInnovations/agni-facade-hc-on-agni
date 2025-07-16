@@ -27,6 +27,7 @@ router.use(function (req, res, next) {
                 // if everything is good, save to request for use in other routes
                 console.log("passed")
                 req.decoded = decoded;
+                req.decoded.orgId = req.decoded?.orgId || "1";
                 const typeIndex = roles.findIndex(e => e.userTypeId === decoded.user_type_id)
                 req.decoded.userId = req.headers["sync-user-fhir-id"] ? req.headers["sync-user-fhir-id"] : req.decoded?.fhir_id || null
                 req.token = {"userId": req.decoded.userId, "orgId": req.decoded?.orgId || "1", "type": roles?.[typeIndex]?.display || null || null, "userName": req.decoded.user_id, email: req.decoded.sub, "encodedToken": token || null };
