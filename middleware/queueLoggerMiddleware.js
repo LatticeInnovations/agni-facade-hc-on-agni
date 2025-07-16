@@ -23,8 +23,9 @@ function queueLoggerMiddleware(req, res, next) {
                     return originalJson.call(this, body);
                 }
                 for(let i = 0; i < req.body.length; i++) {
-                    const result = body?.data[i] || {}
-                    const status = body?.status
+                    const patientResultData = body?.data.find(e => e.id === req?.body[i].id || e.fhirId === req?.body[i].fhirId)
+                    console.log("check patient data here: ", patientResultData, req?.body[i].id, body.data)
+                    const status = patientResultData?.status
 
                     const queueData = {
                         data: req?.body[i],
@@ -36,7 +37,7 @@ function queueLoggerMiddleware(req, res, next) {
                         result: {
                             "status": status,
                             "message": body?.message,
-                            "data": result
+                            "data": patientResultData
                         }
                     }
                     await sendToQueue(queues[req.queueMeta.entity], queueData);
