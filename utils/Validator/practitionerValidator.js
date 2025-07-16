@@ -24,10 +24,10 @@ const practitionerSchema = Joi.object({
   identifier: identifierSchema.optional(),
   active: Joi.boolean().required(),
   email: Joi.alternatives().try(Joi.string().email(), Joi.allow(null)).optional(),
-  roleId: Joi.string().required(),
-  roleGroupId: Joi.number().required(),
-  mobileNumber: Joi.string().required(),
-  healthFacilityCode: Joi.string().allow(null, "").optional(),
+  roleId: Joi.number().optional().allow(null, "", 0),
+  roleGroupId: Joi.string().optional().allow(null, "", 0),
+  mobileNumber: Joi.string().optional().allow(null, ""),
+  healthFacilityCode: Joi.string().allow(null, "", 0).optional(),
   countryCode: Joi.string().required()
 });
 
