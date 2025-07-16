@@ -46,9 +46,9 @@ const practitionerUpdateSchema = Joi.object({
   lastName: Joi.string().required(),
   active: Joi.boolean().required(),
   email: Joi.alternatives().try(Joi.string().email(), Joi.allow(null)).optional(),
-  roleId: Joi.string().required(),
-  roleGroupId: Joi.number().required(),
-  mobileNumber: Joi.string().required(),
+  roleId: Joi.number().optional().allow(null, ""),
+  roleGroupId: Joi.number().optional().allow(null, "", 0),
+  mobileNumber: Joi.string().optional(),
   healthFacilityId: Joi.string().allow(null, "").optional(),
   countryCode: Joi.string().required()
 });

@@ -201,14 +201,17 @@ class Practitioner  extends Person{
         // this.getWorkAddress();
     }
 
+    patchActive(resourceData) {
+        if (!checkEmptyData(this.personObj.active))
+            this.fhirResource.push({ "op": this.personObj.active.operation, "path": "/active", "value": !resourceData.active })
+    }
 
-
-    setPatchData() {
+    setPatchData(resourceData) {
         // this.patchFirstName(fetchedResourceData);
         // this.patchMiddleName(fetchedResourceData);
         // this.patchLastName(fetchedResourceData);
         // this.patchIdentifier(fetchedResourceData);
-        this.patchActive();
+        this.patchActive(resourceData);
         // this.patchGender();
         // if(this.personObj.mobileNumber || this.personObj.email)
         //     this.patchTelecom(fetchedResourceData);

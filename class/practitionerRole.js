@@ -45,19 +45,22 @@ class PractitionerRole {
 
     setRoleGroupId() {
         console.log("check role group here: ", this.roleObj)
-        let result = roleJson.find(a => a.roleTypeId === parseInt(this.roleObj.roleGroupId));
-        console.log("result: ", result)
-        if(result)
-            this.fhirResource.code.push({
-                coding:  [
+        if(this.roleObj.roleGroupId) {
+            let result = roleJson.find(a => a.roleTypeId === parseInt(this.roleObj.roleGroupId));
+            console.log("result: ", result)
+            if(result)
+                this.fhirResource.code.push({
+                    coding:  [
+    
+                        {
+                            "system" : result?.system,
+                            "code": result.code,
+                        }
+                    ],
+                    "text": "roleGroupTypeId"
+                })
+        }
 
-                    {
-                        "system" : result?.system,
-                        "code": result.code,
-                    }
-                ],
-                "text": "roleGroupTypeId"
-            })
     }
 
     getRole() {
