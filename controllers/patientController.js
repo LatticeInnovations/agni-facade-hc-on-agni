@@ -84,8 +84,10 @@ let updatePatientData = async function(req, res) {
             let patientPrevData = patientResources.entry.find(e => e.resource.id == patientData.fhirId)
             console.log("previous patient data: ", patientPrevData)
             const identifierData = patientPrevData.resource.identifier.find(e => e.system === heartcareUrls.heartCareIdUrl)
+            const agni_uuid = patientData.resource.identifier.find(e => e.system === "https://www.thelattice.in/")
             console.log("previous patient data: identifier ", identifierData)
             let deceasedBundle = null
+            patientData.id = agni_uuid.value;
             patientData.userId = req.decoded.userId;
             patientData.orgId = req.decoded.orgId;
             patientData.heartcareId = identifierData?.value || null
