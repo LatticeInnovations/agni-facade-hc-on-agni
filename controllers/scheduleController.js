@@ -50,13 +50,13 @@ const mapScheduleData = async (FHIRData) => {
     try {
         const roleList = FHIRData.map(e => e.resource.actor[0].reference.split("/")[1]).join(",")
         console.log("roleList: ", roleList)
-        const orgPractRoleResources = await fetchResource("PractitionerRole", {"_id": roleList, _include: "PractitionerRole:organization"})
+        const orgPractitionerRoleResources = await fetchResource("PractitionerRole", {"_id": roleList, _include: "PractitionerRole:organization"})
 
         // Create lookup maps
         const roleMap = {};
         const orgMap = {};
 
-        for (const { resource } of orgPractRoleResources.entry || []) {
+        for (const { resource } of orgPractitionerRoleResources.entry || []) {
         if (resource.resourceType === "PractitionerRole") {
             roleMap[resource.id] = resource;
         } else if (resource.resourceType === "Organization") {
@@ -93,7 +93,7 @@ const mapScheduleData = async (FHIRData) => {
         };
         });
 
-return { scheduleResult, roleIds, scheduleIds };
+return { scheduleResult, scheduleIds };
     }
     catch(error) {
         console.error("mapScheduleData Error: ", error);
@@ -141,7 +141,7 @@ const getScheduleData = async function(req, res) {
             if( !responseData.entry) {
                 return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })
             }
-            const { scheduleResult, roleIds, scheduleIds } = await mapScheduleData(responseData.entry);
+            const { scheduleResult, scheduleIds } = await mapScheduleData(responseData.entry);
             // to get organization id from location of the schedule and join it with schedule data
             // const resourceSlotResult = await joinRoleData(scheduleResult, roleIds);
             // booked slots count
