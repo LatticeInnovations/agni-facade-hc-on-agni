@@ -84,13 +84,12 @@ const mapScheduleData = async (FHIRData) => {
             ...schedule,
             bookedSlots: 0,
             practitionerId,
-            organization: org && {
-            orgId: org.id,
-            orgName: org.name,
-            orgCode: org.identifier?.find(i =>
+            orgId: org?.id || null,
+            orgName: org?.name || null,
+            orgCode: org?.identifier?.find(i =>
                 i.system === "http://uat.adminheartcare.thelattice.org/fhir/location-code"
             )?.value || null
-            }
+            
         };
         });
 

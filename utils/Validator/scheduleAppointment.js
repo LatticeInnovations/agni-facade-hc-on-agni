@@ -30,7 +30,8 @@ let appointmentSchema = Joi.object({
     scheduleId: Joi.string().required(),
     orgId: Joi.string().optional(),
     appointmentType: Joi.string().valid('walkin', 'routine').required(),
-    generatedOn: Joi.date()
+    generatedOn: Joi.date(),
+    appUpdatedDate: Joi.date().required()
   });
 
   const appointmentSaveSchema = Joi.array().items(appointmentSchema).min(1).required()
