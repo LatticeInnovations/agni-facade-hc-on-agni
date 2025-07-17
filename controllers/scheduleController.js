@@ -12,16 +12,16 @@ let setScheduleData = async function (req, res) {
         const validatedBody = validateRequest(req.body, scheduleSaveSchema, res);
         if (!validatedBody) return;
         let resourceResult = [], errData = [];
+        const practitionerRoleResource = await fetchResource("PractitionerRole", { practitioner: req.decoded.userId, _elements: "_id", _total: "accurate" });
+        console.log("practitionerRoleResource: ", practitionerRoleResource.entry[0].resource.id)
+        const roleId = practitionerRoleResource.entry[0].resource.id
         for (let scheduleData of req.body) {
-            let locationResource = await fetchResource("Location", { organization: "Organization/" + scheduleData.orgId, _elements: "id", _total: "accurate" });
-            console.log("locationResource: ", locationResource)
-            let locationId = locationResource.entry[0].resource.id;
-            scheduleData.locationId = locationId;
+            scheduleData.roleId = roleId;
             const scheduleResource = buildFHIRResource(Schedule, scheduleData);
             let noneExistData = [
                     { "key": "date", "value": "ge" + scheduleData.planningHorizon.start },
                     { "key": "date", "value": "le" + scheduleData.planningHorizon.end },
-                    { "key": "actor", "value": 'Location/' + locationId }
+                    { "key": "actor", "value": 'PractitionerRole/' + roleId }
             ];
             let scheduleBundle = await bundleStructure.setBundlePost(scheduleResource, noneExistData, scheduleData.uuid, "POST", "object");
             resourceResult.push(scheduleBundle);
@@ -46,21 +46,55 @@ let setScheduleData = async function (req, res) {
 
 }
 
-const mapScheduleData = (FHIRData) => {
+const mapScheduleData = async (FHIRData) => {
     try {
-        const locationIds = new Set();
-        const scheduleIds = new Set(); 
-        const scheduleResult = [];
-        for (let scheduleData of FHIRData) {
-            const scheduleResponse = getTransformedResult(Schedule, scheduleData.resource);
-            scheduleIds.add(scheduleResponse.scheduleId);
-            let locationId = scheduleData.resource.actor[0].reference.split("/")[1];
-            locationIds.add(locationId);
-            scheduleResponse.locationId = locationId;
-            scheduleResponse.bookedSlots = 0;
-            scheduleResult.push(scheduleResponse);
+        const roleList = FHIRData.map(e => e.resource.actor[0].reference.split("/")[1]).join(",")
+        console.log("roleList: ", roleList)
+        const orgPractRoleResources = await fetchResource("PractitionerRole", {"_id": roleList, _include: "PractitionerRole:organization"})
+
+        // Create lookup maps
+        const roleMap = {};
+        const orgMap = {};
+
+        for (const { resource } of orgPractRoleResources.entry || []) {
+        if (resource.resourceType === "PractitionerRole") {
+            roleMap[resource.id] = resource;
+        } else if (resource.resourceType === "Organization") {
+            orgMap[resource.id] = resource;
         }
-        return  {scheduleResult, locationIds, scheduleIds}
+        }
+        // Process Schedules
+        const roleIds = new Set();
+        const scheduleIds = new Set();
+        const scheduleResult = FHIRData.map(({ resource }) => {
+        const schedule = getTransformedResult(Schedule, resource);
+        const roleId = schedule.roleId;
+        const role = roleMap[roleId];
+
+        const orgId = roleMap[roleId]?.organization?.reference?.split("/")[1];
+        const org = orgMap[orgId];
+        
+        const practitionerRef = role?.practitioner?.reference;
+        const practitionerId = practitionerRef?.split("/")[1] || null;
+
+        roleIds.add(roleId);
+        scheduleIds.add(schedule.scheduleId);
+
+        return {
+            ...schedule,
+            bookedSlots: 0,
+            practitionerId,
+            organization: org && {
+            orgId: org.id,
+            orgName: org.name,
+            orgCode: org.identifier?.find(i =>
+                i.system === "http://uat.adminheartcare.thelattice.org/fhir/location-code"
+            )?.value || null
+            }
+        };
+        });
+
+return { scheduleResult, roleIds, scheduleIds };
     }
     catch(error) {
         console.error("mapScheduleData Error: ", error);
@@ -70,27 +104,6 @@ const mapScheduleData = (FHIRData) => {
 
 }
 
-const joinLocationData = async (scheduleResult, locationIds) => {
-    try {
-            const orgResource = await fetchResource("Location", { 
-                _elements: "managingOrganization", 
-                _id: [...locationIds].join(","), _count: locationIds.size });
-
-            const locationOrg = orgResource.entry.map(e => ({
-                locationId: e.resource.id,
-                orgId: e.resource.managingOrganization.reference.split("/")[1]
-            }))
-        
-            return scheduleResult.map(obj1 => {
-                const obj2 = locationOrg.find(obj2 => obj2.locationId === obj1.locationId);
-                return { ...obj1, ...obj2 };
-            });
-    }
-    catch(error) {
-        console.error("joinLocationData Error: ", error);
-        throw error;
-    }
-}
 
 const countBookedSlots = async (scheduleIds) => {
     const slotList = await fetchResource("Slot", {
@@ -113,9 +126,10 @@ const countBookedSlots = async (scheduleIds) => {
 
 const getScheduleData = async function(req, res) {
     try {
+      
             let queryParams = {
                 _total : "accurate",
-                "actor.organization": req.query.orgId,
+                // "actor": "PractitionerRole/" + roleId,
                 _count: req.query._count,
                 _offset: req.query._offset,
                 _sort: req.query._sort
@@ -128,13 +142,13 @@ const getScheduleData = async function(req, res) {
             if( !responseData.entry) {
                 return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })
             }
-            const { scheduleResult, locationIds, scheduleIds } = mapScheduleData(responseData.entry);
+            const { scheduleResult, roleIds, scheduleIds } = await mapScheduleData(responseData.entry);
             // to get organization id from location of the schedule and join it with schedule data
-            const resourceSlotResult = await joinLocationData(scheduleResult, locationIds);
+            // const resourceSlotResult = await joinRoleData(scheduleResult, roleIds);
             // booked slots count
             const bookedSlots = await countBookedSlots(scheduleIds);
 
-            const resourceResult = resourceSlotResult.map(obj1 => {
+            const resourceResult = scheduleResult.map(obj1 => {
                 const obj2 = bookedSlots.find(obj2 => obj2.scheduleId === obj1.scheduleId);
                 return { ...obj1, ...obj2 };
             });

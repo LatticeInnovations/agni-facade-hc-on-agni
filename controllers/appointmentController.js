@@ -19,7 +19,7 @@ let setAppointmentData = async function (req, res) {
         const validatedBody = validateRequest(req.body, appointmentSaveSchema, res);
         if (!validatedBody) return;
         let resourceResult = [];
-        resourceResult = await createAppointmentResources(req.body)
+        resourceResult = await createAppointmentResources(req.body, req.decoded.userId)
         console.info("=============>", resourceResult, "<=========================");
         let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
         console.info("main bundle transaction resource: ", bundleData)
@@ -41,21 +41,20 @@ let setAppointmentData = async function (req, res) {
 
 }
 
-const fetchLocationResource = async (orgId) => {
-    // get location id of the organization sent by app and map it to the appointments
-    const locationResource = await fetchResource("Location", { organization: "Organization/" + orgId, _elements: "id", _total: "accurate" });
-    if (!locationResource.entry)
-        throw new Error("Location not found for the given organization.");
-    return locationResource.entry[0].resource.id;
+const fetchPractitionerRoleResource = async (userId) => {
+    // get PractitionerRole id of the organization sent by app and map it to the appointments
+    const roleResource = await fetchResource("PractitionerRole", { practitioner: "Practitioner/" + userId, _elements: "id", _total: "accurate" });
+    if (!roleResource.entry)
+        throw new Error("PractitionerRole not found for the given organization.");
+    return roleResource.entry[0].resource.id;
 }
 
-const createAppointmentResources= async function(reqData) {
+const createAppointmentResources= async function(reqData, userId) {
     try
     {
+        const roleId = await fetchPractitionerRoleResource(userId)
         const resourcePromises = reqData.map(async (apptData) => {
-            const locationId = await fetchLocationResource(apptData.orgId)
-            apptData.locationId = locationId;
-
+            apptData.roleId = roleId;
             // Create Slot resource
             const slotData = { ...apptData.slot, scheduleId: apptData.scheduleId, uuid: uuidv4() };                       
             const slotResource = buildFHIRResource(Slot, slotData, "Slot")
@@ -67,7 +66,7 @@ const createAppointmentResources= async function(reqData) {
             const apptResource = buildFHIRResource(Appointment, apptData)
             const noneExistDataAppt = [
                 { "key": "identifier", "value": `${apptResource.identifier[0].system}|${apptResource.identifier[0].value}`},
-                { "key": "location", "value": `Location/${locationId}` },
+                { "key": "practitionerRole", "value": `PractitionerRole/${roleId}` },
                 { "key": "patient", "value": `Patient/${apptData.patientId}` }
             ]
             let apptBundle = await bundleStructure.setBundlePost(apptResource, noneExistDataAppt, apptData.uuid, "POST", "object"); 
@@ -92,7 +91,7 @@ const createAppointmentResources= async function(reqData) {
 }
 
 const mapAppointments = (FHIRData) => {
-    const locationIds = new Set();
+    const roleIds = new Set();
     const apptIds = new Set();
     const slotIds = new Set();
     const apptResult = [];
@@ -102,7 +101,7 @@ const mapAppointments = (FHIRData) => {
         console.info(apptResponse)
         
         apptIds.add(apptResponse.appointmentId);
-        locationIds.add(apptResponse.locationId);
+        roleIds.add(apptResponse.roleId);
 
         let slotId = apptData.resource.slot ? apptData.resource.slot[0].reference.split("/")[1] : null;
         slotIds.add(slotId);
@@ -111,7 +110,7 @@ const mapAppointments = (FHIRData) => {
         apptResult.push(apptResponse);
     }
 
-    return {apptResult, locationIds, apptIds, slotIds}
+    return {apptResult, roleIds, apptIds, slotIds}
 }
 
 const combineAppointmentData = (apptResult, slotAppt, apptEncounter, apptStatus) =>{
@@ -133,17 +132,17 @@ const combineAppointmentData = (apptResult, slotAppt, apptEncounter, apptStatus)
 
 }
 
-const getLocationOrgObject = async (locationIds) => {
+const getRoleOrgObject = async (roleIds) => {
 
-    const locationOrg = (await fetchResource("Location", {
-        _elements: "managingOrganization", _id: [...locationIds].join(","), 
-        _count: locationIds.size 
+    const roleOrg = (await fetchResource("PractitionerRole", {
+        _elements: "managingOrganization", _id: [...roleIds].join(","), 
+        _count: roleIds.size 
     })).entry.map(e => ({
-        locationId: e.resource.id,
+        roleId: e.resource.id,
         orgId:  e.resource.managingOrganization.reference.split("/")[1]
 
     }))
-    return locationOrg
+    return roleOrg
 }
 
 const getSlotObject = async (slotIds) => {
@@ -169,24 +168,25 @@ const getAppointmentEncounterObject = async (apptIds) => {
 
 const getAppointment = async function(req, res) {
     try {
+            const roleId = await fetchPractitionerRoleResource(req.decoded.userId)
             let queryParams = {
                 _total : "accurate",
                 _count: req.query._count,
                 _offset: req.query._offset,
                 _sort: req.query._sort,
-                "location.organization": req.query.orgId
+                "actor": roleId
             }
 
             const FHIRData = await fetchResource("Appointment", queryParams)
             if (!FHIRData.entry) {
                 return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: [] });
             }
-            let { apptResult, locationIds, apptIds, slotIds } = mapAppointments(FHIRData.entry);
+            let { apptResult, roleIds, apptIds, slotIds } = mapAppointments(FHIRData.entry);
 
-            const locationOrg = await getLocationOrgObject(locationIds);
-            //  get organization id from location of appointment
+            const roleOrg = await getRoleOrgObject(roleIds);
+            //  get organization id from role of appointment
             apptResult = apptResult.map(obj1 => {
-                let obj2 = locationOrg.find(obj2 => obj2.locationId === obj1.locationId);
+                let obj2 = roleOrg.find(obj2 => obj2.roleId === obj1.roleId);
               
                 return { ...obj1, ...obj2 };
             });

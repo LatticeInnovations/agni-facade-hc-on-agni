@@ -438,9 +438,12 @@ class Person {
     }
 
     setManagingOrg(){
-        this.fhirResource.managingOrganization = {
-            reference : "Organization/"+this.personObj.orgId
+        if(this.personObj.orgId) {
+            this.fhirResource.managingOrganization = {
+                reference : "Organization/"+this.personObj.orgId
+            }
         }
+
     }
 
     setGeneralPractitioner(){
