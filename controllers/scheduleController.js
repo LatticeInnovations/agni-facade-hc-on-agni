@@ -84,9 +84,9 @@ const mapScheduleData = async (FHIRData) => {
             ...schedule,
             bookedSlots: 0,
             practitionerId,
-            orgId: org?.id || null,
-            orgName: org?.name || null,
-            orgCode: org?.identifier?.find(i =>
+            hospitalFhirId: org?.id || null,
+            hospitalName: org?.name || null,
+            hospitalCode: org?.identifier?.find(i =>
                 i.system === "http://uat.adminheartcare.thelattice.org/fhir/location-code"
             )?.value || null
             

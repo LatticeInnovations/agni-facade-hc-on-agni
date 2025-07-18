@@ -18,6 +18,13 @@ let setAppointmentData = async function (req, res) {
     try {       
         const validatedBody = validateRequest(req.body, appointmentSaveSchema, res);
         if (!validatedBody) return;
+        req.queueMeta = {
+            data: req.data,
+            entity: "appointments",
+            requestType: "post",
+            apiName: "save-appointment",
+            tokenData: req.decoded
+          };
         let resourceResult = [];
         resourceResult = await createAppointmentResources(req.body, req.decoded.userId)
         console.info("=============>", resourceResult, "<=========================");
@@ -157,16 +164,16 @@ const getRoleOrgObject = async (roleIds) => {
       }
       
       const roleOrg = Object.entries(roleOrgMap).map(([roleId, role]) => {
-        const orgId = role.organization?.reference?.split("/")[1] || null;
+        const hospitalFhirId = role.organization?.reference?.split("/")[1] || null;
         const practitionerId = role.practitioner?.reference?.split("/")[1] || null;
-        const org = orgMap[orgId] || {};
+        const org = orgMap[hospitalFhirId] || {};
       
         return {
           roleId,
           practitionerId,
-          orgId,
-          orgName: org?.name || null,
-          orgCode: org?.code || null
+          hospitalFhirId,
+          hospitalName: org?.name || null,
+          hospitalCode: org?.code || null
         };
       });
       return roleOrg;
@@ -276,6 +283,13 @@ const patchAppointmentData = async function(req, res) {
       const reqInput = req.body;             
       const validatedBody = validateRequest(req.body, appointmentPatchSchema, res);
       if (!validatedBody) return;
+      req.queueMeta = {
+        data: req.data,
+        entity: "appointments",
+        requestType: "put",
+        apiName: "update-appointment",
+        tokenData: req.decoded
+      };
       let resourceResult = [], errData = [];        
       for (let inputData of reqInput) {
         let resourceSavedData = await fetchResource(resourceType, { "_id": inputData.appointmentId })
