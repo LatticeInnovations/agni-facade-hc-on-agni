@@ -10,7 +10,7 @@ const {validateRequest} = require("../utils/validateRequest")
 let apptStatus = require("../utils/appointmentStatus.json");
 const {buildFHIRResource, fetchResource, handleError, getTransformedResult} = require("../services/helperFunctions");
 let config = require("../config/nodeConfig");
-
+const urlList = require("../utils/heartcareSystemUrl");
 
 
 
@@ -158,7 +158,12 @@ const getRoleOrgObject = async (roleIds) => {
         } else if (resource.resourceType === "Organization") {
           orgMap[resource.id] = {
             name: resource.name || null,
-            code: resource.identifier?.[0]?.value || null
+            hospitalId: resource?.identifier?.find(i =>
+                            i.system === urlList.adminDivisionUrl
+                        )?.value || null,
+            code: resource?.identifier?.find(i =>
+                            i.system === urlList.adminDivisionCodeUrl
+                        )?.value || null
           };
         }
       }
@@ -172,6 +177,7 @@ const getRoleOrgObject = async (roleIds) => {
           roleId,
           practitionerId,
           hospitalFhirId,
+          hospitalId: org.hospitalId,
           hospitalName: org?.name || null,
           hospitalCode: org?.code || null
         };

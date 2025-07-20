@@ -1,5 +1,6 @@
 let axios = require("axios");
 let Schedule = require("../class/Schedule");
+const urlList = require("../utils/heartcareSystemUrl");
 const bundleStructure = require("../services/bundleOperation");
 const responseService = require("../services/responseService");
 let config = require("../config/nodeConfig");
@@ -11,6 +12,14 @@ let setScheduleData = async function (req, res) {
     try {
         const validatedBody = validateRequest(req.body, scheduleSaveSchema, res);
         if (!validatedBody) return;
+        req.queueMeta = {
+            data: req.data,
+            entity: "appointments",
+            sub_entity: "schedule",
+            requestType: "post",
+            apiName: "save-schedule",
+            tokenData: req.decoded
+          };
         let resourceResult = [], errData = [];
         const practitionerRoleResource = await fetchResource("PractitionerRole", { practitioner: req.decoded.userId, _elements: "_id", _total: "accurate" });
         console.log("practitionerRoleResource: ", practitionerRoleResource.entry[0].resource.id)
@@ -84,10 +93,13 @@ const mapScheduleData = async (FHIRData) => {
             ...schedule,
             bookedSlots: 0,
             practitionerId,
+            hospitalId: org?.identifier?.find(i =>
+                i.system === urlList.adminDivisionUrl
+            )?.value || null,
             hospitalFhirId: org?.id || null,
             hospitalName: org?.name || null,
             hospitalCode: org?.identifier?.find(i =>
-                i.system === "http://uat.adminheartcare.thelattice.org/fhir/location-code"
+                i.system === urlList.adminDivisionCodeUrl
             )?.value || null
             
         };

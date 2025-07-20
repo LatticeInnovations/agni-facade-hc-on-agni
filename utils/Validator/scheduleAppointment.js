@@ -41,6 +41,7 @@ let appointmentSchema = Joi.object({
   let apptPatchSchema = Joi.object({
     "patientId": Joi.string().required(),
     "appointmentId": Joi.string().required(),
+    "appUpdatedDate": Joi.string().optional(),
     "generatedOn": Joi.date().optional(),
     status: Joi.object({
       "operation": Joi.string().valid('replace').required(),

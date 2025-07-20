@@ -15,7 +15,7 @@ const entityFhirIdMap = {
 // Function to find the matching response object from body.data
 function findMatchingResponse(responseData, item) {
   return responseData.find(e =>
-    (e.id && e.id === item.id) ||
+    (e.id && e.id === item.id) ||(item.uuid && e.id && e.id === item.uuid) ||
     (e.fhirId && e.fhirId === item.fhirId)
   );
 }
@@ -28,7 +28,7 @@ const conditionHandlers = {
       return { skip: true };
     }
 
-    if (item.status === "cancelled") {
+    if (item.status && item.status.value === "cancelled") {
       return {
         skip: false,
         override: {

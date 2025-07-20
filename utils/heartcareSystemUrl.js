@@ -6,5 +6,6 @@ module.exports = {
     locationReferenceUrl: "http://example.org/fhir/StructureDefinition/location-reference",
     heartCareIdUrl: "http://uat.heartcare.thelattice.org/dashboard/patient-info",
     heartcareUserIdUrl: "http://uat.heartcare.thelattice.org/dashboard/profile/view",
-    heartcareUserPkUrl : "http://uat.adminheartcare.thelattice.org/dashboard/users/view"
+    heartcareUserPkUrl : "http://uat.adminheartcare.thelattice.org/dashboard/users/view",
+    heartcareAdminUrl: "http://uat.adminheartcare.thelattice.org/dashboard/administrative"
 }
