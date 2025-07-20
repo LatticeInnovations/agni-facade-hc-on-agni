@@ -42,7 +42,7 @@ let saveLevelData = async function (req, res) {
             }
             
             console.log("LevelId: ", levelResource);     
-            let levelBundle = await bundleStructure.setBundlePost(levelResource, levelResource.identifier, levelData.uuid, "POST", "identifier");
+            let levelBundle = await bundleStructure.setBundlePost(levelResource, null, levelData.uuid, "POST", "identifier");
             console.info("Level bundle: ", levelBundle)                           
             resourceResult.push(levelBundle);   
         }
@@ -89,7 +89,7 @@ let updateLevelData = async function (req, res) {
                 const locationData = islandData.entry[0].resource.extension.find(e => e.url == urlList.locationReferenceUrl)
                 console.log("locationData: ", locationData)
                 levelData.orgId = levelData.precedingLevelId;
-                levelData.precedingLevelId = locationData?.valueReference?.reference?.split("/")[1] || null
+                levelData.precedingLevelId = locationData?.valueReference?.reference?.split("/")[1] || null;
             }
             console.log(levelData)
             if(levelData.levelType != "health-facility") {
@@ -97,12 +97,11 @@ let updateLevelData = async function (req, res) {
                 levelResource = buildFHIRResource(Location, levelData);
             }
             else {
-                levelResource = buildFHIRResource(Organization, levelData)
-                
+                levelResource = buildFHIRResource(Organization, levelData);                
             }
             levelResource.id = levelData.fhirId
             console.log("LevelId: ", levelResource);     
-            let levelBundle = await bundleStructure.setBundlePost(levelResource, null, levelData.fhirId, "PUT", "identifier");
+            let levelBundle = await bundleStructure.setBundlePut(levelResource, null, levelData.fhirId, "PUT", "identifier");
             console.info("Level bundle: ", levelBundle)                           
             resourceResult.push(levelBundle);   
         }

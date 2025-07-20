@@ -5,8 +5,8 @@ const locationSchema = Joi.object({
     .guid({ version: 'uuidv4' })
     .required(),
   
-  fhirID: Joi.number().optional(),
-
+  fhirId: Joi.number().optional(),
+  heartcareId: Joi.number().required(),
   code: Joi.string()
     .required(),
 

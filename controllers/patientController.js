@@ -27,7 +27,7 @@ let savePatientData = async function (req, res) {
         let resourceResult = [];
         console.log("req body: ", req.body)
         for (let patientData of req.body) {
-            patientData.orgId = token.orgId;
+            // patientData.orgId = token.orgId;
             patientData.userId = token.userId;
             let patientResource = buildFHIRResource(Patient, patientData)
             const personId = uuidv4();
@@ -90,7 +90,7 @@ let updatePatientData = async function(req, res) {
             console.log("check req. decoded: ", req.decoded)
             patientData.id = agni_uuid.value;
             patientData.userId = req.decoded.userId;
-            patientData.orgId = req.decoded.orgId;
+            // patientData.orgId = req.decoded.orgId;
             patientData.heartcareId = identifierData?.value || null
             const patientResource = buildFHIRResource(Patient, patientData)
             let patientBundle = await bundleStructure.setBundlePut(patientResource, patientResource.identifier, patientData.fhirId, "put", "identifier");
@@ -145,8 +145,7 @@ let getPatientData = async function (req, res) {
         const link = config.baseUrl + "Patient"
         const queryParams = req.query;
         let resStatus = 1;
-        queryParams._total = "accurate"
-        queryParams['organization'] = "Organization/"+req.token.orgId;
+        queryParams._total = "accurate";
         let resourceResult = []
         const responseResult = await fetchResource("Patient", queryParams);
         const responseData = responseResult.entry || []

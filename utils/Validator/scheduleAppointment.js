@@ -10,7 +10,7 @@ const scheduleValidation = Joi.object({
       start: Joi.date().required(),
       end: Joi.date().greater(Joi.ref("start")).required()
     }).required(),
-    orgId: Joi.string().required()
+    orgId: Joi.string().optional()
   })
 
 let scheduleSaveSchema = Joi.array().items(scheduleValidation).min(1).required()
@@ -28,9 +28,10 @@ let appointmentSchema = Joi.object({
     status: Joi.string().valid('arrived', 'walkin', 'scheduled', 'noshow', 'cancelled', 'in-progress', 'completed').required(),
     patientId: Joi.string().required(),
     scheduleId: Joi.string().required(),
-    orgId: Joi.string().required(),
+    orgId: Joi.string().optional(),
     appointmentType: Joi.string().valid('walkin', 'routine').required(),
-    generatedOn: Joi.date()
+    generatedOn: Joi.date(),
+    appUpdatedDate: Joi.date().optional()
   });
 
   const appointmentSaveSchema = Joi.array().items(appointmentSchema).min(1).required()
@@ -38,7 +39,9 @@ let appointmentSchema = Joi.object({
 
 
   let apptPatchSchema = Joi.object({
+    "patientId": Joi.string().required(),
     "appointmentId": Joi.string().required(),
+    "appUpdatedDate": Joi.string().optional(),
     "generatedOn": Joi.date().optional(),
     status: Joi.object({
       "operation": Joi.string().valid('replace').required(),

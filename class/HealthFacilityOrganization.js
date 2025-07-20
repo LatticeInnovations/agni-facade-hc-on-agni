@@ -20,6 +20,10 @@ class FacilityOrganization extends Organization {
         system: urlList.adminDivisionCodeUrl,
         value: this.orgObj.code,
       },
+      {
+        system: urlList.heartcareAdminUrl,
+        value: this.orgObj.heartcareId,
+      }
     ];
   }
 
@@ -73,6 +77,7 @@ class FacilityOrganization extends Organization {
 
    getIdentifier() {
           this.locationObj.code = this.fhirResource.identifier?.[0]?.value
+          this.locationObj.heartcareId = this.fhirResource.identifier?.[1]?.value
       }
   
       getOrgName() {

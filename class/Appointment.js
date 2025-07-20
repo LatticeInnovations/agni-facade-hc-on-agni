@@ -64,14 +64,14 @@ class Appointment {
         actor : { "reference": "Patient/" + this.apptObj.patientId }
     });
     this.fhirResource.participant.push({
-        actor : { "reference": "Location/" + this.apptObj.locationId } 
+        actor : { "reference": "PractitionerRole/" + this.apptObj.roleId } 
     })
     console.info("", this.fhirResource.participant)
    }
 
    getParticipant() {
     this.apptObj.patientId = this.fhirResource.participant[0].actor.reference.split("/")[1];
-    this.apptObj.locationId = this.fhirResource.participant[1].actor.reference.split("/")[1];
+    this.apptObj.roleId = this.fhirResource.participant[1].actor.reference.split("/")[1];
    }
 
     getSlot() {

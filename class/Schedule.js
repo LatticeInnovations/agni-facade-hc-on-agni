@@ -36,12 +36,12 @@ class Schedule {
 
     setActor() {
         this.fhirResource.actor.push({
-            "reference": "Location/" + this.scheduleObj.locationId
+            "reference": "PractitionerRole/" + this.scheduleObj.roleId
         })
     }
 
     getActor() {
-        this.scheduleObj.orgId = this.fhirResource.orgId;
+        this.scheduleObj.roleId = this.fhirResource.actor[0].reference.split("/")[1];
     }
 
     setPlanningHorizon() {
