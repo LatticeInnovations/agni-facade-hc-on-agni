@@ -18,7 +18,7 @@ let savePatientData = async function (req, res) {
         if (!validatedBody) return;
         let token = req.token;
         req.queueMeta = {
-            data: req.data,
+            data: req.body,
             entity: "patients",
             requestType: "post",
             apiName: "save-patient",

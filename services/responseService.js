@@ -43,6 +43,7 @@ const getFhirId = (element, reqMethod) => {
 };
 
 const getResponseData = (element, reqMethod) => {
+  console.log("check element **************", element)
   let data = {};
   let fullUrl = element.fullUrl.substring(
     element.fullUrl.indexOf("/") + 1,
