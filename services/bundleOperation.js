@@ -190,6 +190,7 @@ let mapBundleService = function(reqBundleData, responseBundleData) {
 
     return  responseBundleData.map((data, i) => {
         const responseData =  Object.assign({}, data, reqBundleData[i])
+        console.log("response data:==================>", responseData)
         responseData.fullUrl = "urn:uuid:" + responseData.resource?.identifier?.[0]?.value || null;
         return responseData;
     });

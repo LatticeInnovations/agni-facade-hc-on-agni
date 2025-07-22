@@ -22,29 +22,34 @@ const CVD_ENCOUNTER_CODE = "cvd-encounter";
 const cvdTypes = ["height", "weight",  "bp", "cholesterol", "bmi", "diabetic", "smoker", "heartAttackHistory"];
 
 const fetchMainEncounter = async (cvd) => {
-   return  await fetchResource("Encounter", {
+   const mainEncounter =   await fetchResource("Encounter", {
         appointment: cvd.appointmentId,
         _count: 5000,
         _include: "Encounter:appointment",
     });
+
+    console.log(mainEncounter)
+
+    return mainEncounter
 }
 
 const fetchCVDEncounter = async (baseEncounterId) => {
-   return  await fetchResource("Encounter", {  "part-of": baseEncounterId, type: "cvd-encounter", _total: "accurate"});
+   const result =  await fetchResource("Encounter", {  "part-of": baseEncounterId, type: "cvd-encounter", _total: "accurate"});
+   return result;
 }
 
 const saveCVDData = async (req, res) => {
     try {
         const validatedBody = validateRequest(req.body, cvdSaveSchema, res);
         if (!validatedBody) return;
-        req.queueMeta = {
-            data: req.body,
-            entity: "cvd",
-            requestType: "post",
-            apiName: "save-cvd",
-            tokenData: req.decoded
-          };
-
+        // req.queueMeta = {
+        //     data: req.body,
+        //     entity: "cvd",
+        //     requestType: "post",
+        //     apiName: "save-cvd",
+        //     tokenData: req.decoded
+        //   };
+        console.log("inside cvd")
         let requestType = "post"
         const allResourceResults = [], errData = [];
         await Promise.all(
@@ -55,15 +60,20 @@ const saveCVDData = async (req, res) => {
                 const encounterData = await fetchMainEncounter(cvd)
                 const baseEncounterId = encounterData?.entry?.[0]?.resource?.id;
                 if (!baseEncounterId) return;
-
-                const cvdEncounter =await  fetchCVDEncounter(baseEncounterId)
+                console.log("encounter data check: ============>", encounterData)
+                
+                const cvdEncounter = await fetchCVDEncounter(baseEncounterId)
+                console.log("cvdEncounter check: ", cvdEncounter)
                 if (cvdEncounter.total > 0) {
+                    console.log("put case")
                     // Update case (PUT)
                     await handleExistingCVDEncounter({cvd, cvdEncounter, baseEncounterId, practitionerId, resourceResult});
                 } else {
                     // Create case (POST)
-                    const duplicateEncounterId = await checkDuplicateScreening(cvd);
+                    console.log("post case")
+                    const duplicateEncounterId = await checkDuplicateScreening(cvd, baseEncounterId);
                     if (duplicateEncounterId) {
+                        console.log("duplicate screening case case")
                         errData.push({
                             status: 0,
                             "id": cvd.uuid,
@@ -75,6 +85,7 @@ const saveCVDData = async (req, res) => {
                     requestType = "put"
                     await handleNewCVDEncounter({cvd, baseEncounterId, practitionerId, resourceResult, });
                 }
+                console.log("resourceResult: ", resourceResult)
 
                 allResourceResults.push(...resourceResult);
             })
@@ -84,11 +95,13 @@ const saveCVDData = async (req, res) => {
             resourceResult: allResourceResults, errData,
         });
 
-        // return res.status(201).json({   status: 1,   message: "CVD data saved.",  data: bundleData });
+        // return res.status(201).json({   status: 1,   message: "CVD data saved.",  data: allResourceResults });
 
         const response = await axios.post(config.baseUrl, bundleData.bundle);
+        console.log("response: ", response.data, requestType)
         if ([200, 201].includes(response.status)) {
-            const resourceResponse =  setCVDResponse(bundleData.bundle.entry, response.data.entry, requestType);
+            
+            const resourceResponse =  setCVDResponse(bundleData.bundle.entry, response.data.entry, "post");
             const responseData = [...resourceResponse, ...errData];   
             return res.status(201).json({
                 status: 1,
@@ -346,7 +359,7 @@ async function handleNewCVDEncounter({ cvd, baseEncounterId, practitionerId, res
 }
 
 
-const checkDuplicateScreening = async (cvd) => {
+const checkDuplicateScreening = async (cvd, baseEncounterId) => {
     const resources = await fetchResource("Encounter", {
         patient: cvd.patientId,
         type: "cvd-encounter",
@@ -358,7 +371,7 @@ const checkDuplicateScreening = async (cvd) => {
         const matchingEntry = resources.entry.find(e =>
             e.resource.extension?.some(ext =>
                 new Date(ext.valueDateTime).toISOString().split("T")[0] === cvd.screeningDate
-            )
+            ) && e.resource.partOf.reference.split("/")[1] != baseEncounterId
         );
 
         if (matchingEntry) {
@@ -375,7 +388,9 @@ const checkDuplicateScreening = async (cvd) => {
 const setCVDResponse  = (reqBundleData, responseBundleData, type) => {
     let filteredData = [];
     let response = [];
+    console.log("reqBundleData: ", reqBundleData, "and: responseBundleData",  responseBundleData)
     const responseData = bundleStructure.mapAssessmentBundleService(reqBundleData, responseBundleData)
+    console.log("responseData: ", responseData)
     if(["post", "POST", "put", "PUT"].includes(type)){
         filteredData = responseData.filter(e => e.resource.resourceType == "Encounter" && e.resource?.type?.[0]?.coding?.[0]?.code == "cvd-encounter");
     }

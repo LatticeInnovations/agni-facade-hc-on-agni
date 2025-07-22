@@ -7,6 +7,6 @@ router.post("/",  cvdController.saveCVDData);
 
 router.get("/", cvdController.getCVDData); 
 
-router.patch("/", cvdController.updateCVDData); 
+// router.patch("/", cvdController.updateCVDData); 
 
 module.exports = router
