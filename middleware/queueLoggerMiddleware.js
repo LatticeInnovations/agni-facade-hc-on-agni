@@ -25,7 +25,7 @@ function findMatchingResponse(responseData, item) {
 // Condition handler map
 const conditionHandlers = {
   appointments: (item, req, resultData) => {
-    console.log(item, req.queueMeta.requestType)
+    console.log(item, req.queueMeta.requestType, resultData)
     if (req.queueMeta.requestType === "put" && !["scheduled", "walkin", "cancelled"].includes(item.status?.value)) {
       return { skip: true };
     }

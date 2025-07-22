@@ -184,7 +184,6 @@ let mapBundleService = function(reqBundleData, responseBundleData) {
  }
 
  let mapAssessmentBundleService = function(reqBundleData, responseBundleData) {
-    console.info("--- ", reqBundleData, responseBundleData)
     if (!Array.isArray(reqBundleData) || !Array.isArray(responseBundleData)) {
         return []; // Return an empty array if inputs are undefined or not arrays
     }
