@@ -28,8 +28,8 @@ let setScheduleData = async function (req, res) {
             scheduleData.roleId = roleId;
             const scheduleResource = buildFHIRResource(Schedule, scheduleData);
             let noneExistData = [
-                    { "key": "date", "value": "ge" + scheduleData.planningHorizon.start },
-                    { "key": "date", "value": "le" + scheduleData.planningHorizon.end },
+                    { "key": "date", "value": encodeURIComponent("ge" + scheduleData.planningHorizon.start) },
+                    { "key": "date", "value": encodeURIComponent("le" + scheduleData.planningHorizon.end) },
                     { "key": "actor", "value": 'PractitionerRole/' + roleId }
             ];
             let scheduleBundle = await bundleStructure.setBundlePost(scheduleResource, noneExistData, scheduleData.uuid, "POST", "object");
