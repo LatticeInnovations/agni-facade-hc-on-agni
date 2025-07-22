@@ -85,18 +85,20 @@ let updatePatientData = async function(req, res) {
             console.log("previous patient data: ", patientPrevData)
             const identifierData = patientPrevData.resource.identifier.find(e => e.system === heartcareUrls.heartCareIdUrl)
             const agni_uuid = patientPrevData.resource.identifier.find(e => e.system === "https://www.thelattice.in/")
-            console.log("previous patient data: identifier ", identifierData)
-            let deceasedBundle = null;
+               let deceasedBundle = null;
             console.log("check req. decoded: ", req.decoded)
             patientData.id = agni_uuid.value;
             patientData.userId = req.decoded.userId;
             // patientData.orgId = req.decoded.orgId;
             patientData.heartcareId = identifierData?.value || null
+            console.log("patientData: ========>", patientData, identifierData, agni_uuid)
             const patientResource = buildFHIRResource(Patient, patientData)
             let patientBundle = await bundleStructure.setBundlePut(patientResource, patientResource.identifier, patientData.fhirId, "put", "identifier");
             // Add deceased response
+            console.log("patientData.patientDeceasedReason: ", patientData.patientDeceasedReason)
              const deceasedData = deceasedResources.entry.find(e => e.resource.subject.reference.split("/")[1] == patientData.fhirId)
             const observationResource = buildFHIRResource(Observation, {categoryCode: "deceased-reason", categoryDisplay: "deceased-reason", patientId: patientData.fhirId, practitionerId: req.decoded.userId, patientDeceasedReasonId: patientData.patientDeceasedReasonId, patientDeceasedReason: patientData.patientDeceasedReason});
+            console.log("patientData.patientDeceasedReason Resource: ", observationResource)
             if(deceasedData) {
                 observationResource.id = deceasedData.resource.id
                 deceasedBundle = await bundleStructure.setBundlePut(observationResource, null, observationResource.id, "PUT", "identifier");
