@@ -80,7 +80,7 @@ function queueLoggerMiddleware(req, res, next) {
 
           const dataResult = findMatchingResponse(body?.data || [], item);
           console.log("dataResult: ", dataResult)
-          if (!dataResult) {
+          if (!dataResult || dataResult.status == 0) {
             console.warn("No matching response for item:", item);
             continue;
           }
