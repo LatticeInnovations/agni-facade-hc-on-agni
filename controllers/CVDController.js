@@ -42,13 +42,13 @@ const saveCVDData = async (req, res) => {
     try {
         const validatedBody = validateRequest(req.body, cvdSaveSchema, res);
         if (!validatedBody) return;
-        // req.queueMeta = {
-        //     data: req.body,
-        //     entity: "cvd",
-        //     requestType: "post",
-        //     apiName: "save-cvd",
-        //     tokenData: req.decoded
-        //   };
+        req.queueMeta = {
+            data: req.body,
+            entity: "cvd",
+            requestType: "post",
+            apiName: "save-cvd",
+            tokenData: req.decoded
+          };
         console.log("inside cvd")
         let requestType = "post"
         const allResourceResults = [], errData = [];
