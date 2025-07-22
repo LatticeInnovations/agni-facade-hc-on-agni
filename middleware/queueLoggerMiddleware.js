@@ -4,7 +4,8 @@ const { sendToQueue, connectRabbitMQ } = require("../config/rabbitMQ");
 
 const queues = {
   "patients": "AGNI_TO_HEARTCARE_MAIN",
-  "appointments": "AGNI_TO_HEARTCARE_MAIN"
+  "appointments": "AGNI_TO_HEARTCARE_MAIN",
+  "cvd": "AGNI_TO_HEARTCARE_MAIN"
 };
 
 // Maps entity name to the key that should be used as `fhirId`
@@ -14,6 +15,7 @@ const entityFhirIdMap = {
 
 // Function to find the matching response object from body.data
 function findMatchingResponse(responseData, item) {
+  console.log("responseData: ", responseData, " item: ", item)
   return responseData.find(e =>
     (e.id && e.id === item.id) ||(item.uuid && e.id && e.id === item.uuid) ||
     (e.fhirId && e.fhirId === item.fhirId)
@@ -23,7 +25,7 @@ function findMatchingResponse(responseData, item) {
 // Condition handler map
 const conditionHandlers = {
   appointments: (item, req, resultData) => {
-    console.log(item, req.queueMeta.requestType)
+    console.log(item, req.queueMeta.requestType, resultData)
     if (req.queueMeta.requestType === "put" && !["scheduled", "walkin", "cancelled"].includes(item.status?.value)) {
       return { skip: true };
     }

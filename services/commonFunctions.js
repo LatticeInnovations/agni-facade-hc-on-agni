@@ -12,12 +12,18 @@ const BUNDLE_TYPES = {
     IDENTIFIER: "identifier"
 }
 
-const createObservationBundle = async(resourceData, type) => {
+const createObservationBundle = async(resourceData, type, requestType) => {
     try {
         resourceData.module_type = "CVD";
-        const resource = buildFHIRResource(Observation, { ...resourceData, optionalParam: type });
-        resource.id = uuidv4();
-        return await bundleStructure.setBundlePost(resource, null, resource.id, HTTP_METHODS.POST, BUNDLE_TYPES.IDENTIFIER);
+        const resource = buildFHIRResource(Observation, { ...resourceData, optionalParam: type });        
+        if(requestType == "post") {
+            resource.id = uuidv4();
+            return await bundleStructure.setBundlePost(resource, null, resource.id, HTTP_METHODS.POST, BUNDLE_TYPES.IDENTIFIER);
+        }            
+        else {
+            resource.id = resourceData.fhirId;
+            return await bundleStructure.setBundlePut(resource, null, resource.id, "PUT", BUNDLE_TYPES.IDENTIFIER);
+        }
     }
     catch (error) {
         console.warn(`CVD '${type}' skipped:`, error.message);
@@ -25,11 +31,19 @@ const createObservationBundle = async(resourceData, type) => {
     }
 }
 
-const createEncounterBundle = async(EncounterClass, encounterData) => {
+const createEncounterBundle = async(EncounterClass, encounterData, requestType) => {
     try {
         const encounter = buildFHIRResource(EncounterClass, encounterData);
+        encounter.appointment = null
         console.log("encounter data: ", encounter)
-    return await bundleStructure.setBundlePost(encounter, null, encounterData.id, HTTP_METHODS.POST, BUNDLE_TYPES.IDENTIFIER);
+        if(requestType == "post") {
+            return await bundleStructure.setBundlePost(encounter, null, encounterData.uuid, HTTP_METHODS.POST, BUNDLE_TYPES.IDENTIFIER);
+        }            
+        else {
+            encounter.id = encounterData.fhirId;
+            return await bundleStructure.setBundlePut(encounter, null, encounterData.fhirId, HTTP_METHODS.POST, BUNDLE_TYPES.IDENTIFIER);
+        }
+            
     }
     catch (error) {
         console.error(`createEncounterBundle Error:`, error.message);

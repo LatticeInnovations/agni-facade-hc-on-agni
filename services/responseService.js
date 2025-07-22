@@ -43,6 +43,7 @@ const getFhirId = (element, reqMethod) => {
 };
 
 const getResponseData = (element, reqMethod) => {
+  console.log("check element **************", element)
   let data = {};
   let fullUrl = element.fullUrl.substring(
     element.fullUrl.indexOf("/") + 1,
@@ -51,7 +52,7 @@ const getResponseData = (element, reqMethod) => {
   let id = fullUrl.includes("uuid:") ? fullUrl.split("uuid:")[1] : fullUrl;
   data.status = element.response.status;
   data.id = ["patch", "PATCH", "put", "PUT"].includes(reqMethod) ? null : id;
-  console.info("data is: ", data, "  element is: ", element)
+  console.info("data is: ", data, "  element is: ", element, reqMethod, id)
   return data;
 };
 

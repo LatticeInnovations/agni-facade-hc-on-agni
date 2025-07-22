@@ -19,7 +19,7 @@ let setAppointmentData = async function (req, res) {
         const validatedBody = validateRequest(req.body, appointmentSaveSchema, res);
         if (!validatedBody) return;
         req.queueMeta = {
-            data: req.data,
+            data: req.body,
             entity: "appointments",
             requestType: "post",
             apiName: "save-appointment",

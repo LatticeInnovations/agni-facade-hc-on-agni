@@ -8,7 +8,13 @@ class VitalObservation extends BaseObservation {
     this.vitalType = vitalType;
   }
 
- 
+  setEncounterReference() {
+    if(this.observationObj?.encounterId) {
+        this.fhirResource.encounter.reference = this.observationObj?.fhirId? "Encounter/" + this.observationObj?.encounterId: 'urn:uuid:' + this.observationObj?.encounterId;
+    }
+   
+}
+
 getEyeTest() {
     let eyeTestTypeWithoutGlass = this.fhirResource?.component?.find((element) => {
         return element.code.text === "Without glasses"
@@ -75,6 +81,8 @@ getWeightData() {
         return element.code.text === "Weight"
     });
     this.observationObj.weight = weight ? weight.valueQuantity.value : null;
+    this.observationObj.weightUnit = weight ? weight.valueQuantity?.unit : null;
+
 }
 
 getHeightData() {
@@ -104,6 +112,13 @@ getSmokerData() {
         return element.code.text === "Smoking Status"
     });
     this.observationObj.smoker = smoker ? smoker.valueQuantity.value : 0;
+}
+
+getHeartAttackHistoryData() {
+    let heartAttackHistory = this.fhirResource?.component?.find((element) => {
+        return element.code.text === "heartAttackHistory"
+    });
+    this.observationObj.heartAttackHistory = heartAttackHistory ? heartAttackHistory.valueQuantity.value : 0;
 }
 
 getCholesterolData() {
@@ -423,9 +438,9 @@ setWeightComponent() {
             },
             "valueQuantity": {
             "value": this.observationObj?.weight,
-            "unit": "kg",
+            "unit": this.observationObj?.weightUnit || null,
             "system": "https://unitsofmeasure.org",
-            "code": "kg"
+            "code": this.observationObj?.weightUnit || null
             }
         });
     }
@@ -699,6 +714,40 @@ setBMIComponent() {
     }
 }
 
+setHeartAttackHistoryCode() {
+    this.fhirResource.code = {
+        "coding": [
+        {
+            "system": "https://loinc.org",
+            "code": "78941-2",
+            "display": "Previous heart attack or stroke"
+        }
+        ],
+        "text": "Previous heart attack or stroke"
+    }
+}
+
+setHeartAttackHistoryComponent() {
+    if(this.observationObj?.heartAttackHistory){
+        this.fhirResource.component.push({
+            "code": {
+            "coding": [
+                {
+                "system": "https://loinc.org",
+                "code": "72166-2",
+                "display": "Previous heart attack or stroke"
+                }
+            ],
+            "text": "heartAttackHistory"
+            },
+            "valueQuantity": {
+            "value": this.observationObj?.heartAttackHistory,
+            "system": "https://unitsofmeasure.org",
+            }
+        });
+    }
+}
+
 setRiskCode() {
     this.fhirResource.code = {
         "coding": [
@@ -749,6 +798,7 @@ getJsonToFhirTranslator() {
 }
 
 getFHIRToTransformedResult() {
+    this.getFhirId();
     const module_type = this.fhirResource.module_type == "vital"? fhirTextToVitalType : fhirTextToCVDType
     const codeText = this.fhirResource?.code?.text;
     const derivedVitalType = module_type[codeText];

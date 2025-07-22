@@ -2,27 +2,31 @@ const Joi = require("joi");
 
 // Schema for one CVD entry
 const cvdSchema = Joi.object({
-  cvdUuid: Joi.string().uuid().required(),
+  uuid: Joi.string().uuid().required(),
   appointmentId: Joi.string().required(),
   patientId: Joi.string().required(),
-
+  appUpdatedDate: Joi.date().optional(),
   heightFt: Joi.number().allow(null).optional(),
   heightInch: Joi.number().allow(null).optional(),
   heightCm: Joi.number().allow(null).optional(),
 
-  weight: Joi.number().allow(null).optional(),
-
+  weight: Joi.number().allow(null).required(),
+  weightUnit: Joi.string().allow("kg", "lb").required(),
   bpDiastolic: Joi.number().allow(null).optional(),
   bpSystolic: Joi.number().allow(null).optional(),
 
-  diabetic: Joi.number().allow(null).valid(0, 1).optional(),
-  smoker: Joi.number().allow(null).valid(0, 1).optional(),
+  diabetic: Joi.number().allow(null).valid(0, 1).required(),
+  smoker: Joi.number().allow(null).valid(0, 1).required(),
 
   cholesterol: Joi.number().allow(null).optional(),
-  cholesterolUnit: Joi.string().allow(null).optional(),
+  cholesterolUnit: Joi.string().allow(null, "", "mmol/L", "mg/dl").optional(),
 
-  bmi: Joi.number().allow(null).optional(),
+  bmi: Joi.number().allow(null).required(),
   risk: Joi.number().allow(null).min(0).max(100).optional(),
+  heartAttackHistory: Joi.number().allow(null).required(),
+  screeningDate: Joi.date().allow(null).required(),
+  chiefComplaint: Joi.string().allow(null, "").optional(),
+
 
   createdOn: Joi.string().isoDate().required()
 });
