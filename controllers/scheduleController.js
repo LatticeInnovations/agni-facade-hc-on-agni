@@ -21,16 +21,17 @@ let setScheduleData = async function (req, res) {
             tokenData: req.decoded
           };
         let resourceResult = [], errData = [];
-        const practitionerRoleResource = await fetchResource("PractitionerRole", { practitioner: req.decoded.userId, _elements: "_id", _total: "accurate" });
-        console.log("practitionerRoleResource: ", practitionerRoleResource.entry[0].resource.id)
+        const practitionerRoleResource = await fetchResource("PractitionerRole", { practitioner: req.decoded.userId, _elements: "_id,organization", _total: "accurate" });
+        console.log("practitionerRoleResource: ", practitionerRoleResource.entry[0].resource)
         const roleId = practitionerRoleResource.entry[0].resource.id
+        const orgId = practitionerRoleResource.entry[0].resource.organization.reference.split("/")[1]
         for (let scheduleData of req.body) {
             scheduleData.roleId = roleId;
             const scheduleResource = buildFHIRResource(Schedule, scheduleData);
             let noneExistData = [
                     { "key": "date", "value": encodeURIComponent("ge" + scheduleData.planningHorizon.start) },
                     { "key": "date", "value": encodeURIComponent("le" + scheduleData.planningHorizon.end) },
-                    { "key": "actor", "value": 'PractitionerRole/' + roleId }
+                    { "key": "actor.organization", "value": 'Organization/' + orgId }
             ];
             let scheduleBundle = await bundleStructure.setBundlePost(scheduleResource, noneExistData, scheduleData.uuid, "POST", "object");
             resourceResult.push(scheduleBundle);
