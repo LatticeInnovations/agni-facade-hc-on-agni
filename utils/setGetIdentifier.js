@@ -7,7 +7,7 @@ function setIdAsIdentifier(obj, code) {
         jsonObj = setIdentifierJSON({
             "identifierType": "https://www.thelattice.in/",
             "identifierNumber": obj.uuid ? obj.uuid : obj.id,
-            "code": code
+            "code": code || null
         });
     }
     else {
