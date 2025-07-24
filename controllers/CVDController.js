@@ -140,7 +140,7 @@ const getCVDObservationList = async (CVDEncounterList, practitionerList, mainEnc
             observationData.appointmentUuid = primaryEncounter?.identifier?.[0].value
             // Remove unnecessary fields
             delete observationData.primaryEncounterId;
-            delete observationData.practitionerId;
+            // delete observationData.practitionerId;
 
             // Process observations for the encounter
             const observationList = observations.filter(
