@@ -101,7 +101,6 @@ const fetchPriorDxEncounter = async (baseEncounterId) => {
 
 const savePriorDxData = async (req, res) => {
     try {
-        let requestType = "post"
         const validatedBody = validateRequest(req.body, priorDxArraySchema, res);
         if (!validatedBody) return;
         req.queueMeta = {
@@ -126,7 +125,6 @@ const savePriorDxData = async (req, res) => {
                 
                 if (priorDxEncounter.total > 0) {
                     // Update case (PUT)
-                        requestType = "put"
                       console.log("Inside PUT request")
                       await handleExistingPriorDx({priorDxData, priorDxEncounter, baseEncounterId, practitionerId, resourceResult});
                 } else {
