@@ -158,12 +158,13 @@ let getPatientData = async function (req, res) {
         else {            
             resStatus = bundleStructure.setResponse({ link: link, reqQuery: queryParams, allowNesting: 1, specialOffset: true }, responseResult);  
             const patientIds = responseData.map(e => e.resource.id)   .join(",")       
-            const deceasedResources = await fetchResource("Observation", {patient: patientIds, category: "deceased-reason"})
+            const deceasedResources = await fetchResource("Observation", {patient: patientIds, category: "deceased-reason", _count: req.query._count})
             console.log("deceasedResources: ", deceasedResources)
             for (let i = 0; i < responseData.length; i++) {
                 console.log("check resource of patient: ", responseData[i].resource)
                 const patient = getTransformedResult(Patient, responseData[i].resource);
-                const deceasedData = deceasedResources.entry? deceasedResources.entry.find(e => e.resource.subject.reference.split("/")[1] == patient.fhirId) : null
+                const deceasedData = deceasedResources.entry? deceasedResources.entry.find(e => e.resource.subject.reference.split("/")[1] == patient.fhirId) : null;
+                console.log("deceasedData: ", deceasedData)
                 const deceasedObject = deceasedData? getTransformedResult(Observation, deceasedData?.resource) : null;
                 console.log("deceasedObject: ", deceasedObject)
                 patient.patientDeceasedReasonId = deceasedObject?.patientDeceasedReasonId || null;

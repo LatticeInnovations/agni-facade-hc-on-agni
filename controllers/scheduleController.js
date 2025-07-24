@@ -144,7 +144,8 @@ const getScheduleData = async function(req, res) {
                 // "actor": "PractitionerRole/" + roleId,
                 _count: req.query._count,
                 _offset: req.query._offset,
-                _sort: req.query._sort
+                _sort: req.query._sort,
+                _lastUpdated: req.query._lastUpdated
             };
             let resStatus = 1;
             const resourceType = "Schedule";
