@@ -123,33 +123,39 @@ const saveCVDData = async (req, res) => {
 
 
 
-const getCVDObservationList = async (CVDEncounterList, practitionerList, mainEncounters, observations) => {
+const getCVDObservationList = async (CVDEncounterList, practitionerList, mainEncounters) => {
     try {
-        return CVDEncounterList.map((encounter) => {
-            let observationData = getTransformedResult(Encounter, encounter);
+        const observationFinalData = await Promise.all(
+            CVDEncounterList.map(async (encounter) => {
+                const allObservations = await fetchResource("Observation", { encounter: encounter.id, _count: 20000 })
+                const observations = allObservations.entry.map((e) => e.resource);
+                let observationData = getTransformedResult(Encounter, encounter);
+                // Add practitioner name
+                observationData.practitionerName = getPractitionerName(observationData.practitionerId, practitionerList);
+    
+                // Add creation date
+                observationData.createdOn = encounter.period.start;
+    
+                // Add appointment ID from main encounter
+                const primaryEncounter = mainEncounters.find((e) => e.id === observationData.primaryEncounterId);
+                observationData.appointmentId = primaryEncounter?.appointment?.[0]?.reference?.split("/")[1] || null;
+                observationData.appointmentUuid = primaryEncounter?.identifier?.[0].value
+                // Remove unnecessary fields
+                delete observationData.primaryEncounterId;
+                // delete observationData.practitionerId;
+    
+                // Process observations for the encounter
+                const observationList = observations.filter(
+                    (obs) => obs.encounter.reference === `${RESOURCE_TYPES.ENCOUNTER}/${encounter.id}`
+                );
+                const observationResult = processObservationData(observationList, observationData, "cvd");
+                console.log("observationResult: ", observationResult)
+                return observationResult;
+            })
+        )
 
-            // Add practitioner name
-            observationData.practitionerName = getPractitionerName(observationData.practitionerId, practitionerList);
-
-            // Add creation date
-            observationData.createdOn = encounter.period.start;
-
-            // Add appointment ID from main encounter
-            const primaryEncounter = mainEncounters.find((e) => e.id === observationData.primaryEncounterId);
-            observationData.appointmentId = primaryEncounter?.appointment?.[0]?.reference?.split("/")[1] || null;
-            observationData.appointmentUuid = primaryEncounter?.identifier?.[0].value
-            // Remove unnecessary fields
-            delete observationData.primaryEncounterId;
-            // delete observationData.practitionerId;
-
-            // Process observations for the encounter
-            const observationList = observations.filter(
-                (obs) => obs.encounter.reference === `${RESOURCE_TYPES.ENCOUNTER}/${encounter.id}`
-            );
-            observationData = processObservationData(observationList, observationData, "cvd");
-
-            return observationData;
-        });
+        console.log("observationFinalData: ", observationFinalData)
+        return observationFinalData;
     }
     catch(error) {
         console.error("getCVDObservationList Error: ", error)
@@ -190,17 +196,14 @@ const getCVDData = async (req, res) => {
         .filter(Boolean)
         .join(",");
         
-        const [mainEncounterList, allObservations] = await Promise.all([
-            fetchResource(RESOURCE_TYPES.ENCOUNTER, { _id: mainEncounterIds, _count: 10000 }),
-            fetchResource(RESOURCE_TYPES.OBSERVATION, { encounter: cvdEncounterIds, _count: 100000 })
-        ]);
+        const mainEncounterList = await fetchResource(RESOURCE_TYPES.ENCOUNTER, { _id: mainEncounterIds, _count: 10000 });
             
         const mainEncounters = mainEncounterList.entry.map((e) => e.resource);
-        const observations = allObservations.entry.map((e) => e.resource);
+        
         
         // Process cvd encounters
-        const resourceResult = await getCVDObservationList(cvdEncounterList, practitionerList, mainEncounters, observations);
-                    
+        const resourceResult = await getCVDObservationList(cvdEncounterList, practitionerList, mainEncounters);
+        console.log("resourceResult: ", resourceResult)
         const resStatus = bundleStructure.setResponse(resourceUrlData, responseData);
         
         res.status(200).json({
