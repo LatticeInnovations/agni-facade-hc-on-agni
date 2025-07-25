@@ -27,6 +27,13 @@ let saveHistoryMedicationData = async function (req, res) {
     try {
         const validatedBody = validateRequest(req.body, historyTakingSchema, res);
         if (!validatedBody) return;
+        req.queueMeta = {
+            data: req.body,
+            entity: "medicationHistory",
+            requestType: "post",
+            apiName: "save-medical-history",
+            tokenData: req.decoded
+          };
         let resourceResult = [];
         let questionnaireId = null;
         let questionnaireReference = null;
