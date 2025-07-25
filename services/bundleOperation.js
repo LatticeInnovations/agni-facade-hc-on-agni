@@ -191,10 +191,12 @@ let mapBundleService = function(reqBundleData, responseBundleData) {
     }
 
     return  responseBundleData.map((data, i) => {
-        // console.log("Dataaaaaaa =>>>>", data, "   i data: ", reqBundleData[i])
+       
         const responseData =  Object.assign({}, data, reqBundleData[i])
-        console.log("response data:==================>", responseData.resource.resourceType, responseData.resource.identifier.value)
-        responseData.fullUrl = "urn:uuid:" + responseData.resource?.identifier?.value || null;
+        console.log("Dataaaaaaa =>>>>", responseData.resource?.identifier, "   i data: ", typeof responseData.resource?.identifier)
+        const uuidVal = (Array.isArray(responseData.resource?.identifier))? responseData.resource?.identifier?.[0]?.value: responseData.resource?.identifier?.value
+        console.log("esponseData.resource?.identifier", responseData.resource?.identifier)
+        responseData.fullUrl = "urn:uuid:" + uuidVal || null;
         
         return responseData;
     });
