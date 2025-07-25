@@ -7,5 +7,6 @@ module.exports = {
     heartCareIdUrl: "http://uat.heartcare.thelattice.org/dashboard/patient-info",
     heartcareUserIdUrl: "http://uat.heartcare.thelattice.org/dashboard/profile/view",
     heartcareUserPkUrl : "http://uat.adminheartcare.thelattice.org/dashboard/users/view",
-    heartcareAdminUrl: "http://uat.adminheartcare.thelattice.org/dashboard/administrative"
+    heartcareAdminUrl: "http://uat.adminheartcare.thelattice.org/dashboard/administrative",
+    identifierUrl: "https://www.thelattice.in/"
 }

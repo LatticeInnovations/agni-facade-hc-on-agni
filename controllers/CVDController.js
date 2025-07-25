@@ -78,7 +78,7 @@ const saveCVDData = async (req, res) => {
                             status: 0,
                             "id": cvd.uuid,
                             "err": "Another appointment exists for the same screening date",
-                            "fhirId": duplicateEncounterId
+                            "fhirId": null
                         });
                         return;
                     }
