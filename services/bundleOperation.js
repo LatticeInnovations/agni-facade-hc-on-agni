@@ -106,7 +106,13 @@ let searchData = async function (link, reqQuery) {
         try {
             console.log("fetch url :", urlVal)
             console.log("fetch params :", reqQuery)
-            let responseData = await axios.get(urlVal, { params: reqQuery });
+            const headers = {
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            }
+            let responseData = await axios.get(urlVal, { params: reqQuery, headers: headers });
             return responseData;
         } catch (e) {
             let eData = { status: 0, code: "ERR", e: e, statusCode: 500 }
