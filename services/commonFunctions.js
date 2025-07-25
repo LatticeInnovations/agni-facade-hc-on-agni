@@ -67,6 +67,7 @@ const processObservationData = (observationList, observationData, module_type) =
             // Dynamically transform the observation using the helper function
             observation.module_type = module_type;
             const transformedObservation = getTransformedResult(Observation, observation);
+            console.log("transformedObservation: ", transformedObservation)
             return { ...observationData, ...transformedObservation };
         } catch (error) {
             console.warn(`Error processing observation: ${observation.id}`, error.message);

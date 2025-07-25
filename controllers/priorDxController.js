@@ -199,16 +199,12 @@ const getPriorDxData = async (req, res) => {
                 .filter(Boolean)
                 .join(",");
                 console.log('priorDxEncounterIds: ', priorDxEncounterIds)
-                const [mainEncounterList, allConditions] = await Promise.all([
-                    fetchResource("Encounter", { _id: mainEncounterIds, _count: 10000 }),
-                    fetchResource("Condition", { encounter: priorDxEncounterIds, _count: 100000 })
-                ]);
+                const mainEncounterList = await fetchResource("Encounter", { _id: mainEncounterIds, _count: 10000 })
                     
                 const mainEncounters = mainEncounterList.entry.map((e) => e.resource);
-                const conditions = allConditions.entry.map((e) => e.resource);
                 
                 // Process priorDx encounters
-                const resourceResult = await getConditionList(priorDxEncounterList, practitionerList, mainEncounters, conditions);
+                const resourceResult = await getConditionList(priorDxEncounterList, practitionerList, mainEncounters);
                             
                 const resStatus = bundleStructure.setResponse(resourceUrlData, responseData);
         
@@ -235,33 +231,37 @@ const getPractitionerName = (practitionerId, practitionerData) => {
     return `${givenName} ${familyName}`.trim();
 };
 
-const getConditionList = async (priorDxEncounterList, practitionerList, mainEncounters, conditions) => {
+const getConditionList = async (priorDxEncounterList, practitionerList, mainEncounters) => {
     try {
-        return priorDxEncounterList.map((encounter) => {
-            let conditionData = getTransformedResult(Encounter, encounter);
+        return Promise.all(
+            priorDxEncounterList.map(async (encounter) => {
+                let conditionData = getTransformedResult(Encounter, encounter);
+                    const allConditions = await fetchResource("Condition", { encounter: encounter.id, _count: 100000 })
+                    const conditions = allConditions.entry.map((e) => e.resource);
+                // Add practitioner name
+                conditionData.practitionerName = getPractitionerName(conditionData.practitionerId, practitionerList);
+    
+                // Add creation date
+                conditionData.createdOn = encounter.period.start;
+    
+                // Add appointment ID from main encounter
+                const primaryEncounter = mainEncounters.find((e) => e.id === conditionData.primaryEncounterId);
+                conditionData.appointmentId = primaryEncounter?.appointment?.[0]?.reference?.split("/")[1] || null;
+                conditionData.appointmentUuid = primaryEncounter?.identifier?.[0].value
+                // Remove unnecessary fields
+                delete conditionData.primaryEncounterId;
+                conditionData.practitionerId;
+    
+                // Process observations for the encounter
+                const conditionList = conditions.filter(
+                    (obs) => obs.encounter.reference === `${RESOURCE_TYPES.ENCOUNTER}/${encounter.id}`
+                );
+                conditionData = processConditionData(conditionList, conditionData, "priorDx");
+    
+                return conditionData;
+            })
+        )
 
-            // Add practitioner name
-            conditionData.practitionerName = getPractitionerName(conditionData.practitionerId, practitionerList);
-
-            // Add creation date
-            conditionData.createdOn = encounter.period.start;
-
-            // Add appointment ID from main encounter
-            const primaryEncounter = mainEncounters.find((e) => e.id === conditionData.primaryEncounterId);
-            conditionData.appointmentId = primaryEncounter?.appointment?.[0]?.reference?.split("/")[1] || null;
-            conditionData.appointmentUuid = primaryEncounter?.identifier?.[0].value
-            // Remove unnecessary fields
-            delete conditionData.primaryEncounterId;
-            conditionData.practitionerId;
-
-            // Process observations for the encounter
-            const conditionList = conditions.filter(
-                (obs) => obs.encounter.reference === `${RESOURCE_TYPES.ENCOUNTER}/${encounter.id}`
-            );
-            conditionData = processConditionData(conditionList, conditionData, "priorDx");
-
-            return conditionData;
-        });
     }
     catch(error) {
         console.error("getCVDObservationList Error: ", error)
