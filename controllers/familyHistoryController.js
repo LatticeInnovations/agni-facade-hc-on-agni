@@ -1,17 +1,18 @@
-let Questionnaire = require("../class/HistoryMedicationQuestionnaire");
-let QuestionnaireResponse = require("../class/HistoryTakingQuestionnaireResponse")
+let Questionnaire = require("../class/FamilyHistoryQuestionnaire");
+let QuestionnaireResponse = require("../class/FamilyHistoryQuestionnaireResponse")
 let axios = require("axios");
 let config = require("../config/nodeConfig");
 const { v4: uuidv4 } = require('uuid');
 const bundleStructure = require("../services/bundleOperation")
 const responseService = require("../services/responseService");
 const { fetchResource, buildFHIRResource, getTransformedResult } = require("../services/helperFunctions");
-const { historyTakingSchema } = require("../utils/Validator/historyTakingValidator");
+const { familyHistorySchema } = require("../utils/Validator/familyHistoryValidator");
 const {validateRequest} = require("../utils/validateRequest");
+const { getPractitionerName } = require("../services/commonFunctions");
 
-const fetchMainEncounter = async (medicationData) => {
+const fetchMainEncounter = async (familyHistoryData) => {
     const mainEncounter =   await fetchResource("Encounter", {
-         appointment: medicationData.appointmentId,
+         appointment: familyHistoryData.appointmentId,
          _count: 5000,
          _include: "Encounter:appointment",
      });
@@ -23,22 +24,22 @@ const fetchMainEncounter = async (medicationData) => {
  
 
 //  Save Practitioner data
-let saveHistoryMedicationData = async function (req, res) {
+let saveFamilyHistoryData = async function (req, res) {
     try {
-        const validatedBody = validateRequest(req.body, historyTakingSchema, res);
+        const validatedBody = validateRequest(req.body, familyHistorySchema, res);
         if (!validatedBody) return;
         req.queueMeta = {
             data: req.body,
-            entity: "medicationHistory",
+            entity: "familyHistory",
             requestType: "post",
-            apiName: "save-medical-history",
+            apiName: "save-family-history",
             tokenData: req.decoded
           };
         let resourceResult = [];
         let questionnaireId = null;
         let questionnaireReference = null;
         //  Get Questionnaire id if it not exists create it and pass as reference for uuid
-        const questionnaireResource = await fetchResource("Questionnaire", {name: "history-medication-questionnaire", _total: "accurate", _count: 1})
+        const questionnaireResource = await fetchResource("Questionnaire", {name: "family-history-questionnaire", _total: "accurate", _count: 1})
         if(questionnaireResource.total > 0) {
             questionnaireId = questionnaireResource.entry[0].resource.id;
             questionnaireReference = "Questionnaire/" + questionnaireId;        
@@ -47,39 +48,39 @@ let saveHistoryMedicationData = async function (req, res) {
            questionnaireId = uuidv4(); 
            questionnaireReference = "urn:uuid:" + questionnaireId
            const questionnaireResourceBuilt = buildFHIRResource(Questionnaire, {questionnaireId});
-           const questionnaireBundle = await bundleStructure.setBundlePost(questionnaireResourceBuilt, [questionnaireResourceBuilt.identifier], questionnaireId, "POST", "identifier")
+           const questionnaireBundle = await bundleStructure.setBundlePost(questionnaireResourceBuilt, questionnaireResourceBuilt.identifier, questionnaireId, "POST", "identifier")
            resourceResult.push(questionnaireBundle);
         }
-        for (let medicationData of req.body) {
+        for (let familyHistoryData of req.body) {
             //  fetch appointment encounter
-            const encounterData = await fetchMainEncounter(medicationData)
+            const encounterData = await fetchMainEncounter(familyHistoryData)
             const baseEncounterId = encounterData?.entry?.[0]?.resource?.id;
             if (!baseEncounterId) return;
 
-            const existingResponse = await fetchResource("QuestionnaireResponse", {source: medicationData.patientId, encounter: baseEncounterId, questionnaire: questionnaireId, _total: "accurate"});
+            const existingResponse = await fetchResource("QuestionnaireResponse", {source: familyHistoryData.patientId, encounter: baseEncounterId, questionnaire: questionnaireId, _total: "accurate"});
             if (existingResponse.total > 0) {
                 console.log("put case")
-                medicationData.uuid = existingResponse.entry[0].resource.identifier.value;
-                const questionnaireResponseResource = buildFHIRResource(QuestionnaireResponse, {...medicationData, questionnaireId: questionnaireReference, encounterId: baseEncounterId, practitionerId: req.decoded.userId})
+                familyHistoryData.uuid = existingResponse.entry[0].resource.identifier.value;
+                const questionnaireResponseResource = buildFHIRResource(QuestionnaireResponse, {...familyHistoryData, questionnaireId: questionnaireReference, encounterId: baseEncounterId, practitionerId: req.decoded.userId})
                 console.log("questionnaireResponseResource: ", questionnaireResponseResource)
                 const questionnaireResponseBundle = await bundleStructure.setBundlePut(questionnaireResponseResource, null, existingResponse.entry[0].resource.id, "PUT", "identifier")
                 resourceResult.push(questionnaireResponseBundle)
                 }
             else {
-                const questionnaireResponseResource = buildFHIRResource(QuestionnaireResponse, {...medicationData, questionnaireId: questionnaireReference, encounterId: baseEncounterId, practitionerId: req.decoded.userId})
+                const questionnaireResponseResource = buildFHIRResource(QuestionnaireResponse, {...familyHistoryData, questionnaireId: questionnaireReference, encounterId: baseEncounterId, practitionerId: req.decoded.userId})
                 console.log("questionnaireResponseResource: ", questionnaireResponseResource)
-                const questionnaireResponseBundle =await  bundleStructure.setBundlePost(questionnaireResponseResource,[questionnaireResponseResource.identifier], medicationData.uuid, "POST", "identifier")
+                const questionnaireResponseBundle =await  bundleStructure.setBundlePost(questionnaireResponseResource,[questionnaireResponseResource.identifier], familyHistoryData.uuid, "POST", "identifier")
                 resourceResult.push(questionnaireResponseBundle)
             }
            
        }
         let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
-        // return res.status(201).json({ status: 1, message: "Medication history data saved.", data: bundleData.bundle })
+        // return res.status(201).json({ status: 1, message: "Family history data saved.", data: bundleData.bundle })
         let response = await axios.post(config.baseUrl, bundleData.bundle); 
         console.info("get bundle json response: ", response.status)  
         if (response.status == 200 || response.status == 201) {
             let responseData = setSaveResponse(bundleData.bundle.entry, response.data.entry, "post");   
-            res.status(201).json({ status: 1, message: "Save history medication data saved.", data: responseData })
+            res.status(201).json({ status: 1, message: "Family history data saved.", data: responseData })
         }
         else {
                 return res.status(500).json({
@@ -111,12 +112,12 @@ const setSaveResponse  = (reqBundleData, responseBundleData, type) => {
 
 
 //  Get medication history data
-let getMedicationHistoryData = async function (req, res) {
+let getFamilyHistoryData = async function (req, res) {
     try {
-        const questionnaireResource = await fetchResource("Questionnaire", {name: "history-medication-questionnaire", _total: "accurate", _count: 1})
+        const questionnaireResource = await fetchResource("Questionnaire", {name: "family-history-questionnaire", _total: "accurate", _count: 1})
         if(questionnaireResource.total == 0) {
             return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })
-        } 
+        }         
         const link = config.baseUrl + "QuestionnaireResponse"
         let specialOffset = null;
         const queryParams = req.query
@@ -124,6 +125,7 @@ let getMedicationHistoryData = async function (req, res) {
         queryParams.questionnaire = "Questionnaire/" + questionnaireResource.entry[0].resource.id
         let resourceResult = []
         let resourceUrlData = { link: link, reqQuery: queryParams, allowNesting: 0, specialOffset: specialOffset }
+        console.log("resourceUrlData; ", resourceUrlData)
         let questionnaireResponses = await fetchResource("QuestionnaireResponse", queryParams);
         let resStatus = 1;
         if(  questionnaireResponses.total == 0) {
@@ -133,10 +135,15 @@ let getMedicationHistoryData = async function (req, res) {
         resStatus = bundleStructure.setResponse(resourceUrlData, questionnaireResponses);
         const mainEncounterIds = questionnaireResponses.entry.map((e) => e.resource.encounter?.reference?.split("/")[1]).filter(Boolean).join(",");
         const mainEncounterList = await fetchResource("Encounter", { _id: mainEncounterIds, _count: req.query._count });
+        //  get practitionerData
+        const practitionerIds = questionnaireResponses.entry.map((e) => e.resource.author?.reference?.split("/")[1]).filter(Boolean).join(",");
+        const practitionerList = await fetchResource("Practitioner", { _count: 10000, _id: practitionerIds })
         const mainEncounters = mainEncounterList.entry.map((e) => e.resource);
         questionnaireResponses.entry.forEach(questionnaireResponse => {            
             const responseObj = getTransformedResult(QuestionnaireResponse, questionnaireResponse.resource);
             const primaryEncounter = mainEncounters.find((e) => e.id === questionnaireResponse.resource.encounter.reference.split("/")[1]);
+            responseObj.practitionerName = getPractitionerName(responseObj.practitionerId, practitionerList.entry);
+    
             responseObj.appointmentId = primaryEncounter?.appointment?.[0]?.reference?.split("/")[1] || null;
             responseObj.appointmentUuid = primaryEncounter?.identifier?.[0].value
             resourceResult.push(responseObj)
@@ -157,5 +164,5 @@ let getMedicationHistoryData = async function (req, res) {
 
 
 module.exports = {
-    saveHistoryMedicationData, getMedicationHistoryData
+    saveFamilyHistoryData, getFamilyHistoryData
 }
