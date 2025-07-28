@@ -124,7 +124,9 @@ const countBookedSlots = async (scheduleIds) => {
         _count: 5000,
         "_has:Appointment:slot:status": "proposed,arrived,noshow"
     });
-
+    console.log("slotList: ", slotList)
+    if(slotList.total == 0)
+        return []
     const resData = slotList.entry.reduce((acc, { resource }) => {
         const scheduleId = resource.schedule.reference.split("/")[1];
         if (scheduleIds.has(scheduleId)) {
