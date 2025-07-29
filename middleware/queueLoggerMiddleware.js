@@ -59,11 +59,11 @@ function queueLoggerMiddleware(req, res, next) {
   const isSyncOrigin = req.headers['x-sync-origin'] === 'true';
 
   res.json = async function (body) {
-    console.log("response body: ", body);
+
     try {
       if ( !isSyncOrigin &&  req.queueMeta &&  Array.isArray(req.body) && body?.status === 1) {
         console.log("✔️ Queue logging activated");
-
+        console.log("response body: ", body);
         const channel = await connectRabbitMQ();
         const queueName = queues[req.queueMeta.entity];
         console.log("queueName: ", queueName)

@@ -143,10 +143,10 @@ let getLevelData = async function (req, res) {
         let resStatus = 1;
         queryParams._total = "accurate"
         queryParams._count=2000
-        let resourceResult = []
+        let resourceResult = [];
+        console.log("queryParams: ", queryParams)
         const responseResult = await fetchResource("Location", queryParams);
         const responseData = responseResult.entry || []
-        console.log("==================>", responseResult)
         if( !responseData) {
             return res.status(200).json({ status: resStatus, message: "Data fetched", total: 0, data: []  })
         }
