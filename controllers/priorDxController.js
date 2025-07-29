@@ -350,6 +350,7 @@ async function handleNewPriorDx({ priorDxData, baseEncounterId, practitionerId, 
             encounterId: baseEncounterId,
             patientId: priorDxData.patientId,
             uuid: priorDxData.uuid,
+            reqUuid: priorDxData.uuid,
             practitionerId: practitionerId,
             generatedOn: priorDxData.appUpdatedDate
         }, "post");

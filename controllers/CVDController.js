@@ -341,6 +341,7 @@ async function handleNewCVDEncounter({ cvd, baseEncounterId, practitionerId, res
         encounterId: baseEncounterId,
         patientId: cvd.patientId,
         uuid: cvd.uuid,
+        reqUuid: cvd.uuid,
         practitionerId,
         generatedOn: cvd.createdOn,
         screeningDate: cvd.screeningDate,
