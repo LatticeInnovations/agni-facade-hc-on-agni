@@ -7,7 +7,8 @@ const getDataError = (element, resType) => {
     case "200 OK":
       if (resType == "Schedule") {
         error = "Schedule already exists";
-      } else {
+      }
+       else {
         error = null;
       }
       break;
@@ -69,4 +70,23 @@ const setDefaultResponse = (resType, reqMethod, responseData) => {
   return response;
 };
 
-module.exports = { getResponseData, setDefaultResponse };
+const setDefaultAssessmentResponse = (resType, reqMethod, responseData) => {
+  let response = [];
+  let filteredData = responseData;
+  filteredData.forEach((element) => {
+    let data = getResponseData(element, reqMethod);
+    data.err = getDataError(element, resType);
+    data.fhirId = getFhirId(element, reqMethod);
+    if(element.response.status === "200 OK" && element.resource.identifier) {
+      const identifierUuid = Array.isArray(element.resource.identifier)? element.resource.identifier[0].value : element.resource.identifier.value 
+      console.log("responseData at error tracker =============>", identifierUuid, element.resource.uuid);
+      if(identifierUuid !== element.resource.uuid)
+        data.err = "Duplicate record exists.";
+    }
+    response.push(data);
+  });
+  console.info("response", response);
+  return response;
+};
+
+module.exports = { getResponseData, setDefaultResponse, setDefaultAssessmentResponse };

@@ -304,6 +304,7 @@ async function handleExistingCVDEncounter({ cvd, cvdEncounter, baseEncounterId, 
         fhirId: existingEncounter.id,
         patientId: cvd.patientId,
         uuid: existingEncounter.identifier?.[0]?.value || cvd.uuid,
+        reqUuid: cvd.uuid,
         practitionerId,
         generatedOn: cvd.createdOn,
         screeningDate: cvd.screeningDate,
@@ -340,6 +341,7 @@ async function handleNewCVDEncounter({ cvd, baseEncounterId, practitionerId, res
         encounterId: baseEncounterId,
         patientId: cvd.patientId,
         uuid: cvd.uuid,
+        reqUuid: cvd.uuid,
         practitionerId,
         generatedOn: cvd.createdOn,
         screeningDate: cvd.screeningDate,
@@ -394,7 +396,6 @@ const setCVDResponse  = (reqBundleData, responseBundleData, type) => {
     let response = [];
     console.log("reqBundleData: ", reqBundleData, "and: responseBundleData",  responseBundleData)
     const responseData = bundleStructure.mapAssessmentBundleService(reqBundleData, responseBundleData)
-    console.log("responseData: ", responseData)
     if(["post", "POST", "put", "PUT"].includes(type)){
         filteredData = responseData.filter(e => e.resource.resourceType == "Encounter" && e.resource?.type?.[0]?.coding?.[0]?.code == "cvd-encounter");
     }
@@ -402,7 +403,7 @@ const setCVDResponse  = (reqBundleData, responseBundleData, type) => {
         filteredData = responseData.filter(e => e.fullUrl.split("/")[0] == "Observation");
         
     }  
-    response = responseService.setDefaultResponse("Encounter", type, filteredData)
+    response = responseService.setDefaultAssessmentResponse("Encounter", type, filteredData)
     return response;
 }
 

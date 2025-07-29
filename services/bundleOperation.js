@@ -56,7 +56,6 @@ let setBundlePost = async function (resourceData, identifier, id, reqMethod, ide
 
 let setBundlePut = async function (resourceData, identifier, id, identifierType) {
     try {
-        console.log("======>>>>>>>>>>>>>>>", resourceData, identifier, id, identifierType)
         let identifierConcat = "";
         if(identifier || identifier != null) {
             identifierConcat = "";
@@ -196,12 +195,10 @@ let mapBundleService = function(reqBundleData, responseBundleData) {
         return []; // Return an empty array if inputs are undefined or not arrays
     }
 
-    return  responseBundleData.map((data, i) => {
-       
-        const responseData =  Object.assign({}, data, reqBundleData[i])
-        console.log("Dataaaaaaa =>>>>", responseData.resource?.identifier, "   i data: ", typeof responseData.resource?.identifier)
-        const uuidVal = (Array.isArray(responseData.resource?.identifier))? responseData.resource?.identifier?.[0]?.value: responseData.resource?.identifier?.value
-        console.log("esponseData.resource?.identifier", responseData.resource?.identifier)
+    return  responseBundleData.map((data, i) => {       
+        const responseData =  Object.assign({}, data, reqBundleData[i])        
+        const uuidVal = responseData.resource?.uuid || null
+        console.log("responseData: ======================>>>>>>>>>>", responseData)
         responseData.fullUrl = "urn:uuid:" + uuidVal || null;
         
         return responseData;

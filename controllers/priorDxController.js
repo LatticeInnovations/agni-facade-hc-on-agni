@@ -288,6 +288,7 @@ const createEncounterBundle = async(EncounterClass, encounterData, requestType) 
     try {
         const encounter = buildFHIRResource(EncounterClass, encounterData);
         encounter.appointment = null
+        encounter.uuid = encounterData.reqUuid
         console.log("encounter data: ", encounter)
         if(requestType == "post") {
             return await bundleStructure.setBundlePost(encounter, null, encounterData.uuid, HTTP_METHODS.POST, BUNDLE_TYPES.IDENTIFIER);
@@ -316,6 +317,7 @@ async function handleExistingPriorDx({ priorDxData, priorDxEncounter, baseEncoun
         fhirId: existingEncounter.id,
         patientId: priorDxData.patientId,
         uuid: existingEncounter.identifier?.[0]?.value || priorDxData.uuid,
+        reqUuid: priorDxData.uuid,
         practitionerId,
         generatedOn: priorDxData.appUpdatedDate
     }, "put");
@@ -348,6 +350,7 @@ async function handleNewPriorDx({ priorDxData, baseEncounterId, practitionerId, 
             encounterId: baseEncounterId,
             patientId: priorDxData.patientId,
             uuid: priorDxData.uuid,
+            reqUuid: priorDxData.uuid,
             practitionerId: practitionerId,
             generatedOn: priorDxData.appUpdatedDate
         }, "post");
@@ -406,7 +409,7 @@ const setPriorDxResponse  = (reqBundleData, responseBundleData, type) => {
         filteredData = responseData.filter(e => e.fullUrl.split("/")[0] == "Condition");
         
     }  
-    response = responseService.setDefaultResponse("Encounter", type, filteredData)
+    response = responseService.setDefaultAssessmentResponse("Encounter", type, filteredData)
     return response;
 }
 
