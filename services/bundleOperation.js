@@ -103,8 +103,6 @@ let searchData = async function (link, reqQuery) {
     const urlVal = (new URL(link));
     if (schemaList.includes(urlVal.protocol) && domainsList.includes(urlVal.hostname)) {
         try {
-            console.log("fetch url :", urlVal)
-            console.log("fetch params :", reqQuery)
             const headers = {
                 'Content-Type': 'application/json',
                 'Cache-Control': 'no-cache, no-store, must-revalidate',

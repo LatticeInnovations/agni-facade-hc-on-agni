@@ -29,4 +29,5 @@ router.use("/Immunization", auth, require("./immunizationRoute"));
 router.use("/ImmunizationRecommendation", auth, require("./immunizationRecommendationRoute"));
 router.use("/historyMedicine", auth, require("./medicationHistoryRoute"))
 router.use("/familyHistory", auth, require("./familyHistoryRoute"))
+router.use("/allergy", auth, require("./allergyRoute"))
 module.exports = router;
