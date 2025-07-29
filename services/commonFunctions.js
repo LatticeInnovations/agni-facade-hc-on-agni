@@ -35,6 +35,7 @@ const createEncounterBundle = async(EncounterClass, encounterData, requestType) 
     try {
         const encounter = buildFHIRResource(EncounterClass, encounterData);
         encounter.appointment = null
+        encounter.uuid = encounterData.reqUuid
         console.log("encounter data: ", encounter)
         if(requestType == "post") {
             return await bundleStructure.setBundlePost(encounter, null, encounterData.uuid, HTTP_METHODS.POST, BUNDLE_TYPES.IDENTIFIER);

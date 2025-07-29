@@ -53,6 +53,7 @@ let saveHistoryMedicationData = async function (req, res) {
         for (let medicationData of req.body) {
             //  fetch appointment encounter
             const encounterData = await fetchMainEncounter(medicationData)
+            const reqUuid = medicationData.uuid;
             const baseEncounterId = encounterData?.entry?.[0]?.resource?.id;
             if (!baseEncounterId) return;
 
@@ -62,12 +63,14 @@ let saveHistoryMedicationData = async function (req, res) {
                 medicationData.uuid = existingResponse.entry[0].resource.identifier.value;
                 const questionnaireResponseResource = buildFHIRResource(QuestionnaireResponse, {...medicationData, questionnaireId: questionnaireReference, encounterId: baseEncounterId, practitionerId: req.decoded.userId})
                 console.log("questionnaireResponseResource: ", questionnaireResponseResource)
+                questionnaireResponseResource.uuid = reqUuid
                 const questionnaireResponseBundle = await bundleStructure.setBundlePut(questionnaireResponseResource, null, existingResponse.entry[0].resource.id, "PUT", "identifier")
                 resourceResult.push(questionnaireResponseBundle)
                 }
             else {
                 const questionnaireResponseResource = buildFHIRResource(QuestionnaireResponse, {...medicationData, questionnaireId: questionnaireReference, encounterId: baseEncounterId, practitionerId: req.decoded.userId})
                 console.log("questionnaireResponseResource: ", questionnaireResponseResource)
+                questionnaireResponseResource.uuid = reqUuid
                 const questionnaireResponseBundle =await  bundleStructure.setBundlePost(questionnaireResponseResource,[questionnaireResponseResource.identifier], medicationData.uuid, "POST", "identifier")
                 resourceResult.push(questionnaireResponseBundle)
             }
@@ -103,7 +106,7 @@ const setSaveResponse  = (reqBundleData, responseBundleData, type) => {
     let response = [];
     const responseData = bundleStructure.mapAssessmentBundleService(reqBundleData, responseBundleData)
     filteredData = responseData.filter(e => e.resource.resourceType == "QuestionnaireResponse");
-    response = responseService.setDefaultResponse("QuestionnaireResponse", type, filteredData)
+    response = responseService.setDefaultAssessmentResponse("QuestionnaireResponse", type, filteredData)
     console.info("responses: ============================>", filteredData)
     return response;
 }
