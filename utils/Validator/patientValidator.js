@@ -22,8 +22,8 @@ const patientSchema = Joi.object({
   birthDate: Joi.string().isoDate().required(), // Ensures YYYY-MM-DD format
 
   permanentAddress: Joi.object({
-    addressLine1: Joi.string().optional(),
-    addressLine2: Joi.string().allow(null).optional(),
+    addressLine1: Joi.string().optional().allow(null, ""),
+    addressLine2: Joi.string().allow(null).optional().allow(null, ""),
     district: Joi.string().optional(),
     city: Joi.string().required(),
     state: Joi.string().required(),
@@ -58,8 +58,8 @@ const patchField = (valueSchema) =>
 
 // Address schema used inside permanentAddress
 const addressSchema = Joi.object({
-  addressLine1: Joi.string().optional(),
-  addressLine2: Joi.string().optional(),
+  addressLine1: Joi.string().optional().allow(null, ""),
+  addressLine2: Joi.string().optional().allow(null, ""),
   district: Joi.string().optional(),
   city: Joi.string(),
   state: Joi.string(),
