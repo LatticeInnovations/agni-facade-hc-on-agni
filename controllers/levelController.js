@@ -142,7 +142,6 @@ let getLevelData = async function (req, res) {
         const queryParams = req.query;
         let resStatus = 1;
         queryParams._total = "accurate"
-        queryParams._count=2000
         let resourceResult = [];
         console.log("queryParams: ", queryParams)
         const responseResult = await fetchResource("Location", queryParams);
@@ -151,7 +150,7 @@ let getLevelData = async function (req, res) {
             return res.status(200).json({ status: resStatus, message: "Data fetched", total: 0, data: []  })
         }
         else {            
-            resStatus = bundleStructure.setResponse({ link: link, reqQuery: queryParams, allowNesting: 1, specialOffset: null }, responseResult);            
+            resStatus = bundleStructure.setResponse({ link: link, reqQuery: queryParams, allowNesting: 1, specialOffset: 1 }, responseResult);            
             for (let i = 0; i < responseData.length; i++) {
                 const location = getTransformedResult(Location, responseData[i].resource);
                 resourceResult.push(location)                
