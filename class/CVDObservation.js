@@ -1,7 +1,7 @@
 const BaseObservation = require("./BaseObservation");
 const {vitalCVDMethodConfig, fhirTextToVitalType, fhirTextToCVDType} = require("../utils/VitalObservationMap");
 
-class VitalObservation extends BaseObservation {
+class CVDObservation extends BaseObservation {
     static requiresVitalType = true;
   constructor(observationObj, fhirResource, vitalType) {
     super(observationObj, fhirResource);
@@ -603,4 +603,4 @@ setPatchData() {
 }
 
 
-module.exports = VitalObservation;
+module.exports = CVDObservation;
