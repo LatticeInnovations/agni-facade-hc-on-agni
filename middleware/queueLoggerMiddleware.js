@@ -8,7 +8,9 @@ const queues = {
   "cvd": "AGNI_TO_HEARTCARE_MAIN",
   "priorDx": "AGNI_TO_HEARTCARE_MAIN",
   "medicationHistory": "AGNI_TO_HEARTCARE_MAIN",
-  // "familyHistory": "AGNI_TO_HEARTCARE_MAIN"
+  "familyHistory": "AGNI_TO_HEARTCARE_MAIN",
+  "allergy": "AGNI_TO_HEARTCARE_MAIN",
+  "vital": "AGNI_TO_HEARTCARE_MAIN"
 };
 
 // Maps entity name to the key that should be used as `fhirId`
