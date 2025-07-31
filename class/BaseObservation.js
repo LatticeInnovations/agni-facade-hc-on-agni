@@ -70,13 +70,6 @@ class BaseObservation {
         ];
     }
 
-    setCommonVitalsStructure() {
-        this.setBasicStructure();
-        this.setEncounterReference();
-        this.setPatientReference();
-        this.setPractitionerReference();
-      }
-
     setDeceasedReason() {
         console.log("check entered here")
         if(this.observationObj.patientDeceasedReason) {

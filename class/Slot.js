@@ -58,9 +58,9 @@ class Slot {
 
    getStartEnd() {
     this.slotObj = {
-        "start" : this.fhirResource.start,
-        "end" : this.fhirResource.end
-    }
+        start: new Date(this.fhirResource.start).toISOString(),
+        end: new Date(this.fhirResource.end).toISOString()
+    };
    }
 
    patchSlotTime() {

@@ -1,5 +1,6 @@
 const {buildFHIRResource, fetchResource, getTransformedResult} = require("../services/helperFunctions");
-const Observation = require("../class/VitalCVDObservation");
+const CVDObservation = require("../class/CVDObservation");
+const VitalObservation = require("../class/VitalObservation");
 const bundleStructure = require("../services/bundleOperation");
 const { v4: uuidv4 } = require('uuid');
 
@@ -12,10 +13,16 @@ const BUNDLE_TYPES = {
     IDENTIFIER: "identifier"
 }
 
-const createObservationBundle = async(resourceData, type, requestType) => {
+const OBSERVATION_CLASS_MAP = {
+    "CVD": CVDObservation,
+    "Vital": VitalObservation
+}
+
+const createObservationBundle = async(resourceData, type, requestType, observationType) => {
     try {
-        resourceData.module_type = "CVD";
-        const resource = buildFHIRResource(Observation, { ...resourceData, optionalParam: type });        
+        console.log("check the data to be entered for observation: ", resourceData, type, requestType, observationType)
+        const ObservationClass = OBSERVATION_CLASS_MAP[observationType];
+        const resource = buildFHIRResource(ObservationClass, { ...resourceData, optionalParam: type });    
         if(requestType == "post") {
             resource.id = uuidv4();
             return await bundleStructure.setBundlePost(resource, null, resource.id, HTTP_METHODS.POST, BUNDLE_TYPES.IDENTIFIER);
@@ -67,7 +74,8 @@ const processObservationData = (observationList, observationData, module_type) =
         try {
             // Dynamically transform the observation using the helper function
             observation.module_type = module_type;
-            const transformedObservation = getTransformedResult(Observation, observation);
+            const ObservationClass = OBSERVATION_CLASS_MAP[module_type]
+            const transformedObservation = getTransformedResult(ObservationClass, observation);
             console.log("transformedObservation: ", transformedObservation)
             return { ...observationData, ...transformedObservation };
         } catch (error) {

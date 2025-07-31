@@ -11,7 +11,7 @@ class VitalEncounter extends BaseEncounter {
     this.fhirResource.type = [{
       coding: [{
         system: "https://your-custom-coding-system",
-        code: "vital-encounter",
+        code: "vital-test-encounter",
         display: "Vital encounter"
       }]
     }];
@@ -33,6 +33,10 @@ class VitalEncounter extends BaseEncounter {
 
   }
 
+  setOrganizationReference(){
+    this.fhirResource.serviceProvider = null;
+  }
+
 
   getPractitionerReference() {
     this.encounterObj.practitionerId =
@@ -44,8 +48,8 @@ class VitalEncounter extends BaseEncounter {
   getFHIRToTransformedResult() {
     super.getFHIRToTransformedResult();
     this.getPrimaryEncounterReference();
-    this.encounterObj.vitalFhirId = this.fhirResource.id;
-    this.encounterObj.vitalUuid = this.fhirResource.identifier?.at(-1)?.value || null;
+    this.encounterObj.fhirId = this.fhirResource.id;
+    this.encounterObj.uuid = this.fhirResource.identifier?.[0].value || null;
   }
 
 
