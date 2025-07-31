@@ -104,11 +104,10 @@ let searchData = async function (link, reqQuery) {
     if (schemaList.includes(urlVal.protocol) && domainsList.includes(urlVal.hostname)) {
         try {
             const headers = {
-                'Content-Type': 'application/json',
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'Pragma': 'no-cache',
-                'Expires': '0'
+                'Accept': 'application/fhir+json',
+                'Content-Type': 'application/json'
             }
+            console.log("check the request param in search: ", reqQuery, headers)
             let responseData = await axios.get(urlVal, { params: reqQuery, headers: headers });
             return responseData;
         } catch (e) {
