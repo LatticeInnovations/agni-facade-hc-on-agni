@@ -1,7 +1,7 @@
 const bundleStructure = require("../services/bundleOperation")
 const responseService = require("../services/responseService");
 let config = require("../config/nodeConfig");
-const Observation = require("../class/VitalCVDObservation");
+const Observation = require("../class/CVDObservation");
 const Encounter = require("../class/CVDEncounter");
 let bundleFun = require("../services/bundleOperation");
 let axios = require("axios");
@@ -61,7 +61,6 @@ const saveCVDData = async (req, res) => {
                 const baseEncounterId = encounterData?.entry?.[0]?.resource?.id;
                 if (!baseEncounterId) return;
                 console.log("encounter data check: ============>", encounterData)
-                
                 const cvdEncounter = await fetchCVDEncounter(baseEncounterId)
                 console.log("cvdEncounter check: ", cvdEncounter)
                 if (cvdEncounter.total > 0) {
@@ -128,6 +127,7 @@ const getCVDObservationList = async (CVDEncounterList, practitionerList, mainEnc
         const observationFinalData = await Promise.all(
             CVDEncounterList.map(async (encounter) => {
                 const allObservations = await fetchResource("Observation", { encounter: encounter.id, _count: 20000 })
+                console.log("========>",allObservations, encounter.id)
                 const observations = allObservations.entry.map((e) => e.resource);
                 let observationData = getTransformedResult(Encounter, encounter);
                 // Add practitioner name
@@ -148,8 +148,8 @@ const getCVDObservationList = async (CVDEncounterList, practitionerList, mainEnc
                 const observationList = observations.filter(
                     (obs) => obs.encounter.reference === `${RESOURCE_TYPES.ENCOUNTER}/${encounter.id}`
                 );
-                const observationResult = processObservationData(observationList, observationData, "cvd");
-                console.log("observationResult: ", observationResult)
+                const observationResult = await processObservationData(observationList, observationData, "CVD");
+                // console.log("observationResult: ", observationResult)
                 return observationResult;
             })
         )
@@ -178,7 +178,7 @@ const getCVDData = async (req, res) => {
         // Fetch resources in parallel
         const [responseData, practitionerData] = await Promise.all([
             fetchResource(RESOURCE_TYPES.ENCOUNTER, queryParams),
-            fetchResource(RESOURCE_TYPES.PRACTITIONER, { _count: 10000 })
+            fetchResource(RESOURCE_TYPES.PRACTITIONER, { _count: 100 })
         ]);
         if( !responseData.entry || responseData.total == 0) {
             return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })
@@ -294,11 +294,12 @@ const updateCVDData = async (req, res) => {
 }
 
 async function handleExistingCVDEncounter({ cvd, cvdEncounter, baseEncounterId, practitionerId, resourceResult }) {
+    
     const existingEncounter = cvdEncounter.entry[0].resource;
     const observations = await fetchResource(RESOURCE_TYPES.OBSERVATION, {
         encounter: existingEncounter.id,
     });
-
+    console.log("existingEncounter: ", existingEncounter)
     const encounterBundle = await createEncounterBundle(Encounter, {
         encounterId: baseEncounterId,
         fhirId: existingEncounter.id,
@@ -328,7 +329,7 @@ async function handleExistingCVDEncounter({ cvd, cvdEncounter, baseEncounterId, 
             if (!matchingObservation) return null;
 
             cvd.fhirId = matchingObservation.resource.id;
-            return createObservationBundle(cvd, type, "put");
+            return createObservationBundle(cvd, type, "put", "CVD");
         })
     );
 
@@ -358,7 +359,7 @@ async function handleNewCVDEncounter({ cvd, baseEncounterId, practitionerId, res
     });
 
     const observationBundles = await Promise.all(
-        cvdTypes.map((type) => createObservationBundle(cvd, type, "post"))
+        cvdTypes.map((type) => createObservationBundle(cvd, type, "post", "CVD"))
     );
 
     resourceResult.push(...observationBundles.filter(Boolean));
