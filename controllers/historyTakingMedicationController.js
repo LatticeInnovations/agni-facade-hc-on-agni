@@ -47,7 +47,7 @@ let saveHistoryMedicationData = async function (req, res) {
            questionnaireId = uuidv4(); 
            questionnaireReference = "urn:uuid:" + questionnaireId
            const questionnaireResourceBuilt = buildFHIRResource(Questionnaire, {questionnaireId});
-           const questionnaireBundle = await bundleStructure.setBundlePost(questionnaireResourceBuilt, [questionnaireResourceBuilt.identifier], questionnaireId, "POST", "identifier")
+           const questionnaireBundle = await bundleStructure.setBundlePost(questionnaireResourceBuilt, questionnaireResourceBuilt.identifier, questionnaireId, "POST", "identifier")
            resourceResult.push(questionnaireBundle);
         }
         for (let medicationData of req.body) {
