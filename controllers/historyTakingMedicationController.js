@@ -8,6 +8,7 @@ const responseService = require("../services/responseService");
 const { fetchResource, buildFHIRResource, getTransformedResult } = require("../services/helperFunctions");
 const { historyTakingSchema } = require("../utils/Validator/historyTakingValidator");
 const {validateRequest} = require("../utils/validateRequest");
+const { getPractitionerName } = require("../services/commonFunctions");
 
 const fetchMainEncounter = async (medicationData) => {
     const mainEncounter =   await fetchResource("Encounter", {
@@ -137,9 +138,12 @@ let getMedicationHistoryData = async function (req, res) {
         const mainEncounterIds = questionnaireResponses.entry.map((e) => e.resource.encounter?.reference?.split("/")[1]).filter(Boolean).join(",");
         const mainEncounterList = await fetchResource("Encounter", { _id: mainEncounterIds, _count: req.query._count });
         const mainEncounters = mainEncounterList.entry.map((e) => e.resource);
+        const practitionerIds = questionnaireResponses.entry.map((e) => e.resource.author?.reference?.split("/")[1]).filter(Boolean).join(",");
+        const practitionerList = await fetchResource("Practitioner", { _count: 10000, _id: practitionerIds })
         questionnaireResponses.entry.forEach(questionnaireResponse => {            
             const responseObj = getTransformedResult(QuestionnaireResponse, questionnaireResponse.resource);
             const primaryEncounter = mainEncounters.find((e) => e.id === questionnaireResponse.resource.encounter.reference.split("/")[1]);
+            responseObj.practitionerName = getPractitionerName(responseObj.practitionerId, practitionerList.entry);
             responseObj.appointmentId = primaryEncounter?.appointment?.[0]?.reference?.split("/")[1] || null;
             responseObj.appointmentUuid = primaryEncounter?.identifier?.[0].value
             resourceResult.push(responseObj)
