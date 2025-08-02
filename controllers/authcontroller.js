@@ -184,9 +184,10 @@ async function sendOTP(isEmail, userDetail, otp) {
 // get user and his/her OTP details using sequelize
 async function getUserDetail(req, contact) {
     try {
+        const token = req.accessToken;
         let queryParam ={"_total": "accurate", "_revinclude": "PractitionerRole:practitioner", "active" : true};
         queryParam[contact] = contact == "email" ? req.body.userContact.toLowerCase() : req.body.userContact;
-        let existingPractitioner = await fetchResource("Practitioner", queryParam);
+        let existingPractitioner = await fetchResource("Practitioner", queryParam, token);
         console.log("existingPractitioner: ", existingPractitioner)
         if (existingPractitioner.total == 0 || !existingPractitioner?.entry) {
             return null;

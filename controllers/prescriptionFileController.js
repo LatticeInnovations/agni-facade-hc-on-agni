@@ -22,7 +22,7 @@ const createEncounterResource = async (patPres, token) => {
             practitionerId: token.userId,
             generatedOn: patPres.generatedOn,
             orgId: token.orgId
-        });  
+        }, token);  
         return encounter;
     }
     catch(error) {
@@ -75,6 +75,7 @@ const savePrescriptionFile = async function (req, res) {
     try {
         const validatedBody = validateRequest(req.body, prescriptionFileArraySchema, res);
         if (!validatedBody) return;
+        const token = req.accessToken;
         const resourceResult = await Promise.all(
             req.body.map(async (patPres) => {
                 try {
@@ -104,7 +105,12 @@ const savePrescriptionFile = async function (req, res) {
         // Create bundle and send request
         const bundleData = await bundleStructure.getBundleJSON({ resourceResult: flattenedResourceResult });
         // return res.status(201).json({ status: 1, message: "Practitioner data saved.", data: bundleData.bundle });
-        const response = await axios.post(config.baseUrl, bundleData.bundle);
+        const response = await axios.post(config.baseUrl, bundleData.bundle, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/fhir+json'
+            }
+        });
         console.info("get bundle json response: ", response.status);
         if (response.status === 200 || response.status === 201) {
             const responseData = setPrescriptionFileResponse(bundleData.bundle.entry, response.data.entry, "post");
@@ -122,11 +128,11 @@ const savePrescriptionFile = async function (req, res) {
 /**
  * Fetch appointment encounters based on IDs.
  */
-const fetchAppointmentEncounters = async (appointmentEncounterIds) => {
+const fetchAppointmentEncounters = async (appointmentEncounterIds, token) => {
     const response = await fetchResource("Encounter", {
         "_id": appointmentEncounterIds.join(","),
         "_count": 5000
-    });
+    }, token);
     return response.entry.map((e) => e.resource);
 };
 
@@ -154,14 +160,14 @@ const extractMedicationRequests = (FHIRData, encounterId) => {
 /**
  * Fetch document references for medication requests.
  */
-const fetchDocumentReferences = async (medReqList) => {
+const fetchDocumentReferences = async (medReqList, token) => {
     const documents = medReqList[0]?.supportingInformation || [];
     const documentIds = documents.map((document) => document.reference.split("/")[1]);
 
     const documentRefsResponse = await fetchResource("DocumentReference", {
         "_id": documentIds.join(","),
         "_count": 5000
-    });
+    }, token);
 
     return documentRefsResponse?.entry?.map((e) => e.resource) || [];
 };
@@ -195,7 +201,8 @@ let getPrescriptionFile = async function (req, res) {
             "_count": 3000,
             "patient": req.query.patientId
         }
-        const responseData = await fetchResource("Encounter", queryParams);
+        const token = req.accessToken;
+        const responseData = await fetchResource("Encounter", queryParams, token);
         if (!responseData.entry || responseData.total === 0) {
             return res.status(200).json({ status: 1, message: "Data fetched", total: 0, data: [] });
         }
@@ -203,13 +210,13 @@ let getPrescriptionFile = async function (req, res) {
         const FHIRData = responseData.entry;
         const prescriptionDocumentEncounter = FHIRData.filter(e => e.resource.resourceType == "Encounter").map(e => e.resource);
         let appointmentEncounterIds = [... new Set(prescriptionDocumentEncounter.map(e =>  parseInt(e.partOf.reference.split("/")[1])))];
-        const appointmentEncounters = await fetchAppointmentEncounters(appointmentEncounterIds);
+        const appointmentEncounters = await fetchAppointmentEncounters(appointmentEncounterIds, token);
 
         const resourceResult = await Promise.all(
             prescriptionDocumentEncounter.map(async (encData) => {
                 const apptEncounter = transformAppointmentEncounter(encData, appointmentEncounters);
                 const medReqList = extractMedicationRequests(FHIRData, encData.id);
-                const documentRefs = await fetchDocumentReferences(medReqList);
+                const documentRefs = await fetchDocumentReferences(medReqList, token);
                 return buildPrescriptionFileData(encData, apptEncounter, medReqList, documentRefs);           
             })
         );
@@ -222,9 +229,9 @@ let getPrescriptionFile = async function (req, res) {
         }
 }
 
-const processEncounters = async (encounterIds) => {
+const processEncounters = async (encounterIds, token) => {
     const resourceResult = [];
-    const encounterData = await fetchResource("Encounter", { _id: encounterIds, _count: 5000 });
+    const encounterData = await fetchResource("Encounter", { _id: encounterIds, _count: 5000 }, token);
     const encounters = encounterData?.entry?.map((e) => e?.resource) || [];
 
     await Promise.all(
@@ -238,8 +245,8 @@ const processEncounters = async (encounterIds) => {
     return resourceResult;
 };
 
-const fetchMedicationRequests = async (encounterIds) => {
-    const medicationRequestData = await fetchResource("MedicationRequest", { encounter: encounterIds, _count: 5000 });
+const fetchMedicationRequests = async (encounterIds, token) => {
+    const medicationRequestData = await fetchResource("MedicationRequest", { encounter: encounterIds, _count: 5000 }, token);
     return medicationRequestData?.entry?.map((e) => e?.resource) || [];
 };
 
@@ -261,8 +268,8 @@ const extractDocumentReferenceIds = (medicationRequests) => {
     return documentReferenceIds;
 };
 
-const fetchDocumentReferenceList = async (documentReferenceIds) => {
-    const documentReferenceData = await fetchResource("DocumentReference", { _id: documentReferenceIds.join(','), _count: 5000 });
+const fetchDocumentReferenceList = async (documentReferenceIds, token) => {
+    const documentReferenceData = await fetchResource("DocumentReference", { _id: documentReferenceIds.join(','), _count: 5000 }, token);
     return documentReferenceData?.entry?.map((e) => e?.resource) || [];
 };
 
@@ -297,20 +304,26 @@ const deletePrescriptionFile = async (req, res) => {
         }
 
         const encounterIds = req.body.join(',');
+        const token = req.accessToken;
         // Fetch and process encounters
-        const resourceResult = await processEncounters(encounterIds);
+        const resourceResult = await processEncounters(encounterIds, token);
         
         // Fetch and process medication requests
-        const medicationRequests = await fetchMedicationRequests(encounterIds);
+        const medicationRequests = await fetchMedicationRequests(encounterIds, token);
         const documentReferenceIds = extractDocumentReferenceIds(medicationRequests);
 
         // Fetch and process document references
-        const documentReferences = await fetchDocumentReferenceList(documentReferenceIds);
+        const documentReferences = await fetchDocumentReferenceList(documentReferenceIds, token);
         await processMedicationRequestsAndDocuments(medicationRequests, documentReferences, resourceResult);
 
         // Create bundle and send request
         const bundleData = await bundleStructure.getBundleJSON({ resourceResult });
-        const response = await axios.post(config.baseUrl, bundleData.bundle);
+        const response = await axios.post(config.baseUrl, bundleData.bundle, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/fhir+json'
+            }
+        });
 
         if (response.status === 200) {
             const responseData = setDeleteFileResponse(bundleData.bundle.entry, response.data.entry, "delete");

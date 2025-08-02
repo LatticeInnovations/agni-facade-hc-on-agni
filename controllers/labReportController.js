@@ -19,6 +19,7 @@ let saveLabReport = async function (req, res) {
         const validatedBody = validateRequest(req.body, labReportArraySchema, res);
         if (!validatedBody) return;
         let resourceResult = [];
+        const token = req.accessToken;
         for(let labReport of req.body){ 
             const encounterUuid = uuidv4();
             const encounterBundle = await createEncounterResource(Encounter, labReport, {code: "lab-report-encounter", display: "Lab Report encounter"}, encounterUuid, req);
@@ -34,7 +35,12 @@ let saveLabReport = async function (req, res) {
             resourceResult.push(report);
         }
         let bundleData = await bundleStructure.getBundleJSON({resourceResult}) ;
-        let response = await axios.post(config.baseUrl, bundleData.bundle); 
+        let response = await axios.post(config.baseUrl, bundleData.bundle, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/fhir+json'
+            }
+        }); 
         console.info("get bundle json response: ", response.status)  
         if (response.status == 200 || response.status == 201) {
             let responseData = setLabReportResponse(bundleData.bundle.entry, response.data.entry, "post");        
@@ -61,8 +67,9 @@ let getLabReport = async function (req, res) {
             "_count": req.query.count,
             "_offset": req.query.offset
         }
+        const token = req.accessToken;
         let resourceResult = []
-        let responseData = await fetchResource("Encounter", queryParams);
+        let responseData = await fetchResource("Encounter", queryParams, token);
         let resStatus = 1;
         if( !responseData.entry || responseData.total == 0) {
                 return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })
@@ -73,10 +80,10 @@ let getLabReport = async function (req, res) {
         let mainEncounterIds = new Set(encounterList.map((e) => e.partOf.reference.split('/')[1]));
         mainEncounterIds = [...mainEncounterIds.values()].join(',');
 
-        let mainEncounterList = await fetchResource("Encounter", { _id: mainEncounterIds, _count: 5000});
+        let mainEncounterList = await fetchResource("Encounter", { _id: mainEncounterIds, _count: 5000}, token);
         mainEncounterList = mainEncounterList?.entry?.map((e) => e?.resource) || [];
 
-        const diagnosticReportResources = await fetchResource("DiagnosticReport", {encounter: labReportEncounterIds.join(","), _count:1000})
+        const diagnosticReportResources = await fetchResource("DiagnosticReport", {encounter: labReportEncounterIds.join(","), _count:1000, token})
 
         for(let encounter of encounterList){
             let mainEncounter = mainEncounterList.find((e) => e.id == encounter.partOf.reference.split('/')[1]);
@@ -85,7 +92,7 @@ let getLabReport = async function (req, res) {
         
             let reportList = diagnosticReportResources.entry.filter(e => e.resource.encounter.reference == "Encounter/"+encounter.id).map(e => e.resource);
 
-            reportData.diagnosticReport = await getDocumentReport(DiagnosticReport, DocumentReference, reportList, reportData)
+            reportData.diagnosticReport = await getDocumentReport(DiagnosticReport, DocumentReference, reportList, reportData, token)
  
             delete reportData.report;
             if(reportData.diagnosticReport.length > 0){
@@ -123,11 +130,12 @@ const deleteDiagnosticReportResources = async (diagReportData, documentReference
 
 const deleteLabReport = async (req, res) => {
     try {
+        const token = req.accessToken;
         let diagReportIds = req.body.join(',');
-        let diagReportData = await fetchResource("DiagnosticReport", { _id: diagReportIds, _count: 5000});
+        let diagReportData = await fetchResource("DiagnosticReport", { _id: diagReportIds, _count: 5000}, token);
         diagReportData = diagReportData?.entry?.map((e) => e?.resource) || [];
         const encounterIds = diagReportData.map((e) => e.encounter.reference.split('/')[1]).join(",");
-        let encounterData = await fetchResource("Encounter", { _id: encounterIds, _count: 5000});
+        let encounterData = await fetchResource("Encounter", { _id: encounterIds, _count: 5000}, token);
         encounterData = encounterData?.entry?.map((e) => e?.resource) || [];
         const deleteEncList = await deleteEncounter(Encounter, encounterData);
         let documentReferenceIds = [];
@@ -139,12 +147,17 @@ const deleteLabReport = async (req, res) => {
             });
         });
         documentReferenceIds = documentReferenceIds.join(',');
-        let documentReferenceData = await fetchResource("DocumentReference", { _id: documentReferenceIds, _count: 5000});
+        let documentReferenceData = await fetchResource("DocumentReference", { _id: documentReferenceIds, _count: 5000}, token);
         documentReferenceData = documentReferenceData?.entry?.map((e) => e?.resource) || [];
         const deleteDiagReport = await deleteDiagnosticReportResources(diagReportData, documentReferenceData);
         const resourceResult = [...deleteEncList, ...deleteDiagReport]
         let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
-        let response = await axios.post(config.baseUrl, bundleData.bundle); 
+        let response = await axios.post(config.baseUrl, bundleData.bundle, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/fhir+json'
+            }
+        }); 
         console.info("get bundle json response: ", response)  
         if (response.status == 200) {
             let responseData = setDeleteLabReportResponse(bundleData.bundle.entry, response.data.entry, "delete");        

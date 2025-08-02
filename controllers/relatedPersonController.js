@@ -15,13 +15,14 @@ let saveRelatedPersonData = async function (req, res) {
         let patientArrayById = {};
         const validatedBody = validateRequest(req.body, relatedPersonSaveSchema, res);
         if (!validatedBody) return;
+        const token = req.accessToken;
         let resourceResult = [];
         for (let inputData of req.body) {
             if (!patientArrayById.hasOwnProperty(inputData.id)) {
                 patientArrayById[inputData.id] = { "personId": null, relation: [] };
             }
 
-            let person1Link = await fetchResource("Person", { link: "Patient/" + inputData.id, _include: "Person:link:RelatedPerson" });
+            let person1Link = await fetchResource("Person", { link: "Patient/" + inputData.id, _include: "Person:link:RelatedPerson" }, token);
             console.log("person1Link: ", person1Link)
             if (person1Link.total != 1) {
                 return res.status(500).json({ status: 0,  message: "Patient Id " + inputData.id + " does not exist." })
@@ -42,7 +43,12 @@ let saveRelatedPersonData = async function (req, res) {
 
         }
         let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
-        let response = await axios.post(config.baseUrl, bundleData.bundle); 
+        let response = await axios.post(config.baseUrl, bundleData.bundle, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/fhir+json'
+            }
+        }); 
         console.info("get bundle json response: ", response.status)  
         if (response.status == 200 || response.status == 201) {
             let responseData = setRelatedPersonSaveResponse(bundleData.bundle.entry, response.data.entry, "post");  
@@ -152,6 +158,7 @@ let getRelatedPersonData = async function (req, res) {
             _total: "accurate",
             _count: 1000
         };
+        const token = req.accessToken;
         delete queryParams.patientId;
 
         const resourceUrlData = {
@@ -161,7 +168,7 @@ let getRelatedPersonData = async function (req, res) {
             specialOffset: null
         };
 
-        let responseData = await fetchResource("Person", queryParams)
+        let responseData = await fetchResource("Person", queryParams, token)
         const FHIRData = responseData.entry;
         if( !FHIRData) {
                 return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })
@@ -188,6 +195,7 @@ let patchRelatedPersonData = async function (req, res) {
         if (!validatedBody) return;
         let resourceResult = [];
         let deleteList = [];
+        const token = req.accessToken;
         for (let inputData of req.body) {
             if (!patientArrayById.hasOwnProperty(inputData.id)) {
                 patientArrayById[inputData.id] = { "personId": null, relation: [] };
@@ -196,7 +204,7 @@ let patchRelatedPersonData = async function (req, res) {
             let removeList = inputData.relationship.filter(e => e.operation == "remove");
             let addList = inputData.relationship.filter(e => e.operation == "add").map(e => { return e.value });
             // patient's person and related person data                  
-            let person1Link = await fetchResource("Person", { link: "Patient/" + inputData.id, _include: "Person:link:RelatedPerson" });
+            let person1Link = await fetchResource("Person", { link: "Patient/" + inputData.id, _include: "Person:link:RelatedPerson" }, token);
             if (person1Link.total != 1) {
                 return res.status(500).json({ status: 0, message: "Patient Id " + inputData.id + " does not exist.", error: null })
             }
@@ -223,7 +231,12 @@ let patchRelatedPersonData = async function (req, res) {
 
         resourceResult = resourceResult.concat(deleteList)
         let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
-        let response = await axios.post(config.baseUrl, bundleData.bundle);   
+        let response = await axios.post(config.baseUrl, bundleData.bundle, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/fhir+json'
+            }
+        });   
         if (response.status == 200 || response.status == 201) {
             let responseData = setRelatedPersonSaveResponse(bundleData.bundle.entry, response.data.entry, "patch"); 
             res.status(201).json({ status: 1, message: "Data saved.", data: responseData })

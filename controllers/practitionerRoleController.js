@@ -14,8 +14,9 @@ let getPractitionerRoleData = async function (req, res) {
             "_include": "*",
             "_total": "accurate"
         }
+        const token = req.accessToken;
         let resourceResult = [];
-        let responseData = await fetchResource("PractitionerRole", queryParams);
+        let responseData = await fetchResource("PractitionerRole", queryParams, token);
         let resStatus = 1;
         if( !responseData.entry || responseData.total == 0) {
                 return res.status(200).json({ status: resStatus, message: "Data fetched", total: 0, data: []  })

@@ -71,6 +71,7 @@ let savePrescriptionData = async function (req, res) {
     try {
         const validatedBody = validateRequest(req.body, prescriptionArraySchema, res);
         if (!validatedBody) return;
+        const token = req.accessToken;
         const resourceResult = await Promise.all(
             req.body.map(async (patPres) => {
                 try {
@@ -79,7 +80,7 @@ let savePrescriptionData = async function (req, res) {
                         appointment: patPres.appointmentId,
                         _count: 5000,
                         _include: "Encounter:appointment"
-                    });
+                    }, token);
                     const apptData = appointmentEncounter.entry[0].resource;
                     // Create encounter bundle
                     const encounterBundle = await createEncounterBundle(patPres, apptData, req.decoded);
@@ -107,7 +108,12 @@ let savePrescriptionData = async function (req, res) {
         // Create bundle and send request   
         const bundleData = await bundleStructure.getBundleJSON({ resourceResult: flattenedResourceResult });
         // return res.status(201).json({ status: 1, message: "Practitioner data saved.", data: bundleData.bundle });
-        const response = await axios.post(config.baseUrl, bundleData.bundle);
+        const response = await axios.post(config.baseUrl, bundleData.bundle, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/fhir+json'
+            }
+        });
         console.info("get bundle json response: ", response.status);
 
         if (response.status === 200 || response.status === 201) {
@@ -126,11 +132,11 @@ let savePrescriptionData = async function (req, res) {
 /**
  * Fetch appointment encounters based on IDs.
  */
-const fetchAppointmentEncounters = async (appointmentEncounterIds) => {
+const fetchAppointmentEncounters = async (appointmentEncounterIds, token) => {
     const response = await fetchResource("Encounter", {
         "_id": appointmentEncounterIds.join(","),
         "_count": 5000
-    });
+    }, token);
     return response.entry.map((e) => e.resource);
 };
 
@@ -195,8 +201,8 @@ const getPrescriptionData = async function (req, res) {
             "_count": 3000,
             "subject": req.query.patientId
         };       
-
-        const responseData = await fetchResource("Encounter", queryParams);
+        const token = req.accessToken;
+        const responseData = await fetchResource("Encounter", queryParams, token);
         console.log("responseData: ", responseData)
         if (!responseData.entry || responseData.total === 0) {
             return res.status(200).json({ status: 1, message: "Data fetched", total: 0, data: [] });
@@ -204,13 +210,13 @@ const getPrescriptionData = async function (req, res) {
         const prescriptionFormEncounterIds = [...new Set(responseData.entry.map((e) => e.resource.id))];
         //  Fetch medication requests from prescription encounters
         console.log("prescriptionFormEncounterIds: ", prescriptionFormEncounterIds)
-        const medicationRequestResources = await fetchResource("MedicationRequest", {_count:3000, encounter: prescriptionFormEncounterIds.join(",")});
+        const medicationRequestResources = await fetchResource("MedicationRequest", {_count:3000, encounter: prescriptionFormEncounterIds.join(",")}, token);
         const prescriptionFormEncounters = responseData.entry;
         //  get appointment encounter ids from prescription encounter
         const appointmentEncounterIds = [...new Set(prescriptionFormEncounters.map((e) => parseInt(e.resource.partOf.reference.split("/")[1])))];
         console.log("appointmentEncounterIds: ", appointmentEncounterIds)
         //  fetch primary encounters from encounter ids
-        const appointmentEncounters = await fetchAppointmentEncounters(appointmentEncounterIds);
+        const appointmentEncounters = await fetchAppointmentEncounters(appointmentEncounterIds, token);
         console.log("medicationRequestResources: ", medicationRequestResources)
         //  map the data together according to main encounter
         const resourceResult = prescriptionFormEncounters.map((encData) => {

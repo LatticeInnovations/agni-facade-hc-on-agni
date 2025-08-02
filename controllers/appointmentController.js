@@ -25,12 +25,18 @@ let setAppointmentData = async function (req, res) {
             apiName: "save-appointment",
             tokenData: req.decoded
           };
+        const token = req.accessToken
         let resourceResult = [];
-        resourceResult = await createAppointmentResources(req.body, req.decoded.userId)
+        resourceResult = await createAppointmentResources(req.body, req.decoded.userId, token)
         console.info("=============>", resourceResult, "<=========================");
         let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
         console.info("main bundle transaction resource: ", bundleData)
-        let response = await axios.post(config.baseUrl, bundleData.bundle); 
+        let response = await axios.post(config.baseUrl, bundleData.bundle, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/fhir+json'
+            }
+        }); 
         console.log("get bundle json response: ", response)  
         if (response.status == 200 || response.status == 201) {
             let responseData = setAppointmentResponse(bundleData.bundle.entry, response.data.entry, "post");
@@ -48,19 +54,19 @@ let setAppointmentData = async function (req, res) {
 
 }
 
-const fetchPractitionerRoleResource = async (userId) => {
+const fetchPractitionerRoleResource = async (userId, token) => {
     // get PractitionerRole id of the organization sent by app and map it to the appointments
-    const roleResource = await fetchResource("PractitionerRole", { practitioner: userId, _total: "accurate" });
+    const roleResource = await fetchResource("PractitionerRole", { practitioner: userId, _total: "accurate" }, token);
     console.log(roleResource.entry[0].resource, userId)
     if (!roleResource.entry)
         throw new Error("PractitionerRole not found for the given organization.");
     return {roleId: roleResource.entry[0].resource.id, orgId: roleResource.entry[0].resource.organization.reference.split("/")[1]};
 }
 
-const createAppointmentResources= async function(reqData, userId) {
+const createAppointmentResources= async function(reqData, userId, token) {
     try
     {
-        const {roleId, orgId} = await fetchPractitionerRoleResource(userId)
+        const {roleId, orgId} = await fetchPractitionerRoleResource(userId, token)
         const resourcePromises = reqData.map(async (apptData) => {
             apptData.roleId = roleId;
             // Create Slot resource
@@ -142,12 +148,12 @@ const combineAppointmentData = (apptResult, slotAppt, apptEncounter, apptStatus)
 
 }
 
-const getRoleOrgObject = async (roleIds) => {
+const getRoleOrgObject = async (roleIds, token) => {
     console.log("roleIds: ", roleIds)
     const entries = (await fetchResource("PractitionerRole", {
         _id: [...roleIds].join(","),
         _include: "PractitionerRole:organization"
-      })).entry || [];
+      }, token)).entry || [];
       
       const roleOrgMap = {};
       const orgMap = {};
@@ -185,10 +191,10 @@ const getRoleOrgObject = async (roleIds) => {
       return roleOrg;
     }
 
-const getSlotObject = async (slotIds) => {
+const getSlotObject = async (slotIds, token) => {
     const slotAppt = (await fetchResource("Slot", {
         "_id": [...slotIds].join(","), _count: 5000 
-    })).entry.map(e => ({
+    }, token)).entry.map(e => ({
         slotId: e.resource.id,
         slot: { start: e.resource.start, end: e.resource.end},
         scheduleId: e.resource.schedule.reference.split("/")[1]
@@ -196,10 +202,10 @@ const getSlotObject = async (slotIds) => {
     return slotAppt
 }
 
-const getAppointmentEncounterObject = async (apptIds) => {
+const getAppointmentEncounterObject = async (apptIds, token) => {
     const apptEncounterResources = (await fetchResource("Encounter", {
         "appointment": [...apptIds].join(","), _count: 5000
-    }));
+    }, token));
     console.log("apptEncounterResources: ", apptEncounterResources)
     const apptEncounter = apptEncounterResources.entry.map(e => ({ 
         encStatus: e.resource.status, 
@@ -216,14 +222,14 @@ const getAppointment = async function(req, res) {
                 _offset: req.query._offset,
                 _sort: req.query._sort
             }
-
-            const FHIRData = await fetchResource("Appointment", queryParams)
+            const token = req.accessToken;
+            const FHIRData = await fetchResource("Appointment", queryParams, token)
             if (!FHIRData.entry) {
                 return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: [] });
             }
             let { apptResult, roleIds, apptIds, slotIds } = mapAppointments(FHIRData.entry);
 
-            const roleOrg = await getRoleOrgObject(roleIds);
+            const roleOrg = await getRoleOrgObject(roleIds, token);
             console.log("roleOrg: ", roleOrg)
             //  get organization id from role of appointment
             apptResult = apptResult.map(obj1 => {
@@ -231,8 +237,8 @@ const getAppointment = async function(req, res) {
               
                 return { ...obj1, ...obj2 };
             });
-            const slotAppt = await getSlotObject(slotIds);
-            const apptEncounter = await getAppointmentEncounterObject(apptIds)
+            const slotAppt = await getSlotObject(slotIds, token);
+            const apptEncounter = await getAppointmentEncounterObject(apptIds, token)
              //combine appointment with slot and encounter status
              const resourceResult = combineAppointmentData(apptResult, slotAppt, apptEncounter, apptStatus);
             const resStatus = bundleStructure.setResponse({ link: config.baseUrl + "Appointment", reqQuery: queryParams }, FHIRData);
@@ -286,7 +292,8 @@ const createAppointmentPatchBundle = async (inputData, resourceSavedData, resour
 const patchAppointmentData = async function(req, res) {
     try {
       const resourceType = "Appointment";
-      const reqInput = req.body;             
+      const reqInput = req.body;    
+      const token = req.accessToken;         
       const validatedBody = validateRequest(req.body, appointmentPatchSchema, res);
       if (!validatedBody) return;
       req.queueMeta = {
@@ -298,9 +305,9 @@ const patchAppointmentData = async function(req, res) {
       };
       let resourceResult = [], errData = [];        
       for (let inputData of reqInput) {
-        let resourceSavedData = await fetchResource(resourceType, { "_id": inputData.appointmentId })
+        let resourceSavedData = await fetchResource(resourceType, { "_id": inputData.appointmentId }, token)
         console.log("resourceSavedData: ", resourceSavedData)
-        let encounterSavedData =  await fetchResource("Encounter", { "appointment": inputData.appointmentId })
+        let encounterSavedData =  await fetchResource("Encounter", { "appointment": inputData.appointmentId }, token)
         if (resourceSavedData.entry.length != 1) {
             return res.status(422).json( { status: 0, message: "Appointment Id " + inputData.appointmentId + " does not exist."})
         }
@@ -327,7 +334,12 @@ const patchAppointmentData = async function(req, res) {
     const resourceData = {resourceResult: resourceResult, errData: []}
     let bundleData = await bundleStructure.getBundleJSON(resourceData)  
     console.info(bundleData)
-    let response = await axios.post(config.baseUrl, bundleData.bundle); 
+    let response = await axios.post(config.baseUrl, bundleData.bundle, {
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/fhir+json'
+        }
+    }); 
     console.log("get bundle json response: ", response.status)  
     if (response.status == 200 || response.status == 201) {
         let resourceResponse = setAppointmentResponse(bundleData.bundle.entry, response.data.entry, "patch");

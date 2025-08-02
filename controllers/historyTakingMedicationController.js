@@ -10,12 +10,12 @@ const { historyTakingSchema } = require("../utils/Validator/historyTakingValidat
 const {validateRequest} = require("../utils/validateRequest");
 const { getPractitionerName } = require("../services/commonFunctions");
 
-const fetchMainEncounter = async (medicationData) => {
+const fetchMainEncounter = async (medicationData, token) => {
     const mainEncounter =   await fetchResource("Encounter", {
          appointment: medicationData.appointmentId,
          _count: 5000,
          _include: "Encounter:appointment",
-     });
+     }, token);
  
      console.log(mainEncounter)
  
@@ -35,11 +35,12 @@ let saveHistoryMedicationData = async function (req, res) {
             apiName: "save-medical-history",
             tokenData: req.decoded
           };
+        const token = req.accessToken;
         let resourceResult = [];
         let questionnaireId = null;
         let questionnaireReference = null;
         //  Get Questionnaire id if it not exists create it and pass as reference for uuid
-        const questionnaireResource = await fetchResource("Questionnaire", {name: "history-medication-questionnaire", _total: "accurate", _count: 1})
+        const questionnaireResource = await fetchResource("Questionnaire", {name: "history-medication-questionnaire", _total: "accurate", _count: 1}, token)
         if(questionnaireResource.total > 0) {
             questionnaireId = questionnaireResource.entry[0].resource.id;
             questionnaireReference = "Questionnaire/" + questionnaireId;        
@@ -53,12 +54,12 @@ let saveHistoryMedicationData = async function (req, res) {
         }
         for (let medicationData of req.body) {
             //  fetch appointment encounter
-            const encounterData = await fetchMainEncounter(medicationData)
+            const encounterData = await fetchMainEncounter(medicationData, token)
             const reqUuid = medicationData.uuid;
             const baseEncounterId = encounterData?.entry?.[0]?.resource?.id;
             if (!baseEncounterId) return;
 
-            const existingResponse = await fetchResource("QuestionnaireResponse", {source: medicationData.patientId, encounter: baseEncounterId, questionnaire: questionnaireId, _total: "accurate"});
+            const existingResponse = await fetchResource("QuestionnaireResponse", {source: medicationData.patientId, encounter: baseEncounterId, questionnaire: questionnaireId, _total: "accurate"}, token);
             if (existingResponse.total > 0) {
                 console.log("put case")
                 medicationData.uuid = existingResponse.entry[0].resource.identifier.value;
@@ -79,7 +80,12 @@ let saveHistoryMedicationData = async function (req, res) {
        }
         let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
         // return res.status(201).json({ status: 1, message: "Medication history data saved.", data: bundleData.bundle })
-        let response = await axios.post(config.baseUrl, bundleData.bundle); 
+        let response = await axios.post(config.baseUrl, bundleData.bundle, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/fhir+json'
+            }
+        }); 
         console.info("get bundle json response: ", response.status)  
         if (response.status == 200 || response.status == 201) {
             let responseData = setSaveResponse(bundleData.bundle.entry, response.data.entry, "post");   
@@ -117,7 +123,8 @@ const setSaveResponse  = (reqBundleData, responseBundleData, type) => {
 //  Get medication history data
 let getMedicationHistoryData = async function (req, res) {
     try {
-        const questionnaireResource = await fetchResource("Questionnaire", {name: "history-medication-questionnaire", _total: "accurate", _count: 1})
+        const token = req.accessToken;
+        const questionnaireResource = await fetchResource("Questionnaire", {name: "history-medication-questionnaire", _total: "accurate", _count: 1}, token)
         if(questionnaireResource.total == 0) {
             return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })
         } 
@@ -128,7 +135,7 @@ let getMedicationHistoryData = async function (req, res) {
         queryParams.questionnaire = "Questionnaire/" + questionnaireResource.entry[0].resource.id
         let resourceResult = []
         let resourceUrlData = { link: link, reqQuery: queryParams, allowNesting: 0, specialOffset: specialOffset }
-        let questionnaireResponses = await fetchResource("QuestionnaireResponse", queryParams);
+        let questionnaireResponses = await fetchResource("QuestionnaireResponse", queryParams, token);
         let resStatus = 1;
         if(  questionnaireResponses.total == 0) {
                 return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })
@@ -136,10 +143,10 @@ let getMedicationHistoryData = async function (req, res) {
             
         resStatus = bundleStructure.setResponse(resourceUrlData, questionnaireResponses);
         const mainEncounterIds = questionnaireResponses.entry.map((e) => e.resource.encounter?.reference?.split("/")[1]).filter(Boolean).join(",");
-        const mainEncounterList = await fetchResource("Encounter", { _id: mainEncounterIds, _count: req.query._count });
+        const mainEncounterList = await fetchResource("Encounter", { _id: mainEncounterIds, _count: req.query._count }, token);
         const mainEncounters = mainEncounterList.entry.map((e) => e.resource);
         const practitionerIds = questionnaireResponses.entry.map((e) => e.resource.author?.reference?.split("/")[1]).filter(Boolean).join(",");
-        const practitionerList = await fetchResource("Practitioner", { _count: 10000, _id: practitionerIds })
+        const practitionerList = await fetchResource("Practitioner", { _count: 10000, _id: practitionerIds }, token)
         questionnaireResponses.entry.forEach(questionnaireResponse => {            
             const responseObj = getTransformedResult(QuestionnaireResponse, questionnaireResponse.resource);
             const primaryEncounter = mainEncounters.find((e) => e.id === questionnaireResponse.resource.encounter.reference.split("/")[1]);

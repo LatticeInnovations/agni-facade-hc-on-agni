@@ -21,12 +21,13 @@ let saveLevelData = async function (req, res) {
             apiName: "add-level",
             tokenData: req.decoded
           };
+        const token = req.accessToken;
         let resourceResult = [];
         let levelResource = null;
         console.log("req body: ", req.body)
         for (let levelData of req.body) {
             if(levelData.levelType == "village") {
-                const islandData = await fetchResource("Organization", {_id: levelData.precedingLevelId, type: "health-facility"});                
+                const islandData = await fetchResource("Organization", {_id: levelData.precedingLevelId, type: "health-facility"}, token);                
                 const locationData = islandData.entry[0].resource.extension.find(e => e.url == urlList.locationReferenceUrl)
                 console.log("locationData: ", locationData)
                 levelData.orgId = levelData.precedingLevelId;
@@ -49,7 +50,12 @@ let saveLevelData = async function (req, res) {
         let bundleData = await bundleStructure.getBundleJSON({resourceResult});
         // return res.status(201).json({ status: 1, message: "Level data saved.", data: bundleData.bundle })  
         console.info("main bundle transaction resource: ", bundleData)
-        let response = await axios.post(config.baseUrl, bundleData.bundle); 
+        let response = await axios.post(config.baseUrl, bundleData.bundle, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/fhir+json'
+            }
+        }); 
         console.log("get bundle json response: ", response)  
         if (response.status == 200 || response.status == 201) {
             let resourceResponse = setLevelSaveResponse(bundleData.bundle.entry, response.data.entry, "post");
@@ -82,10 +88,11 @@ let updateLevelData = async function (req, res) {
             apiName: "update-level",
             tokenData: req.decoded
           };
+        const token = req.accessToken;
         console.log("req body: ", req.body)
         for (let levelData of req.body) {
             if(levelData.levelType == "village") {
-                const islandData = await fetchResource("Organization", {_id: levelData.precedingLevelId, type: "health-facility"});                
+                const islandData = await fetchResource("Organization", {_id: levelData.precedingLevelId, type: "health-facility"}, token);                
                 const locationData = islandData.entry[0].resource.extension.find(e => e.url == urlList.locationReferenceUrl)
                 console.log("locationData: ", locationData)
                 levelData.orgId = levelData.precedingLevelId;
@@ -108,7 +115,12 @@ let updateLevelData = async function (req, res) {
         let bundleData = await bundleStructure.getBundleJSON({resourceResult});
         // return res.status(201).json({ status: 1, message: "Level data saved.", data: bundleData.bundle })  
         console.info("main bundle transaction resource: ", bundleData)
-        let response = await axios.post(config.baseUrl, bundleData.bundle); 
+        let response = await axios.post(config.baseUrl, bundleData.bundle, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/fhir+json'
+            }
+        }); 
         console.log("get bundle json response: ", response)  
         if (response.status == 200 || response.status == 201) {
             let resourceResponse = setLevelSaveResponse(bundleData.bundle.entry, response.data.entry, "post");
@@ -141,10 +153,11 @@ let getLevelData = async function (req, res) {
         const link = config.baseUrl + "Location"
         const queryParams = req.query;
         let resStatus = 1;
+        const token = req.accessToken;
         queryParams._total = "accurate"
         let resourceResult = [];
         console.log("queryParams: ", queryParams)
-        const responseResult = await fetchResource("Location", queryParams);
+        const responseResult = await fetchResource("Location", queryParams, token);
         const responseData = responseResult.entry || []
         if( !responseData) {
             return res.status(200).json({ status: resStatus, message: "Data fetched", total: 0, data: []  })
@@ -171,9 +184,10 @@ const patchLevelData = async function(req, res) {
         // if (!validatedBody) return;
         const resourceType = "Location";
         const reqInput = req.body;
+        const token = req.accessToken;
         let resourceResult = [];
       for (let inputData of reqInput) {
-        const resourceSavedResult = await fetchResource(resourceType, {_id: inputData.fhirId })
+        const resourceSavedResult = await fetchResource(resourceType, {_id: inputData.fhirId }, token)
         const resourceSavedData = resourceSavedResult.entry || [];
         if (resourceSavedData.length != 1) {
             const statusCode = 500
@@ -189,7 +203,12 @@ const patchLevelData = async function(req, res) {
     const bundleData = await bundleStructure.getBundleJSON({resourceResult: resourceResult, errData: []})  
     console.info(bundleData)
     // return res.status(201).json({ status: 1, message: "Level name updated.", data: bundleData.bundle })  
-    const response = await axios.post(config.baseUrl, bundleData.bundle); 
+    const response = await axios.post(config.baseUrl, bundleData.bundle, {
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/fhir+json'
+        }
+    }); 
     console.log("get bundle json response: ", response.status)  
     if (response.status == 200 || response.status == 201) {
         let resourceResponse = setLevelSaveResponse(bundleData.bundle.entry, response.data.entry, "patch");
