@@ -59,7 +59,7 @@ let saveFamilyHistoryData = async function (req, res) {
             if (!baseEncounterId) return;
 
             const existingResponse = await fetchResource("QuestionnaireResponse", {source: familyHistoryData.patientId, encounter: baseEncounterId, questionnaire: questionnaireId, _total: "accurate"}, token);
-            if (existingResponse.total > 0) {
+            if (existingResponse.total > 0 && existingResponse.entry) {
                 console.log("put case")
                 const reqUuid = familyHistoryData.uuid;
                 familyHistoryData.uuid = existingResponse.entry[0].resource.identifier.value;

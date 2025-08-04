@@ -124,7 +124,7 @@ const savePriorDxData = async (req, res) => {
                 const priorDxEncounter = await fetchPriorDxEncounter(baseEncounterId, token)
                 console.log("cvdEncounter check: ", priorDxEncounter)
                 
-                if (priorDxEncounter.total > 0) {
+                if (priorDxEncounter.total > 0 && priorDxEncounter.entry) {
                     // Update case (PUT)
                       console.log("Inside PUT request")
                       await handleExistingPriorDx({priorDxData, priorDxEncounter, baseEncounterId, practitionerId, resourceResult}, token);

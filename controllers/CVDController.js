@@ -64,7 +64,7 @@ const saveCVDData = async (req, res) => {
                 console.log("encounter data check: ============>", encounterData)
                 const cvdEncounter = await fetchCVDEncounter(baseEncounterId, token)
                 console.log("cvdEncounter check: ", cvdEncounter)
-                if (cvdEncounter.total > 0) {
+                if (cvdEncounter.total > 0 && cvdEncounter.entry) {
                     console.log("put case")
                     // Update case (PUT)
                     await handleExistingCVDEncounter({cvd, cvdEncounter, baseEncounterId, practitionerId, resourceResult, token});
@@ -187,6 +187,7 @@ const getCVDData = async (req, res) => {
             fetchResource(RESOURCE_TYPES.ENCOUNTER, queryParams, token),
             fetchResource(RESOURCE_TYPES.PRACTITIONER, { _count: 100 }, token)
         ]);
+        console.log("responseData: ", responseData)
         if( !responseData.entry || responseData.total == 0) {
             return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })
         }
@@ -387,7 +388,7 @@ const checkDuplicateScreening = async (cvd, baseEncounterId, token) => {
         _count: 2000,
     }, token);
 
-    if (resources.total > 0) {
+    if (resources.total > 0 && resources.entry) {
         const matchingEntry = resources.entry.find(e =>
             e.resource.extension?.some(ext =>
                 new Date(ext.valueDateTime).toISOString().split("T")[0] === cvd.screeningDate

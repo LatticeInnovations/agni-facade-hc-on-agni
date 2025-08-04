@@ -44,7 +44,7 @@ let saveAllergyData = async function (req, res) {
             if (!baseEncounterId) return;
 
             const existingResponses = await fetchResource("AllergyIntolerance", {patient: allergyData.patientId, _total: "accurate", _count: 1000}, token);
-            if (existingResponses.total > 0) {
+            if (existingResponses.total > 0 && existingResponses.entry) {
                 const currentAllergyData = existingResponses.entry.filter(e=> e.resource.encounter.reference.split("/")[1] === baseEncounterId);
                 console.log("currentAllergyData: ", currentAllergyData)
                 if(currentAllergyData.length > 0){

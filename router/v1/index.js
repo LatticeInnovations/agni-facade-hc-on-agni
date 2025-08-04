@@ -14,12 +14,17 @@ router.use("/Patient", auth, require("./patientRoute"))
 router.use("/RelatedPerson", auth, require("./relatedPersonRoute"))
 router.use("/Schedule", auth, require("./scheduleRoute"))
 router.use("/Appointment", auth, require("./appointmentRoute"));
-router.use("/Vital", auth, require("./vitalRoute"));
-router.use("/SympDx", auth, require("./symDiagRoute"));
 router.use("/CVD", auth, require("./CVDRoute"));
 router.use("/priorDx", auth, require("./priorDxRoute"));
 router.use("/Medication", auth, require("./medicationRoute"));
 router.use("/Prescription", auth, require("./prescriptionRoute"));
+router.use("/historyMedicine", auth, require("./medicationHistoryRoute"))
+router.use("/familyHistory", auth, require("./familyHistoryRoute"))
+router.use("/allergy", auth, require("./allergyRoute"))
+router.use("/Vital", auth, require("./vitalRoute"));
+router.use("/riskFactor", auth, require("./riskFactorRoute"))
+
+router.use("/SympDx", auth, require("./symDiagRoute"));
 router.use("/PrescriptionFile", auth, require("./prescriptionFileRoute"));
 router.use("/MedicationDispense", auth, require("./medicationDispenseRoute"));
 router.use("/DispenseLog", auth, require("./dispenseLogRoute"));
@@ -27,7 +32,4 @@ router.use("/LabReport", auth, require("./LabReportRoute"));
 router.use("/MedicalRecord", auth, require("./medicalRecordRoute"));
 router.use("/Immunization", auth, require("./immunizationRoute"));
 router.use("/ImmunizationRecommendation", auth, require("./immunizationRecommendationRoute"));
-router.use("/historyMedicine", auth, require("./medicationHistoryRoute"))
-router.use("/familyHistory", auth, require("./familyHistoryRoute"))
-router.use("/allergy", auth, require("./allergyRoute"))
 module.exports = router;

@@ -114,7 +114,7 @@ const fetchResource = async (resourceType, queryParams, token) => {
                     }
                     console.log("check the request param in search: ", queryParams, headers)
                     let responseData = await axios.get(urlVal, { params: queryParams, headers: headers });
-                    return responseData || {};
+                    return responseData.data || {};
                 } catch (e) {
                     let eData = { status: 0, code: "ERR", e: e, statusCode: 500 }
                     return Promise.reject(eData);
