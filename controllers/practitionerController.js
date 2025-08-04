@@ -67,7 +67,7 @@ let savePractitionerData = async function (req, res) {
         }
         else {
                 return res.status(500).json({
-                status: 0, message: "Unable to process. Please try again.", error: response
+                status: 0, message: "Unable to process. Please try again.", err: response
             })
         }
     }
@@ -76,7 +76,7 @@ let savePractitionerData = async function (req, res) {
         return res.status(500).json({
             status: 0,
             message: "Unable to process. Please try again.",
-            error: e
+            err: e
         })
     }
 
@@ -142,7 +142,7 @@ let updatePractitionerData = async function (req, res) {
         }
         else {
                 return res.status(500).json({
-                status: 0, message: "Unable to process. Please try again.", error: response
+                status: 0, message: "Unable to process. Please try again.", err: response
             })
         }
     }
@@ -151,7 +151,7 @@ let updatePractitionerData = async function (req, res) {
         return res.status(500).json({
             status: 0,
             message: "Unable to process. Please try again.",
-            error: e
+            err: e
         })
     }
 
@@ -239,7 +239,7 @@ let patchPractitionerData = async function (req, res) {
         }
         else {
                 return res.status(500).json({
-                status: 0, message: "Unable to process. Please try again.", error: response
+                status: 0, message: "Unable to process. Please try again.", err: response
             })
         }
     }
@@ -248,7 +248,7 @@ let patchPractitionerData = async function (req, res) {
         return res.status(500).json({
             status: 0,
             message: "Unable to process. Please try again.",
-            error: e
+            err: e
         })
     }
 

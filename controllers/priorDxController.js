@@ -187,8 +187,8 @@ const getPriorDxData = async (req, res) => {
         const resourceUrlData = { link, reqQuery: queryParams, allowNesting: 0, specialOffset: 1 };
         // Fetch resources in parallel
         const [responseData, practitionerData] = await Promise.all([
-            fetchResource("Encounter", queryParams),
-            fetchResource("Practitioner", { _count: 10000 })
+            fetchResource("Encounter", queryParams, token),
+            fetchResource("Practitioner", { _count: 10000 }, token)
         ]);
         if( !responseData.entry || responseData.total == 0) {
             return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })

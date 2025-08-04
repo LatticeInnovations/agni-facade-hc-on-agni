@@ -10,7 +10,7 @@ const getTimestamp = async (req, res) => {
         return res.status(500).json({
             status: 0,
             message: "Unable to process. Please try again.",
-            error: e
+            err: e
         });
     }
 } 
@@ -30,7 +30,7 @@ const updateTimestamp = async (req, res) => {
         return res.status(500).json({
             status: 0,
             message: "Unable to process. Please try again.",
-            error: e
+            err: e
         });
     }
 }

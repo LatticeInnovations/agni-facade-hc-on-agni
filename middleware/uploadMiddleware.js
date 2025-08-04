@@ -19,7 +19,7 @@ const uploadMiddleware = (req, res, next) => {
     if (err) {
       return res.status(400).json({ status: 0,
             message: "Cannot upload more than 10 files.",
-            error: {} 
+            err: {} 
         });
     }
     const files = req.files;

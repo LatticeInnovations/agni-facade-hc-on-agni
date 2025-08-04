@@ -69,7 +69,7 @@ let getMedicalRecord = async function (req, res) {
             "_count": req.query.count,
             "_offset": req.query.offset
         }
-        const token = req.accessToke;
+        const token = req.accessToken;
         let resourceResult = []
         let responseData = await fetchResource("Encounter", queryParams, token);
         let resStatus = 1;

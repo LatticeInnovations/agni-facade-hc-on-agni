@@ -93,7 +93,7 @@ let saveHistoryMedicationData = async function (req, res) {
         }
         else {
                 return res.status(500).json({
-                status: 0, message: "Unable to process. Please try again.", error: response
+                status: 0, message: "Unable to process. Please try again.", err: response
                 })
         }
     }
@@ -102,7 +102,7 @@ let saveHistoryMedicationData = async function (req, res) {
         return res.status(500).json({
             status: 0,
             message: "Unable to process. Please try again.",
-            error: e
+            err: e
         })
     }
 

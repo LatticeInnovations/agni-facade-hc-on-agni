@@ -97,6 +97,7 @@ const handleError = (res, error, statusCode=500, message = "Unable to process. P
 const fetchResource = async (resourceType, queryParams, token) => {
     try {
         if (!token || typeof token !== 'string' || token.trim() === '') {
+            console.log("check here:", resourceType, queryParams ,token)
             return Promise.reject({
                 status: 0,
                 code: "UNAUTHORIZED",

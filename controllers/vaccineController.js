@@ -29,7 +29,7 @@ let getManufacturer = async function (req, res) {
         return res.status(500).json({
             status: 0,
             message: "Unable to process. Please try again.",
-            error: e
+            err: e
         })
     }
 
