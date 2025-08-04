@@ -30,9 +30,9 @@ let saveRiskFactorData = async function (req, res) {
         if (!validatedBody) return;
         req.queueMeta = {
             data: req.body,
-            entity: "medicationHistory",
+            entity: "riskFactor",
             requestType: "post",
-            apiName: "save-medical-history",
+            apiName: "save-risk-factor",
             tokenData: req.decoded
           };
         const token = req.accessToken;
