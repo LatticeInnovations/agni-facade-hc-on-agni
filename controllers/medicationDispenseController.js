@@ -115,10 +115,11 @@ let getMedicationDispense = async function (req, res) {
             subject: req.query.patientId
         }
         let resourceResult = []
+        const token = req.accessToken;
         let responseData = await fetchResource("Encounter", queryParams, token);
         console.info("response data: ", responseData)
         let resStatus = 1;
-        const token = req.token.encodedToken;
+        
         if( !responseData.entry || responseData.total == 0) {
                 return res.status(200).json({ status: resStatus, message: "Data fetched", total: 0, data: []  })
         }

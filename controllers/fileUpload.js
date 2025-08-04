@@ -24,7 +24,7 @@ const uploadFiles = async (req, res) => {
         return res.status(500).json({
             status: 0,
             message: "Unable to process. Please try again.",
-            error: e
+            err: e
         })
     }
 }
@@ -40,7 +40,7 @@ const downloadFile = async (req, res) => {
             res.download(`uploads/${filename}`);
         }
         else {
-            res.status(400).json({ status: 0, error: 'file does not exist' });
+            res.status(400).json({ status: 0, err: 'file does not exist' });
         }
     }
     catch (e) {
@@ -48,7 +48,7 @@ const downloadFile = async (req, res) => {
         return res.status(500).json({
             status: 0,
             message: "Unable to process. Please try again.",
-            error: e
+            err: e
         })
     }
 }
@@ -66,7 +66,7 @@ const getAllFiles = async (req, res) => {
         return res.status(500).json({
             status: 0,
             message: "Unable to process. Please try again.",
-            error: error
+            err: error
         })
     }
 }
@@ -91,7 +91,7 @@ const downloadMultipleFiles = async (req, res) => {
         return res.status(500).json({
             status: 0,
             message: "Unable to process. Please try again.",
-            error: error
+            err: error
         })
     }
 }
