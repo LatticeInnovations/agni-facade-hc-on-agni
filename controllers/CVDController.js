@@ -21,20 +21,20 @@ const CVD_ENCOUNTER_CODE = "cvd-encounter";
 
 const cvdTypes = ["height", "weight",  "bp", "cholesterol", "bmi", "diabetic", "smoker", "heartAttackHistory"];
 
-const fetchMainEncounter = async (cvd) => {
+const fetchMainEncounter = async (cvd, token) => {
    const mainEncounter =   await fetchResource("Encounter", {
         appointment: cvd.appointmentId,
         _count: 5000,
         _include: "Encounter:appointment",
-    });
+    }, token);
 
     console.log(mainEncounter)
 
     return mainEncounter
 }
 
-const fetchCVDEncounter = async (baseEncounterId) => {
-   const result =  await fetchResource("Encounter", {  "part-of": baseEncounterId, type: "cvd-encounter", _total: "accurate"});
+const fetchCVDEncounter = async (baseEncounterId, token) => {
+   const result =  await fetchResource("Encounter", {  "part-of": baseEncounterId, type: "cvd-encounter", _total: "accurate"}, token);
    return result;
 }
 
@@ -49,6 +49,7 @@ const saveCVDData = async (req, res) => {
             apiName: "save-cvd",
             tokenData: req.decoded
           };
+          const token = req.accessToken;
         console.log("inside cvd")
         let requestType = "post"
         const allResourceResults = [], errData = [];
@@ -57,20 +58,20 @@ const saveCVDData = async (req, res) => {
                 const resourceResult = [];
                 const practitionerId = req.decoded.userId;
 
-                const encounterData = await fetchMainEncounter(cvd)
+                const encounterData = await fetchMainEncounter(cvd, token)
                 const baseEncounterId = encounterData?.entry?.[0]?.resource?.id;
                 if (!baseEncounterId) return;
                 console.log("encounter data check: ============>", encounterData)
-                const cvdEncounter = await fetchCVDEncounter(baseEncounterId)
+                const cvdEncounter = await fetchCVDEncounter(baseEncounterId, token)
                 console.log("cvdEncounter check: ", cvdEncounter)
-                if (cvdEncounter.total > 0) {
+                if (cvdEncounter.total > 0 && cvdEncounter.entry) {
                     console.log("put case")
                     // Update case (PUT)
-                    await handleExistingCVDEncounter({cvd, cvdEncounter, baseEncounterId, practitionerId, resourceResult});
+                    await handleExistingCVDEncounter({cvd, cvdEncounter, baseEncounterId, practitionerId, resourceResult, token});
                 } else {
                     // Create case (POST)
                     console.log("post case")
-                    const duplicateEncounterId = await checkDuplicateScreening(cvd, baseEncounterId);
+                    const duplicateEncounterId = await checkDuplicateScreening(cvd, baseEncounterId, token);
                     if (duplicateEncounterId) {
                         console.log("duplicate screening case case")
                         errData.push({
@@ -96,7 +97,12 @@ const saveCVDData = async (req, res) => {
 
         // return res.status(201).json({   status: 1,   message: "CVD data saved.",  data: allResourceResults });
 
-        const response = await axios.post(config.baseUrl, bundleData.bundle);
+        const response = await axios.post(config.baseUrl, bundleData.bundle, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/fhir+json'
+            }
+        });
         console.log("response: ", response.data, requestType)
         if ([200, 201].includes(response.status)) {
             
@@ -122,11 +128,11 @@ const saveCVDData = async (req, res) => {
 
 
 
-const getCVDObservationList = async (CVDEncounterList, practitionerList, mainEncounters) => {
+const getCVDObservationList = async (CVDEncounterList, practitionerList, mainEncounters, token) => {
     try {
         const observationFinalData = await Promise.all(
             CVDEncounterList.map(async (encounter) => {
-                const allObservations = await fetchResource("Observation", { encounter: encounter.id, _count: 20000 })
+                const allObservations = await fetchResource("Observation", { encounter: encounter.id, _count: 20000 }, token)
                 console.log("========>",allObservations, encounter.id)
                 const observations = allObservations.entry.map((e) => e.resource);
                 let observationData = getTransformedResult(Encounter, encounter);
@@ -148,7 +154,7 @@ const getCVDObservationList = async (CVDEncounterList, practitionerList, mainEnc
                 const observationList = observations.filter(
                     (obs) => obs.encounter.reference === `${RESOURCE_TYPES.ENCOUNTER}/${encounter.id}`
                 );
-                const observationResult = await processObservationData(observationList, observationData, "CVD");
+                const observationResult = await processObservationData(observationList, observationData, "CVD", token);
                 // console.log("observationResult: ", observationResult)
                 return observationResult;
             })
@@ -173,13 +179,15 @@ const getCVDData = async (req, res) => {
             type: "cvd-encounter",
             _lastUpdated: req.query._lastUpdated
         }
+        const token = req.accessToken;
         const link = config.baseUrl + RESOURCE_TYPES.ENCOUNTER;
         const resourceUrlData = { link, reqQuery: queryParams, allowNesting: 0, specialOffset: 1 };
         // Fetch resources in parallel
         const [responseData, practitionerData] = await Promise.all([
-            fetchResource(RESOURCE_TYPES.ENCOUNTER, queryParams),
-            fetchResource(RESOURCE_TYPES.PRACTITIONER, { _count: 100 })
+            fetchResource(RESOURCE_TYPES.ENCOUNTER, queryParams, token),
+            fetchResource(RESOURCE_TYPES.PRACTITIONER, { _count: 100 }, token)
         ]);
+        console.log("responseData: ", responseData)
         if( !responseData.entry || responseData.total == 0) {
             return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })
         }
@@ -196,13 +204,13 @@ const getCVDData = async (req, res) => {
         .filter(Boolean)
         .join(",");
         
-        const mainEncounterList = await fetchResource(RESOURCE_TYPES.ENCOUNTER, { _id: mainEncounterIds, _count: 10000 });
+        const mainEncounterList = await fetchResource(RESOURCE_TYPES.ENCOUNTER, { _id: mainEncounterIds, _count: 10000 }, token);
             
         const mainEncounters = mainEncounterList.entry.map((e) => e.resource);
         
         
         // Process cvd encounters
-        const resourceResult = await getCVDObservationList(cvdEncounterList, practitionerList, mainEncounters);
+        const resourceResult = await getCVDObservationList(cvdEncounterList, practitionerList, mainEncounters, token);
         console.log("resourceResult: ", resourceResult)
         const resStatus = bundleStructure.setResponse(resourceUrlData, responseData);
         
@@ -242,9 +250,10 @@ const updateCVDData = async (req, res) => {
     try {
         const validatedBody = validateRequest(req.body, cvdPatchArraySchema, res);
         if (!validatedBody) return;
+        const token = req.accessToken;
         let resourceResult = [];
         await Promise.all(req.body.map(async (cvd) => {
-            let observations = await fetchResource(RESOURCE_TYPES.OBSERVATION, { "encounter": cvd.cvdFhirId, "code:text": cvd.key })
+            let observations = await fetchResource(RESOURCE_TYPES.OBSERVATION, { "encounter": cvd.cvdFhirId, "code:text": cvd.key }, token)
             let observation = getPatchComponent(cvd.key, cvd.component, observations.entry[0].resource);
             console.log("check patch data: ", observation.component)
             console.log("check observation here: ", observation)
@@ -277,7 +286,12 @@ const updateCVDData = async (req, res) => {
       let bundleData = await bundleStructure.getBundleJSON(resourceData)  
       console.info(bundleData)
     //   res.status(201).json({ status: 1, message: "CVD data saved.", data: bundleData.bundle })
-      let response = await axios.post(config.baseUrl, bundleData.bundle); 
+      let response = await axios.post(config.baseUrl, bundleData.bundle, {
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/fhir+json'
+        }
+    }); 
       console.log("get bundle json response: ", response.status)  
       if (response.status == 200 || response.status == 201) {
           let resourceResponse = setCVDResponse(bundleData.bundle.entry, response.data.entry, "patch");
@@ -293,12 +307,12 @@ const updateCVDData = async (req, res) => {
     }
 }
 
-async function handleExistingCVDEncounter({ cvd, cvdEncounter, baseEncounterId, practitionerId, resourceResult }) {
+async function handleExistingCVDEncounter({ cvd, cvdEncounter, baseEncounterId, practitionerId, resourceResult, token }) {
     
     const existingEncounter = cvdEncounter.entry[0].resource;
     const observations = await fetchResource(RESOURCE_TYPES.OBSERVATION, {
         encounter: existingEncounter.id,
-    });
+    }, token);
     console.log("existingEncounter: ", existingEncounter)
     const encounterBundle = await createEncounterBundle(Encounter, {
         encounterId: baseEncounterId,
@@ -366,15 +380,15 @@ async function handleNewCVDEncounter({ cvd, baseEncounterId, practitionerId, res
 }
 
 
-const checkDuplicateScreening = async (cvd, baseEncounterId) => {
+const checkDuplicateScreening = async (cvd, baseEncounterId, token) => {
     const resources = await fetchResource("Encounter", {
         patient: cvd.patientId,
         type: "cvd-encounter",
         _total: "accurate",
         _count: 2000,
-    });
+    }, token);
 
-    if (resources.total > 0) {
+    if (resources.total > 0 && resources.entry) {
         const matchingEntry = resources.entry.find(e =>
             e.resource.extension?.some(ext =>
                 new Date(ext.valueDateTime).toISOString().split("T")[0] === cvd.screeningDate

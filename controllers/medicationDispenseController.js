@@ -53,7 +53,7 @@ const saveMedicationDispense = async function (req, res) {
         
         const prescriptionFhirIds = [ ...new Set(req.body.map(e=> e.prescriptionFhirId).filter(value => value !== undefined))];
         // fetch main encounter using appointment id
-      const prescriptionEncounters = await fetchResource("Encounter", { "_id": prescriptionFhirIds.join(","), _count: 5000});  
+      const prescriptionEncounters = await fetchResource("Encounter", { "_id": prescriptionFhirIds.join(","), _count: 5000}, token);  
       if(prescriptionEncounters.entry.length == 0) {
                 return []
       }
@@ -62,7 +62,12 @@ const saveMedicationDispense = async function (req, res) {
       const resourceResult = await createdDispenseResources(req, existingMainEncountersList, token);
         let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
         // return res.status(201).json({ status: 1, message: "Practitioner data saved.", data: bundleData.bundle })
-        let response = await axios.post(config.baseUrl, bundleData.bundle); 
+        let response = await axios.post(config.baseUrl, bundleData.bundle, {
+          headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/fhir+json'
+          }
+      }); 
         console.info("get bundle json response: ", response.status)  
         if (response.status == 200 || response.status == 201) {
             // let responseData = setMedicationDispenseResponse(req.body, response.data.entry, "post");
@@ -110,7 +115,7 @@ let getMedicationDispense = async function (req, res) {
             subject: req.query.patientId
         }
         let resourceResult = []
-        let responseData = await fetchResource("Encounter", queryParams);
+        let responseData = await fetchResource("Encounter", queryParams, token);
         console.info("response data: ", responseData)
         let resStatus = 1;
         const token = req.token.encodedToken;

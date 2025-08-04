@@ -16,6 +16,7 @@ let savePractitionerData = async function (req, res) {
         const resType = "Practitioner"
         const validatedBody = validateRequest(req.body, practitionerSaveArraySchema, res);
         if (!validatedBody) return;
+        const token = req.accessToken; 
         let resourceResult = [];
         for (let practitionerData of req.body) {
             // Check if practitioner    
@@ -23,13 +24,13 @@ let savePractitionerData = async function (req, res) {
 
             if(practitionerData.mobileNumber) {
                 queryParam.phone = practitionerData.mobileNumber;
-                let existingPractitionerMobile = await fetchResource("Practitioner", queryParam);
+                let existingPractitionerMobile = await fetchResource("Practitioner", queryParam, token);
                 if (+existingPractitionerMobile.total != 0) {
                     return res.status(422).json( { status: 0, message: "Practitioner data already exists."})
                 }
             }
             if(practitionerData.email) {
-                let existingPractitionerEmail = await fetchResource("Practitioner", {email: practitionerData.email});
+                let existingPractitionerEmail = await fetchResource("Practitioner", {email: practitionerData.email}, token);
                 if (+existingPractitionerEmail.total != 0) {
                      return res.status(422).json( { status: 0, message: "Practitioner data already exists."})
                 }
@@ -41,7 +42,7 @@ let savePractitionerData = async function (req, res) {
 
             //  add PractitionerRole
             // 1. Find healthcare Id for practitioner
-            const healthCareResource = await fetchResource("Organization", {type: "health-facility", identifier: practitionerData.healthFacilityCode})
+            const healthCareResource = await fetchResource("Organization", {type: "health-facility", identifier: practitionerData.healthFacilityCode}, token)
             console.log("healthCareResource; ", healthCareResource)
             const practitionerRoleResource = buildFHIRResource(PractitionerRole, {userId: "urn:uuid:"+practitionerResource.id, roleId: practitionerData.roleId, roleGroupId:practitionerData.roleGroupId, orgId: healthCareResource?.entry?.[0]?.resource?.id|| null});
             
@@ -53,7 +54,12 @@ let savePractitionerData = async function (req, res) {
        }
         let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
         // return res.status(201).json({ status: 1, message: "Practitioner data saved.", data: bundleData.bundle })
-        let response = await axios.post(config.baseUrl, bundleData.bundle); 
+        let response = await axios.post(config.baseUrl, bundleData.bundle, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/fhir+json'
+            }
+        }); 
         console.info("get bundle json response: ", response.status)  
         if (response.status == 200 || response.status == 201) {
             let responseData = setPractitionerSaveResponse(bundleData.bundle.entry, response.data.entry, "post");        //    
@@ -82,22 +88,23 @@ let updatePractitionerData = async function (req, res) {
         const resType = "Practitioner"
         const validatedBody = validateRequest(req.body, practitionerUpdateArraySchema, res);
         if (!validatedBody) return;
+        const token = req.accessToken;
         let resourceResult = [];
         const practitionerIds = req.body.map(e=>e.fhirId).join(",");
-        const practitionerRoleData = await fetchResource("PractitionerRole", {practitioner: practitionerIds});
+        const practitionerRoleData = await fetchResource("PractitionerRole", {practitioner: practitionerIds}, token);
         for (let practitionerData of req.body) {
             // Check if practitioner    
             let queryParam ={email: practitionerData.email, phone: practitionerData.mobileNumber, "_total": "accurate"};
 
             if(practitionerData.mobileNumber) {
                 queryParam.phone = practitionerData.mobileNumber;
-                let existingPractitionerMobile = await fetchResource("Practitioner", queryParam);
+                let existingPractitionerMobile = await fetchResource("Practitioner", queryParam, token);
                 if (+existingPractitionerMobile.total > 1) {
                     return res.status(422).json( { status: 0, message: "Practitioner data already exists."})
                 }
             }
             if(practitionerData.email) {
-                let existingPractitionerEmail = await fetchResource("Practitioner", {email: practitionerData.email});
+                let existingPractitionerEmail = await fetchResource("Practitioner", {email: practitionerData.email}, token);
                 if (+existingPractitionerEmail.total > 1) {
                      return res.status(422).json( { status: 0, message: "Practitioner data already exists."})
                 }
@@ -109,7 +116,7 @@ let updatePractitionerData = async function (req, res) {
 
             //  add PractitionerRole
             // 1. Find healthcare Id for practitioner
-            const healthCareResource = practitionerData.healthFacilityId != null? await fetchResource("Organization", {type: "health-facility", _id: practitionerData.healthFacilityId}) : []
+            const healthCareResource = practitionerData.healthFacilityId != null? await fetchResource("Organization", {type: "health-facility", _id: practitionerData.healthFacilityId}, token) : []
             console.log("healthCareResource; ", healthCareResource)
             const roleResourceIndex = practitionerRoleData.entry.findIndex(e => e.resource.practitioner.reference.split("/")[1] == practitionerData.fhirId)
             const practitionerRoleResource = buildFHIRResource(PractitionerRole, {userId: practitionerData.fhirId, roleId: practitionerData.roleId, roleGroupId:practitionerData.roleGroupId, orgId: healthCareResource?.entry?.[0]?.resource?.id|| null});
@@ -122,7 +129,12 @@ let updatePractitionerData = async function (req, res) {
        }
         let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
         // return res.status(201).json({ status: 1, message: "Practitioner data saved.", data: bundleData.bundle })
-        let response = await axios.post(config.baseUrl, bundleData.bundle); 
+        let response = await axios.post(config.baseUrl, bundleData.bundle, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/fhir+json'
+            }
+        }); 
         console.info("get bundle json response: ", response.status)  
         if (response.status == 200 || response.status == 201) {
             let responseData = setPractitionerSaveResponse(bundleData.bundle.entry, response.data.entry, "post");        //    
@@ -155,8 +167,9 @@ let getPractitionerData = async function (req, res) {
         const queryParams = req.query
         queryParams._total = "accurate";
         let resourceResult = []
+        const token = req.accessToken;
         let resourceUrlData = { link: link, reqQuery: queryParams, allowNesting: 1, specialOffset: specialOffset }
-        let responseData = await fetchResource("Practitioner", queryParams);
+        let responseData = await fetchResource("Practitioner", queryParams, token);
         let resStatus = 1;
         if( !responseData.entry || responseData.total == 0) {
                 return res.status(200).json({ status: resStatus, message: "Data fetched", total: 0, data: []  })
@@ -166,7 +179,7 @@ let getPractitionerData = async function (req, res) {
             // get practitionerRole
             const practitionerIds = responseData.entry.map(e=>e.resource.id).join(",");
             
-            const practitionerRoleData = await fetchResource("PractitionerRole", {practitioner: practitionerIds});
+            const practitionerRoleData = await fetchResource("PractitionerRole", {practitioner: practitionerIds}, token);
             for (let i = 0; i < responseData.entry.length; i++) {
                 let practitioner = getTransformedResult(Practitioner, responseData.entry[i].resource);
                 const roleResourceIndex = practitionerRoleData.entry.findIndex(e => e.resource.practitioner.reference.split("/")[1] == practitioner.fhirId)
@@ -199,9 +212,10 @@ let patchPractitionerData = async function (req, res) {
     try {
         const resType = "Practitioner"
         let resourceResult = [];
+        const token = req.accessToken;
         for (let inputData of req.body) {
             let practitioner = new Practitioner(inputData, []);
-            let resourceSavedData = await fetchResource("Practitioner", { "_id": inputData.fhirId })
+            let resourceSavedData = await fetchResource("Practitioner", { "_id": inputData.fhirId }, token)
             if (resourceSavedData.total != 1) {
                return res.status(422).json({ status: 0, code: "ERR", message: "Practitioner Id " + inputData.fhirId + " does not exist."})
             }
@@ -212,7 +226,12 @@ let patchPractitionerData = async function (req, res) {
             resourceResult.push(patchResource);
         }
         let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
-        let response = await axios.post(config.baseUrl, bundleData.bundle); 
+        let response = await axios.post(config.baseUrl, bundleData.bundle, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/fhir+json'
+            }
+        }); 
         console.info("get bundle json response: ", response.status)  
         if (response.status == 200 || response.status == 201) {
             let responseData = setPractitionerSaveResponse(bundleData.bundle.entry, response.data.entry, "patch"); 

@@ -9,9 +9,10 @@ let getMedicationList = async function (req, res) {
     try {
         let queryParams = req.query
         queryParams._total = "accurate";
+        const token = req.accessToken;
         const resourceResult = []
         const resourceUrlData = { link: config.baseUrl + "Medication", reqQuery: queryParams, allowNesting: 1, specialOffset: 1 }
-        let responseData = await fetchResource("Medication", queryParams);
+        let responseData = await fetchResource("Medication", queryParams, token);
         let resStatus = 1;
         if( !responseData.entry || responseData.total == 0) {
                 return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })

@@ -43,8 +43,8 @@ const getSymptomsDiagnosisList = async function (req, res) {
     try {
             let queryParams = req.query;
             let resourceResult = [];
-
-            let responseData = await fetchResource("ValueSet", queryParams);
+            const token = req.accessToken;
+            let responseData = await fetchResource("ValueSet", queryParams, token);
             console.info("responseData: ", responseData)
             let resStatus = 1;
             if( !responseData.entry || responseData.total == 0) {
@@ -133,10 +133,11 @@ const saveSymptomDiagnosisData = async function (req, res) {
     try {
         const validatedBody = validateRequest(req.body, symDiagSaveArraySchema, res);
         if (!validatedBody) return;
+        const token = req.accessToken;
         let resourceResult = [];
         const appointmentIds = req.body.map(e=> e.appointmentId).join(",");
         // fetch main encounter using appointment id
-            const getMainEncounters = await fetchResource("Encounter", { "appointment": appointmentIds, _count: 5000 });
+            const getMainEncounters = await fetchResource("Encounter", { "appointment": appointmentIds, _count: 5000 }, token);
             if(!getMainEncounters.entry) {
                 return []
             }
@@ -158,7 +159,12 @@ const saveSymptomDiagnosisData = async function (req, res) {
         let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
         console.info("main bundle transaction resource: ", bundleData)
         // return res.status(201).json({ status: 1, message: "Symptom and diagnosis data saved.", data: bundleData.bundle })
-        let response = await axios.post(config.baseUrl, bundleData.bundle); 
+        let response = await axios.post(config.baseUrl, bundleData.bundle, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/fhir+json'
+            }
+        }); 
         console.log("get bundle json response: ", response.status)  
         if (response.status == 200 || response.status == 201) {
             let responseData = setSymptomDiagnosisResponse(bundleData.bundle.entry, response.data.entry, "post");
@@ -228,8 +234,9 @@ const getSymptomDiagnosisData = async function(req, res) {
                 type: "symptom-diagnosis-encounter",
                 "service-provider": req.decoded.orgId
         };
+        const token = req.accessToken;
         let resourceUrlData = { link: config.baseUrl + "Encounter", reqQuery: queryParams, allowNesting: 0, specialOffset: 1 }
-        let responseData = await fetchResource("Encounter", queryParams);
+        let responseData = await fetchResource("Encounter", queryParams, token);
         console.info("responseData: ", responseData)
         let resStatus = 1;
         if( !responseData.entry || responseData.total == 0) {
@@ -237,21 +244,21 @@ const getSymptomDiagnosisData = async function(req, res) {
         }
         const FHIRData =  responseData.entry 
         const mainEncounterIds = responseData.entry.map(e=> e.resource.partOf.reference.split("/")[1]).join(",");
-        let mainEncounterList = await fetchResource("Encounter", {_count: 1000, "_id": mainEncounterIds})
+        let mainEncounterList = await fetchResource("Encounter", {_count: 1000, "_id": mainEncounterIds}, token)
         console.log("mainEncounterIds: ", mainEncounterList)
         mainEncounterList = mainEncounterList.entry.map(e => e.resource);
         console.log("mainEncounterList: ", mainEncounterList)
         let subEncounterList = FHIRData.filter(e => e.resource.resourceType == "Encounter" && e.resource.type && e.resource.type[0].coding[0].code == "symptom-diagnosis-encounter").map(e => e.resource);
         
         let subEncounterIds = subEncounterList.map((e) => e.id).join(',');
-        let symptoms = await fetchResource("Observation", { "encounter": subEncounterIds, _count: 5000 });
+        let symptoms = await fetchResource("Observation", { "encounter": subEncounterIds, _count: 5000 }, token);
         symptoms = symptoms?.entry || [];
 
-        let diagnosis = await fetchResource("Condition", { "encounter": subEncounterIds, _count: 5000 });
+        let diagnosis = await fetchResource("Condition", { "encounter": subEncounterIds, _count: 5000 }, token);
         diagnosis = diagnosis?.entry || [];
         
         const practitionerIdList = subEncounterList.map(e=> e.participant[0].individual.reference.split("/")[1]).join(",")
-        let practitionerData = await fetchResource("Practitioner", { _id: practitionerIdList, _count: 100000 });
+        let practitionerData = await fetchResource("Practitioner", { _id: practitionerIdList, _count: 100000 }, token);
         practitionerData = practitionerData.entry;
 
         const resourceResult = await getSymDiagForEncounter(mainEncounterList, subEncounterList, symptoms, diagnosis, practitionerData);
@@ -327,10 +334,11 @@ const patchSymptomDiagnosisData = async (req, res) => {
     try {
         const validatedBody = validateRequest(req.body, symDiagPatchArraySchema, res);
         if (!validatedBody) return;  
+        const token = req.accessToken;
         console.log("Symptom and Diagnosis Patch");
         const allSymptomEncounterIds = req.body.map(e=> e.symDiagFhirId).join(",");
         console.log("allSymptomEncounterIds: ", allSymptomEncounterIds)
-        let allResources = await fetchResource("Encounter", {"_revinclude:0": "Condition:encounter", "_revinclude:1": "Observation:encounter", "_id": allSymptomEncounterIds, _count: 2000})
+        let allResources = await fetchResource("Encounter", {"_revinclude:0": "Condition:encounter", "_revinclude:1": "Observation:encounter", "_id": allSymptomEncounterIds, _count: 2000}, token)
         allResources = allResources.entry;
         console.log("Symptom and Diagnosis Patch", allResources);
         const subEncounterResources = allResources.filter(e => e.resource.resourceType == "Encounter").map(e => e.resource)
@@ -340,7 +348,12 @@ const patchSymptomDiagnosisData = async (req, res) => {
         let bundleData = await bundleStructure.getBundleJSON(resourceData)  
         console.info(bundleData)
         // return res.status(200).json({ status: 1, message: "Symptom and diagnosis data saved.", data: bundleData.bundle })
-        let response = await axios.post(config.baseUrl, bundleData.bundle); 
+        let response = await axios.post(config.baseUrl, bundleData.bundle, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/fhir+json'
+            }
+        }); 
         console.log("get bundle json response: ", response.status)  
         if (response.status == 200 || response.status == 201) {
             let resourceResponse = setSymptomDiagnosisResponse(bundleData.bundle.entry, response.data.entry, "patch");

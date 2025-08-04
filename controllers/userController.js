@@ -21,7 +21,8 @@ let getUserProfile = async function (req, res) {
                 "_include": "*",
                 "_total": "accurate"
         }
-        let responseData = await fetchResource(resourceType, queryParams)
+        const token = req.accessToken;
+        let responseData = await fetchResource(resourceType, queryParams, token)
         let practitionerData = {};
         if( !responseData.entry || responseData.total == 0) {
             return res.status(200).json({ status: 1, message: "Profile detail fetched", total: 0, data: responseData})

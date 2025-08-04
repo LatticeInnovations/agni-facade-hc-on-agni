@@ -13,11 +13,12 @@ let getOrganizationData = async function (req, res) {
         let specialOffset = null;
         const queryParams = req.query
         queryParams.type = "prov";
+        const token = req.accessToken;
         queryParams["_revinclude"] = "Location:organization:Organization";
         queryParams["_total"] = "accurate";
         let resourceResult = []
         let resourceUrlData = { link: link, reqQuery: queryParams, allowNesting: 1, specialOffset: specialOffset }
-        let responseData = await fetchResource("Organization", queryParams);
+        let responseData = await fetchResource("Organization", queryParams, token);
         let resStatus = 1;
         if( !responseData.entry || responseData.total == 0) {
                 return res.status(200).json({ status: resStatus, message: "Data fetched", total: 0, data: []  })

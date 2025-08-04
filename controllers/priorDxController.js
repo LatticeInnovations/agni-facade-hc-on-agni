@@ -81,20 +81,20 @@ const reverseCodeMap = {
     }
   };
   
-const fetchMainEncounter = async (priorDx) => {
+const fetchMainEncounter = async (priorDx, token) => {
    const mainEncounter =   await fetchResource(RESOURCE_TYPES.ENCOUNTER, {
         appointment: priorDx.appointmentId,
         _count: 5000,
         _include: "Encounter:appointment",
-    });
+    }, token );
 
     console.log(mainEncounter)
 
     return mainEncounter
 }
 
-const fetchPriorDxEncounter = async (baseEncounterId) => {
-    const result =  await fetchResource("Encounter", {  "part-of": baseEncounterId, type: "priorDx-encounter", _total: "accurate"});
+const fetchPriorDxEncounter = async (baseEncounterId, token) => {
+    const result =  await fetchResource("Encounter", {  "part-of": baseEncounterId, type: "priorDx-encounter", _total: "accurate"}, token);
     return result;
  }
 
@@ -110,23 +110,24 @@ const savePriorDxData = async (req, res) => {
             apiName: "save-priorDx",
             tokenData: req.decoded
           };
+        const token = req.accessToken;
         console.log("inside priorDx")
         const allResourceResults = [], errData = [];
         await Promise.all(
             req.body.map(async (priorDxData) => {
                 const resourceResult = [];
                 const practitionerId = req.decoded.userId;
-                const encounterData = await fetchMainEncounter(priorDxData)
+                const encounterData = await fetchMainEncounter(priorDxData, token)
                 const baseEncounterId = encounterData?.entry?.[0]?.resource?.id;
                 if (!baseEncounterId) return;
 
-                const priorDxEncounter = await fetchPriorDxEncounter(baseEncounterId)
+                const priorDxEncounter = await fetchPriorDxEncounter(baseEncounterId, token)
                 console.log("cvdEncounter check: ", priorDxEncounter)
                 
-                if (priorDxEncounter.total > 0) {
+                if (priorDxEncounter.total > 0 && priorDxEncounter.entry) {
                     // Update case (PUT)
                       console.log("Inside PUT request")
-                      await handleExistingPriorDx({priorDxData, priorDxEncounter, baseEncounterId, practitionerId, resourceResult});
+                      await handleExistingPriorDx({priorDxData, priorDxEncounter, baseEncounterId, practitionerId, resourceResult}, token);
                 } else {
                     // Create case (POST)
                     console.log("post case")
@@ -142,7 +143,12 @@ const savePriorDxData = async (req, res) => {
 
         // return res.status(201).json({   status: 1,   message: "Prior data saved.",  data: bundleData });
 
-        const response = await axios.post(config.baseUrl, bundleData.bundle);
+        const response = await axios.post(config.baseUrl, bundleData.bundle, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/fhir+json'
+            }
+        });
         console.log("response: ", response.data, "---------------------")
         if ([200, 201].includes(response.status)) {            
             const resourceResponse = setPriorDxResponse(bundleData.bundle.entry, response.data.entry, "post");
@@ -177,6 +183,7 @@ const getPriorDxData = async (req, res) => {
                     _lastUpdated: req.query._lastUpdated
                 }
         const link = config.baseUrl + RESOURCE_TYPES.ENCOUNTER;
+        const token = req.accessToken;
         const resourceUrlData = { link, reqQuery: queryParams, allowNesting: 0, specialOffset: 1 };
         // Fetch resources in parallel
         const [responseData, practitionerData] = await Promise.all([
@@ -199,12 +206,12 @@ const getPriorDxData = async (req, res) => {
                 .filter(Boolean)
                 .join(",");
                 console.log('priorDxEncounterIds: ', priorDxEncounterIds)
-                const mainEncounterList = await fetchResource("Encounter", { _id: mainEncounterIds, _count: 10000 })
+                const mainEncounterList = await fetchResource("Encounter", { _id: mainEncounterIds, _count: 10000 }, token)
                     
                 const mainEncounters = mainEncounterList.entry.map((e) => e.resource);
                 
                 // Process priorDx encounters
-                const resourceResult = await getConditionList(priorDxEncounterList, practitionerList, mainEncounters);
+                const resourceResult = await getConditionList(priorDxEncounterList, practitionerList, mainEncounters, token);
                             
                 const resStatus = bundleStructure.setResponse(resourceUrlData, responseData);
         
@@ -231,12 +238,12 @@ const getPractitionerName = (practitionerId, practitionerData) => {
     return `${givenName} ${familyName}`.trim();
 };
 
-const getConditionList = async (priorDxEncounterList, practitionerList, mainEncounters) => {
+const getConditionList = async (priorDxEncounterList, practitionerList, mainEncounters, token) => {
     try {
         return Promise.all(
             priorDxEncounterList.map(async (encounter) => {
                 let conditionData = getTransformedResult(Encounter, encounter);
-                    const allConditions = await fetchResource("Condition", { encounter: encounter.id, _count: 100000 })
+                    const allConditions = await fetchResource("Condition", { encounter: encounter.id, _count: 100000 }, token)
                     const conditions = allConditions.entry.map((e) => e.resource);
                 // Add practitioner name
                 conditionData.practitionerName = getPractitionerName(conditionData.practitionerId, practitionerList);
@@ -305,12 +312,12 @@ const createEncounterBundle = async(EncounterClass, encounterData, requestType) 
     }
 }
 
-async function handleExistingPriorDx({ priorDxData, priorDxEncounter, baseEncounterId, practitionerId, resourceResult}) {
+async function handleExistingPriorDx({ priorDxData, priorDxEncounter, baseEncounterId, practitionerId, resourceResult}, token) {
 
     const existingEncounter = priorDxEncounter.entry[0].resource;
     const conditions = await fetchResource(RESOURCE_TYPES.CONDITION, {
         encounter: existingEncounter.id,
-    });
+    }, token);
 
     const encounterBundle = await createEncounterBundle(Encounter, {
         encounterId: baseEncounterId,

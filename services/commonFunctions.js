@@ -122,7 +122,8 @@ const createDocumentFiles = async (ResourceClass, labReport, uuidKey) => {
 };
 
 const createEncounterResource = async (ResourceClass, report, typeData,encounterUuid, req) => {
-    let encounterData = await fetchResource("Encounter", { "appointment": report.appointmentId, _count: 5000 , "_include": "Encounter:appointment" });    
+    const token = req.accessToken;
+    let encounterData = await fetchResource("Encounter", { "appointment": report.appointmentId, _count: 5000 , "_include": "Encounter:appointment" }, token);    
     let encounter = buildFHIRResource(ResourceClass, { 
         id: encounterUuid,
         uuid: encounterUuid,
@@ -157,12 +158,12 @@ const fetchDocumentData = (DocumentReferenceClass, documents) => {
     return result;
 }
 
-const getDocumentReport = async (ResourceClass, DocumentReferenceClass, reportList, reportData) => {
+const getDocumentReport = async (ResourceClass, DocumentReferenceClass, reportList, reportData, token) => {
     reportData.report = []
     for(let report of reportList){
         let transformedData = getTransformedResult(ResourceClass, report);
         if(transformedData.documentIds.length > 0){
-            let documentReferenceResponse = await fetchResource("DocumentReference", { "_id": transformedData.documentIds.join(','), _count: 5000 })
+            let documentReferenceResponse = await fetchResource("DocumentReference", { "_id": transformedData.documentIds.join(','), _count: 5000 }, token)
             const documentReferenceData = documentReferenceResponse.entry;
             transformedData.documents = fetchDocumentData(DocumentReferenceClass, documentReferenceData);
             delete transformedData.documentIds;

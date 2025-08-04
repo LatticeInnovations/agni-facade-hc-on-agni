@@ -42,20 +42,20 @@ const vitalTypes = {
 
 
 
-const fetchMainEncounter = async (vital) => {
+const fetchMainEncounter = async (vital, token) => {
     const mainEncounter =   await fetchResource("Encounter", {
          appointment: vital.appointmentId,
          _count: 5000,
          _include: "Encounter:appointment",
-     });
+     }, token);
  
      console.log(mainEncounter)
  
      return mainEncounter
  }
  
- const fetchVitalEncounter = async (baseEncounterId) => {
-    const result =  await fetchResource("Encounter", {  "part-of": baseEncounterId, type: "vital-test-encounter", _total: "accurate"});
+ const fetchVitalEncounter = async (baseEncounterId, token) => {
+    const result =  await fetchResource("Encounter", {  "part-of": baseEncounterId, type: "vital-test-encounter", _total: "accurate"}, token);
     return result;
  }
  
@@ -71,6 +71,7 @@ let setVitalData = async function (req, res) {
             apiName: "save-vital",
             tokenData: req.decoded
           };
+        const token = req.accessToken;
         console.log("inside vital")
         let requestType = "post"
         const allResourceResults = [], errData = [];
@@ -79,17 +80,17 @@ let setVitalData = async function (req, res) {
                 const resourceResult = [];
                 const practitionerId = req.decoded.userId;
 
-                const encounterData = await fetchMainEncounter(vital)
+                const encounterData = await fetchMainEncounter(vital, token)
                 const baseEncounterId = encounterData?.entry?.[0]?.resource?.id;
                 if (!baseEncounterId) return;
                 console.log("encounter data check: ============>", encounterData)
                 
-                const vitalEncounter = await fetchVitalEncounter(baseEncounterId)
+                const vitalEncounter = await fetchVitalEncounter(baseEncounterId, token)
                 console.log("vitalEncounter check: ", vitalEncounter)
                 if (vitalEncounter.total > 0 && vitalEncounter.entry) {
                     console.log("put case")
                     // Update case (PUT)
-                    await handleExistingVitalEncounter({vital, vitalEncounter, baseEncounterId, practitionerId, resourceResult});
+                    await handleExistingVitalEncounter({vital, vitalEncounter, baseEncounterId, practitionerId, resourceResult}, token);
                 } else {
                     // Create case (POST)
                     console.log("post case")
@@ -108,7 +109,12 @@ let setVitalData = async function (req, res) {
 
         // return res.status(201).json({   status: 1,   message: "Vital data saved.",  data: allResourceResults });
 
-        const response = await axios.post(config.baseUrl, bundleData.bundle);
+        const response = await axios.post(config.baseUrl, bundleData.bundle, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/fhir+json'
+            }
+        });
         console.log("response: ", response.data, requestType)
         if ([200, 201].includes(response.status)) {
             
@@ -130,11 +136,11 @@ let setVitalData = async function (req, res) {
 
 }
 
-async function handleExistingVitalEncounter({ vital, vitalEncounter, baseEncounterId, practitionerId, resourceResult }) {
+async function handleExistingVitalEncounter({ vital, vitalEncounter, baseEncounterId, practitionerId, resourceResult }, token) {
     const existingEncounter = vitalEncounter.entry[0].resource;
     const observations = await fetchResource(RESOURCE_TYPES.OBSERVATION, {
         encounter: existingEncounter.id,
-    });
+    }, token);
 
     const encounterBundle = await createEncounterBundle(Encounter, {
         encounterId: baseEncounterId,
@@ -243,11 +249,11 @@ async function handleNewVitalEncounter({ vital, baseEncounterId, practitionerId,
     resourceResult.push(...observationBundles.filter(Boolean));
 }
 
-const getVitalObservationList = async (vitalEncounterList, practitionerList, mainEncounters) => {
+const getVitalObservationList = async (vitalEncounterList, practitionerList, mainEncounters, token) => {
     try {
         const result = await Promise.all(
             vitalEncounterList.map(async (encounter) => {
-                const allObservations = await fetchResource("Observation", { encounter: encounter.id, _count: 20000 })
+                const allObservations = await fetchResource("Observation", { encounter: encounter.id, _count: 20000 }, token)
                     const observations = allObservations.entry.map((e) => e.resource);
                     let observationData = getTransformedResult(Encounter, encounter);
     
@@ -295,11 +301,11 @@ const getVitalData = async function(req, res) {
             }
             const link = config.baseUrl + RESOURCE_TYPES.ENCOUNTER;
             const resourceUrlData = { link, reqQuery: queryParams, allowNesting: 0, specialOffset: 1 };
-
+            const token = req.accessToken;
             // Fetch resources in parallel
             const [responseData, practitionerData] = await Promise.all([
-                fetchResource(RESOURCE_TYPES.ENCOUNTER, queryParams),
-                fetchResource(RESOURCE_TYPES.PRACTITIONER, { _count: 10000 })
+                fetchResource(RESOURCE_TYPES.ENCOUNTER, queryParams, token),
+                fetchResource(RESOURCE_TYPES.PRACTITIONER, { _count: 10000 }, token)
             ]);
             if( !responseData.entry || responseData.total == 0) {
                 return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })
@@ -312,12 +318,12 @@ const getVitalData = async function(req, res) {
 
             const mainEncounterIds = vitalEncounterList.map((e) => e.partOf?.reference?.split("/")[1]).filter(Boolean).join(",");
 
-            const mainEncounterList = await fetchResource(RESOURCE_TYPES.ENCOUNTER, { _id: mainEncounterIds, _count: 10000 });
+            const mainEncounterList = await fetchResource(RESOURCE_TYPES.ENCOUNTER, { _id: mainEncounterIds, _count: 10000 }, token);
                        
             const mainEncounters = mainEncounterList.entry.map((e) => e.resource);
                    
             // Process vital encounters
-            const resourceResult = await getVitalObservationList(vitalEncounterList, practitionerList, mainEncounters);
+            const resourceResult = await getVitalObservationList(vitalEncounterList, practitionerList, mainEncounters, token);
             console.log("resourceResult:  ", resourceResult)
             const resStatus = bundleStructure.setResponse(resourceUrlData, responseData);
             return res.status(200).json({ status: resStatus, message: "Data fetched", total: resourceResult.length, data: resourceResult

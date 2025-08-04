@@ -95,7 +95,12 @@ const saveImmunizationData = async function (req, res) {
 
         console.info("FINAL CHECK RESOURCE RESULT ARRAY CHECK: ", resourceResult, "************************************");
         let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
-        let response = await axios.post(config.baseUrl, bundleData.bundle); 
+        let response = await axios.post(config.baseUrl, bundleData.bundle, {
+          headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/fhir+json'
+          }
+      }); 
         console.info("get bundle json response: ", response.status)  
         if (response.status == 200 || response.status == 201) {
             let responseData = setImmunizationResponse(bundleData.bundle.entry, response.data.entry, "post");        //    
@@ -115,10 +120,10 @@ const saveImmunizationData = async function (req, res) {
 let getImmunizationDetails = async function (req, res) {
     try {
         let resourceResult = []
+        const token = req.accessToken;
         const queryParams = {"_total": "accurate","_count": 3000,"patient": req.query.patientId }
         const responseData = await fetchResource("Immunization", queryParams);
         let resStatus = 1;
-        const token = req.decoded.encodedToken;
         if(responseData.entry.length == 0) {
                 return res.status(200).json({ status: resStatus, message: "Data fetched", total: 0, data: []  })
         }

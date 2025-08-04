@@ -85,7 +85,7 @@ const fetchExistingMainEncounters = async (prescriptionIds, token) => {
 
   const existingMainEncounters = await fetchResource("Encounter", mainEncounterQuery,
     token);
-  if (existingMainEncounters.total > 0) {
+  if (existingMainEncounters.total > 0 && existingMainEncounters.entry) {
       return await Promise.all(
           existingMainEncounters.entry.map(async (encounter) => {
               return await bundleStructure.setBundlePost(  encounter.resource, encounter.resource.identifier, encounter.resource.id, "PUT", "identifier");

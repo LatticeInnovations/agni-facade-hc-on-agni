@@ -46,7 +46,12 @@ let savePatientData = async function (req, res) {
         let bundleData = await bundleStructure.getBundleJSON({resourceResult});
         // return res.status(201).json({ status: 1, message: "Patient data saved.", data: bundleData.bundle })  
         console.info("main bundle transaction resource: ", bundleData)
-        let response = await axios.post(config.baseUrl, bundleData.bundle); 
+        let response = await axios.post(config.baseUrl, bundleData.bundle, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/fhir+json'
+            }
+        }); 
         console.log("get bundle json response: ", response)  
         if (response.status == 200 || response.status == 201) {
             let resourceResponse = setPatientSaveResponse(bundleData.bundle.entry, response.data.entry, "post");
@@ -76,9 +81,10 @@ let updatePatientData = async function(req, res) {
           };
         let resourceResult = [];
         console.log("req body: ", req.body)
+        const token = req.accessToken;
         const patientIds = req.body.map(e => e.fhirId).join(",")       
-        const deceasedResources = await fetchResource("Observation", {patient: patientIds, category: "deceased-reason", _count:1000})
-        const patientResources = await fetchResource("Patient", {_id: patientIds, _count: 1000})
+        const deceasedResources = await fetchResource("Observation", {patient: patientIds, category: "deceased-reason", _count:1000}, token)
+        const patientResources = await fetchResource("Patient", {_id: patientIds, _count: 1000}, token)
         console.log("deceasedResources: ", deceasedResources)
         for (let patientData of req.body) {
             let patientPrevData = patientResources.entry.find(e => e.resource.id == patientData.fhirId)
@@ -114,7 +120,12 @@ let updatePatientData = async function(req, res) {
         let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
         // return res.status(201).json({ status: 1, message: "Patient data updated.", data: bundleData.bundle })
         console.info("main bundle transaction resource: ", bundleData)
-        let response = await axios.post(config.baseUrl, bundleData.bundle); 
+        let response = await axios.post(config.baseUrl, bundleData.bundle, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/fhir+json'
+            }
+        }); 
         console.log("get bundle json response: ", response.status)  
         if (response.status == 200 || response.status == 201) {
             let resourceResponse = setPatientSaveResponse(bundleData.bundle.entry, response.data.entry, "put");
@@ -149,7 +160,8 @@ let getPatientData = async function (req, res) {
         let resStatus = 1;
         queryParams._total = "accurate";
         let resourceResult = []
-        const responseResult = await fetchResource("Patient", queryParams);
+        const token = req.accessToken;
+        const responseResult = await fetchResource("Patient", queryParams, token);
         const responseData = responseResult.entry || []
         console.log("==================>", responseData)
         if(!responseData.length) {
@@ -158,7 +170,7 @@ let getPatientData = async function (req, res) {
         else {            
             resStatus = bundleStructure.setResponse({ link: link, reqQuery: queryParams, allowNesting: 1, specialOffset: true }, responseResult);  
             const patientIds = responseData.map(e => e.resource.id)   .join(",")       
-            const deceasedResources = await fetchResource("Observation", {patient: patientIds, category: "deceased-reason", _count: req.query._count})
+            const deceasedResources = await fetchResource("Observation", {patient: patientIds, category: "deceased-reason", _count: req.query._count}, token)
             console.log("deceasedResources: ", deceasedResources)
             for (let i = 0; i < responseData.length; i++) {
                 console.log("check resource of patient: ", responseData[i].resource)
@@ -187,9 +199,10 @@ const patchPatientData = async function(req, res) {
         if (!validatedBody) return;
         const resourceType = "Patient";
         const reqInput = req.body;
+        const token = req.accessToken;
         let resourceResult = [];
         for (let inputData of reqInput) {
-            const resourceSavedResult = await fetchResource(resourceType, {_id: inputData.fhirId })
+            const resourceSavedResult = await fetchResource(resourceType, {_id: inputData.fhirId }, token)
             const resourceSavedData = resourceSavedResult.entry || [];
             if (resourceSavedData.length != 1) {
                 const statusCode = 500
@@ -213,7 +226,12 @@ const patchPatientData = async function(req, res) {
         }
     const bundleData = await bundleStructure.getBundleJSON({resourceResult: resourceResult, errData: []})  
     console.info(bundleData)
-    const response = await axios.post(config.baseUrl, bundleData.bundle); 
+    const response = await axios.post(config.baseUrl, bundleData.bundle, {
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/fhir+json'
+        }
+    }); 
     console.log("get bundle json response: ", response.status)  
     if (response.status == 200 || response.status == 201) {
         let resourceResponse = setPatientSaveResponse(bundleData.bundle.entry, response.data.entry, "patch");

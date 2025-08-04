@@ -8,12 +8,12 @@ const { allergySchema } = require("../utils/Validator//allergyValidator");
 const {validateRequest} = require("../utils/validateRequest");
 const { getPractitionerName } = require("../services/commonFunctions");
 
-const fetchMainEncounter = async (allergyData) => {
+const fetchMainEncounter = async (allergyData, token) => {
     const mainEncounter =   await fetchResource("Encounter", {
          appointment: allergyData.appointmentId,
          _count: 5000,
          _include: "Encounter:appointment",
-     });
+     }, token);
  
      console.log(mainEncounter)
  
@@ -34,17 +34,17 @@ let saveAllergyData = async function (req, res) {
             tokenData: req.decoded
           };
         let resourceResult = [];
-
+          const token = req.accessToken
 
         for (let allergyData of req.body) {
             //  fetch appointment encounter
-            const encounterData = await fetchMainEncounter(allergyData)
+            const encounterData = await fetchMainEncounter(allergyData, token)
             const baseEncounterId = encounterData?.entry?.[0]?.resource?.id;
             let allergyIntoleranceBundle = null;
             if (!baseEncounterId) return;
 
-            const existingResponses = await fetchResource("AllergyIntolerance", {patient: allergyData.patientId, _total: "accurate", _count: 1000});
-            if (existingResponses.total > 0) {
+            const existingResponses = await fetchResource("AllergyIntolerance", {patient: allergyData.patientId, _total: "accurate", _count: 1000}, token);
+            if (existingResponses.total > 0 && existingResponses.entry) {
                 const currentAllergyData = existingResponses.entry.filter(e=> e.resource.encounter.reference.split("/")[1] === baseEncounterId);
                 console.log("currentAllergyData: ", currentAllergyData)
                 if(currentAllergyData.length > 0){
@@ -68,7 +68,12 @@ let saveAllergyData = async function (req, res) {
        }
         let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
         // return res.status(201).json({ status: 1, message: "Family history data saved.", data: bundleData.bundle })
-        let response = await axios.post(config.baseUrl, bundleData.bundle); 
+        let response = await axios.post(config.baseUrl, bundleData.bundle, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/fhir+json'
+            }
+        }); 
         console.info("get bundle json response: ", response.status)  
         if (response.status == 200 || response.status == 201) {
             let responseData = setSaveResponse(bundleData.bundle.entry, response.data.entry, "post");   
@@ -119,10 +124,11 @@ let getAllergyData = async function (req, res) {
         let specialOffset = null;
         const queryParams = req.query
         queryParams._total = "accurate";
+        const token = req.accessToken;
         let resourceResult = []
         let resourceUrlData = { link: link, reqQuery: queryParams, allowNesting: 0, specialOffset: specialOffset }
         console.log("resourceUrlData; ", resourceUrlData)
-        let allergyIntoleranceResponses = await fetchResource("AllergyIntolerance", queryParams);
+        let allergyIntoleranceResponses = await fetchResource("AllergyIntolerance", queryParams, token);
         let resStatus = 1;
         if(  allergyIntoleranceResponses.total == 0) {
                 return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })
@@ -130,10 +136,10 @@ let getAllergyData = async function (req, res) {
             
         resStatus = bundleStructure.setResponse(resourceUrlData, allergyIntoleranceResponses);
         const mainEncounterIds = allergyIntoleranceResponses.entry.map((e) => e.resource.encounter?.reference?.split("/")[1]).filter(Boolean).join(",");
-        const mainEncounterList = await fetchResource("Encounter", { _id: mainEncounterIds, _count: req.query._count });
+        const mainEncounterList = await fetchResource("Encounter", { _id: mainEncounterIds, _count: req.query._count }, token);
         //  get practitionerData
         const practitionerIds = allergyIntoleranceResponses.entry.map((e) => e.resource.recorder?.reference?.split("/")[1]).filter(Boolean).join(",");
-        const practitionerList = await fetchResource("Practitioner", { _count: 10000, _id: practitionerIds })
+        const practitionerList = await fetchResource("Practitioner", { _count: 10000, _id: practitionerIds }, token)
         const mainEncounters = mainEncounterList.entry.map((e) => e.resource);
         allergyIntoleranceResponses.entry.forEach(allergyIntolerance => {            
             const responseObj = getTransformedResult(AllergyIntolerance, allergyIntolerance.resource);

@@ -20,8 +20,9 @@ let setScheduleData = async function (req, res) {
             apiName: "save-schedule",
             tokenData: req.decoded
           };
+        const token = req.accessToken;
         let resourceResult = [], errData = [];
-        const practitionerRoleResource = await fetchResource("PractitionerRole", { practitioner: req.decoded.userId, _elements: "_id,organization", _total: "accurate" });
+        const practitionerRoleResource = await fetchResource("PractitionerRole", { practitioner: req.decoded.userId, _elements: "_id,organization", _total: "accurate" }, token);
         console.log("practitionerRoleResource: ", practitionerRoleResource.entry[0].resource)
         const roleId = practitionerRoleResource.entry[0].resource.id
         const orgId = practitionerRoleResource.entry[0].resource.organization.reference.split("/")[1]
@@ -39,7 +40,12 @@ let setScheduleData = async function (req, res) {
         console.info("=============>", resourceResult, errData, "<=========================");
         let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
         console.info("main bundle transaction resource: ", bundleData)
-        let response = await axios.post(config.baseUrl, bundleData.bundle); 
+        let response = await axios.post(config.baseUrl, bundleData.bundle, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/fhir+json'
+            }
+        }); 
         console.log("get bundle json response: ", response.status)  
         if (response.status == 200 || response.status == 201) {
             let responseData = setScheduleResponse(bundleData.bundle.entry, response.data.entry, "post");
@@ -56,11 +62,11 @@ let setScheduleData = async function (req, res) {
 
 }
 
-const mapScheduleData = async (FHIRData) => {
+const mapScheduleData = async (FHIRData, token) => {
     try {
         const roleList = FHIRData.map(e => e.resource.actor[0].reference.split("/")[1]).join(",")
         console.log("roleList: ", roleList)
-        const orgPractitionerRoleResources = await fetchResource("PractitionerRole", {"_id": roleList, _include: "PractitionerRole:organization"})
+        const orgPractitionerRoleResources = await fetchResource("PractitionerRole", {"_id": roleList, _include: "PractitionerRole:organization"}, token)
 
         // Create lookup maps
         const roleMap = {};
@@ -117,13 +123,13 @@ return { scheduleResult, scheduleIds };
 }
 
 
-const countBookedSlots = async (scheduleIds) => {
+const countBookedSlots = async (scheduleIds, token) => {
     const slotList = await fetchResource("Slot", {
         _elements: "schedule",
         "_has:Appointment:slot:slot.schedule": [...scheduleIds].join(","),
         _count: 5000,
         "_has:Appointment:slot:status": "proposed,arrived,noshow"
-    });
+    }, token);
     console.log("slotList: ", slotList)
     if(slotList.total == 0)
         return []
@@ -150,18 +156,19 @@ const getScheduleData = async function(req, res) {
                 _lastUpdated: req.query._lastUpdated
             };
             let resStatus = 1;
+            const token = req.accessToken;
             const resourceType = "Schedule";
             const resourceUrlData = { link: config.baseUrl + resourceType, reqQuery: queryParams, allowNesting: 1, specialOffset: 1 }
-            let responseData = await fetchResource(resourceType, queryParams);
+            let responseData = await fetchResource(resourceType, queryParams, token);
             console.log(responseData)
             if( !responseData.entry) {
                 return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })
             }
-            const { scheduleResult, scheduleIds } = await mapScheduleData(responseData.entry);
+            const { scheduleResult, scheduleIds } = await mapScheduleData(responseData.entry, token);
             // to get organization id from location of the schedule and join it with schedule data
             // const resourceSlotResult = await joinRoleData(scheduleResult, roleIds);
             // booked slots count
-            const bookedSlots = await countBookedSlots(scheduleIds);
+            const bookedSlots = await countBookedSlots(scheduleIds, token);
 
             const resourceResult = scheduleResult.map(obj1 => {
                 const obj2 = bookedSlots.find(obj2 => obj2.scheduleId === obj1.scheduleId);

@@ -4,12 +4,13 @@ const { getTransformedResult, fetchResource, handleError } = require('../service
 let setImmunizationRecommendationData = async function (req, res) {
     try {
         let resourceResult = [];
+        const token = req.accessToken;
         const queryParams = {
             "_total": "accurate",
             "_count": 10000,
             "patient": req.query.patient
         }
-        const responseData = await fetchResource("ImmunizationRecommendation", queryParams);
+        const responseData = await fetchResource("ImmunizationRecommendation", queryParams, token);
         console.log(responseData)
         let resStatus = 1;
         if( !responseData.entry || responseData.total == 0) {
