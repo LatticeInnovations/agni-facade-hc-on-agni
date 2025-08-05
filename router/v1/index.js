@@ -23,7 +23,7 @@ router.use("/familyHistory", auth, require("./familyHistoryRoute"))
 router.use("/allergy", auth, require("./allergyRoute"))
 router.use("/Vital", auth, require("./vitalRoute"));
 router.use("/riskFactor", auth, require("./riskFactorRoute"))
-
+router.use("/tobaccoCessation", auth, require("./tobaccoRoute"))
 router.use("/SympDx", auth, require("./symDiagRoute"));
 router.use("/PrescriptionFile", auth, require("./prescriptionFileRoute"));
 router.use("/MedicationDispense", auth, require("./medicationDispenseRoute"));
