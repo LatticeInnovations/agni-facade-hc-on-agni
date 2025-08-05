@@ -9,11 +9,12 @@ class ValueSet {
     }
 
     getCode() {
-        this.valueset_obj[this.reqType] = this.fhirResource.compose.include[0].concept.map((data) => {
+        this.valueset_obj[this.reqType] = this.fhirResource.concept.map((data) => {
             if(this.reqType == "diagnosis"){
                 return {
                     code: data.code,
-                    display: data.display
+                    display: data.display,
+                    diagnosisId: data?.property?.[0]?.valueInteger || null
                 }
             }
             else if(this.reqType == "symptoms"){
