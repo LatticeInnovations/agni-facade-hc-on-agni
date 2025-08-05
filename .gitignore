@@ -60,4 +60,5 @@ typings/
 package-lock.json
 upload/logo/*
 uploads/*
+scripts/*
 

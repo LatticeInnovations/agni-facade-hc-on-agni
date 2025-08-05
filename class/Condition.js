@@ -49,7 +49,7 @@ class Condition {
 
     setEncounterId() {
         this.fhirResource.encounter = {
-            "reference": this.conditionObj.symDiagFhirId? "Encounter/" + this.conditionObj.encounterId : "urn:uuid:" + this.conditionObj.encounterId
+            "reference": this.conditionObj.encounterId
         }
     }
 
@@ -84,7 +84,7 @@ class Condition {
     }
 
     getCreatedOn() {
-        this.conditionObj.createdOn = this?.fhirResource?.onsetDateTime || null;
+        this.conditionObj.createdOn = this?.fhirResource?.appUpdatedDate || null;
     }
 
     getFHIRToTransformedResult() {
