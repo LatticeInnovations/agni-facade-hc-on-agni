@@ -21,9 +21,16 @@ class MedicationKnowledge {
                 }
             }];
             this.fhirResource.medicineClassification = [{
-                system: "http://heartcare.org",
-                    code: this.medKnowledgeObj.classId,
-                    display: this.medKnowledgeObj.className
+                classification: [{
+                    coding: [
+                        {
+                            system: "http://heartcare.org",
+                            code: this.medKnowledgeObj.classId,
+                            display: this.medKnowledgeObj.className
+                        }
+                    ]
+                }]
+               
             }];
             this.fhirResource.associatedMedication = [{
                 reference: this.medKnowledgeObj.medicineId
@@ -40,16 +47,26 @@ class MedicationKnowledge {
                 }
             ]
     }
+
+    getData() {
+        console.log(" this.fhirResource: ",  this.fhirResource)
+        this.medKnowledgeObj.categoryId = this.fhirResource.productType[0].coding[0].code
+        this.medKnowledgeObj.categoryName = this.fhirResource.productType[0].coding[0].display
+        this.medKnowledgeObj.classId = this.fhirResource.medicineClassification?.[0]?.classification?.[0]?.coding?.[0]?.code || null
+        this.medKnowledgeObj.className = this.fhirResource.medicineClassification?.[0]?.classification?.[0]?.coding?.[0]?.display || null
+        this.medKnowledgeObj.brandName = this.fhirResource?.synonym?.[0] || null
+    }
     
     getJsonToFhirTranslator() {
         this.setData();
     }
     getFHIRToTransformedResult() {
-      
+      this.getData();
     }
 
     getSimplifiedOutput() {
-        return this.medicineObj;
+
+        return this.medKnowledgeObj;
     }
 
     getFHIRResource() {

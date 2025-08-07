@@ -6,6 +6,7 @@ router.post("/", medicationController.saveMedicationData);
 router.put("/", medicationController.updateMedicationData); 
  
 router.get("/", medicationController.getMedicationList); 
+router.patch("/", medicationController.patchMedicationData); 
 
 
 module.exports = router

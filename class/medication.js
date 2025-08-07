@@ -15,13 +15,14 @@ class Medication {
         
         this.medicineObj.medFhirId = this.fhirResource.id
         if (!checkEmptyData(this.fhirResource.code) && this.fhirResource.code.coding) {
-            this.medicineObj.medCode = this.fhirResource.code.coding[0].code;
-            this.medicineObj.medName = this.fhirResource.code.coding[0].display;
+            this.medicineObj.code = this.fhirResource.code.coding[0].code;
+            this.medicineObj.name = this.fhirResource.code.coding[0].display;
         }
         
     }
 
     setCode() {
+        this.fhirResource.status = "active"
         this.fhirResource.code = [
             {
                 coding: [
@@ -42,9 +43,13 @@ class Medication {
     setIsOtc() {
         this.fhirResource.extension = [
             {
+                "url": "http://heartcare.org",
                 valueBoolean: false
             }
         ]
+    }
+    getStatus() {
+        this.medicineObj.status = this.fhirResource?.status || "active"
     }
     getDoseForm() {
         if (!checkEmptyData(this.fhirResource.form) && this.fhirResource.form.coding) {
@@ -103,6 +108,11 @@ class Medication {
         }
     }
 
+    patchStatus() {
+        if (!checkEmptyData(this.medicineObj.status))
+            this.fhirResource.push({ "op": "replace", "path": "/status", "value": this.medicineObj.status })
+    }
+
     getJsonToFhirTranslator() {
         this.setCode();
         this.setIsOtc();
@@ -111,7 +121,12 @@ class Medication {
     getFHIRToTransformedResult() {
         this.getCode();
         this.getIsOTC();
-        this.getDoseForm();      
+        this.getDoseForm(); 
+        this.getStatus();     
+    }
+
+    setPatchData() {
+        this.patchStatus();
     }
 
     getFHIRResource() {
