@@ -8,6 +8,7 @@ class Medication {
     constructor(medicineObj, fhir_resource) {
         this.medicineObj = medicineObj;
         this.fhirResource = fhir_resource;
+        this.fhirResource.resourceType = "Medication"
     }
 
     getCode() {
@@ -20,8 +21,30 @@ class Medication {
         
     }
 
+    setCode() {
+        this.fhirResource.code = [
+            {
+                coding: [
+                    {
+                        system: "http://heartcare.org",
+                        code:   this.medicineObj.code,
+                        display:  `${this.medicineObj.name} ${this.medicineObj.dosage} mg tablet`
+                      }
+                ]
+            }
+        ]
+    }
+
     getIsOTC() {
         this.medicineObj.isOTC = this.fhirResource.extension && this.fhirResource.extension[0].valueBoolean == true ? true : false
+    }
+
+    setIsOtc() {
+        this.fhirResource.extension = [
+            {
+                valueBoolean: false
+            }
+        ]
     }
     getDoseForm() {
         if (!checkEmptyData(this.fhirResource.form) && this.fhirResource.form.coding) {
@@ -39,6 +62,22 @@ class Medication {
             this.medicineObj.doseForm = null;
             this.medicineObj.doseFormCode = null;
         }
+    }
+
+    setDoseForm() {
+        this.fhirResource.form = [
+            {
+                "coding": [
+                        {
+                            "system": "http://snomed.info/sct",
+                            "code": "421026006",
+                            "display": "Tablet"
+                        }
+                    ],
+                    "text": "Tablet"
+            }
+        ]
+         
     }
 
     getIngredientData() {
@@ -64,11 +103,19 @@ class Medication {
         }
     }
 
+    getJsonToFhirTranslator() {
+        this.setCode();
+        this.setIsOtc();
+        this.setDoseForm();
+    }
     getFHIRToTransformedResult() {
         this.getCode();
         this.getIsOTC();
-        this.getDoseForm();
-        this.getIngredientData();       
+        this.getDoseForm();      
+    }
+
+    getFHIRResource() {
+        return this.fhirResource
     }
 
     getSimplifiedOutput() {
