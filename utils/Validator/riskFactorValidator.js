@@ -47,20 +47,20 @@ const riskFactorSchema = Joi.array().items(
     alcohol: Joi.object({
       consumedWithin30Days: Joi.boolean().allow(null),
 
-      alcoholQ1: Joi.number().valid(1, 2, 3, 4, 5).when('consumedWithin30Days', {
+      alcoholQ1: Joi.number().when('consumedWithin30Days', {
         is: true,
         then: Joi.required(),
         
       })
       .allow(null),
 
-      alcoholQ2: Joi.number().valid(1, 2, 3, 4, 5).when('consumedWithin30Days', {
+      alcoholQ2: Joi.number().when('consumedWithin30Days', {
         is: true,
         then: Joi.required(),
         otherwise: Joi.number().allow(null)
       }),
 
-      alcoholQ3: Joi.number().valid(1, 2, 3, 4, 5).when('consumedWithin30Days', {
+      alcoholQ3: Joi.number().when('consumedWithin30Days', {
         is: true,
         then: Joi.required(),
         otherwise: Joi.number().allow(null)

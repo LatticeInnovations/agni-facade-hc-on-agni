@@ -11,6 +11,7 @@ const { tobaccoSchema } = require("../utils/Validator/tobaccoValidator");
 const {validateRequest} = require("../utils/validateRequest");
 const { getPractitionerName } = require("../services/commonFunctions");
 
+
 const fetchMainEncounter = async (tobaccoData, token) => {
     const mainEncounter =   await fetchResource("Encounter", {
          appointment: tobaccoData.appointmentId,
