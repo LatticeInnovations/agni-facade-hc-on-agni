@@ -17,6 +17,7 @@ router.use("/Appointment", auth, require("./appointmentRoute"));
 router.use("/CVD", auth, require("./CVDRoute"));
 router.use("/priorDx", auth, require("./priorDxRoute"));
 router.use("/Medication", auth, require("./medicationRoute"));
+router.use("/intervention", auth, require("./interventionRoute"));
 router.use("/Prescription", auth, require("./prescriptionRoute"));
 router.use("/historyMedicine", auth, require("./medicationHistoryRoute"))
 router.use("/familyHistory", auth, require("./familyHistoryRoute"))
