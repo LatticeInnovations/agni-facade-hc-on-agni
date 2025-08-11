@@ -12,6 +12,7 @@ const queues = {
   "allergy": "AGNI_TO_HEARTCARE_MAIN",
   "vital": "AGNI_TO_HEARTCARE_MAIN",
   "riskFactor": "AGNI_TO_HEARTCARE_MAIN",
+  "tobaccoCessation": "AGNI_TO_HEARTCARE_MAIN",
   "diagnosis": "AGNI_TO_HEARTCARE_MAIN"
 };
 
