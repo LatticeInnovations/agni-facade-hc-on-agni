@@ -10,7 +10,8 @@ const prescriptionItemSchema = Joi.object({
   timing: Joi.string().required(),
   duration: Joi.number().required(),
   qtyPrescribed: Joi.number().required(),
-  note: Joi.string().allow(null).optional()
+  note: Joi.string().allow(null).optional(),
+  brandName: Joi.string().allow(null).optional()
 });
 
 // Prescription block schema
@@ -18,6 +19,7 @@ const prescriptionBlockSchema = Joi.object({
   appointmentId: Joi.string().required(),
   patientId: Joi.string().required(),
   generatedOn: Joi.string().isoDate().required(), // Accepts ISO timestamp with timezone
+  appUpdatedOn: Joi.string().isoDate().required(),
   prescriptionId: Joi.string().uuid().required(),
   prescription: Joi.array().min(1).items(prescriptionItemSchema).required()
 });

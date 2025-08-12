@@ -14,9 +14,9 @@ let saveInterventionData = async function (req, res) {
         // if (!validatedBody) return;
         req.queueMeta = {
             data: req.data,
-            entity: "intervention",
+            entity: "interventionMaster",
             requestType: "post",
-            apiName: "add-Intervention",
+            apiName: "add-intervention",
             tokenData: req.decoded
           };
         const token = req.accessToken;
@@ -71,7 +71,7 @@ let updateInterventionData = async function (req, res) {
         let interventionResource = null;
         req.queueMeta = {
             data: req.data,
-            entity: "intervention",
+            entity: "interventionMaster",
             requestType: "put",
             apiName: "update-intervention",
             tokenData: req.decoded
@@ -163,6 +163,13 @@ const patchInterventionData = async function(req, res) {
     try {
         // const validatedBody = validateRequest(req.body, InterventionPatchSchema, res);
         // if (!validatedBody) return;
+        req.queueMeta = {
+            data: req.data,
+            entity: "interventionMaster",
+            requestType: "put",
+            apiName: "update-status",
+            tokenData: req.decoded
+          };
         const resourceType = "ActivityDefinition";
         const reqInput = req.body;
         const token = req.accessToken;

@@ -56,6 +56,7 @@ let setBundlePost = async function (resourceData, identifier, id, reqMethod, ide
 
 let setBundlePut = async function (resourceData, identifier, id, identifierType) {
     try {
+        console.log("id is: ", id)
         let identifierConcat = "";
         if(identifier || identifier != null) {
             identifierConcat = "";
