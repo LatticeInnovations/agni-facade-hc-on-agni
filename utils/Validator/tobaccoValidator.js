@@ -19,35 +19,35 @@ const tobaccoSchema = Joi.array().items(
     }),
 
     // assessedStatus shown only if briefAdvice is true
-    assessedStatus: Joi.boolean().when('briefAdvice', {
+    assessedStatus: Joi.boolean().optional().when('briefAdvice', {
       is: true,
       then: Joi.required(),
       otherwise: Joi.optional().allow(null)
     }),
 
     // assistQuit shown only if assessedStatus is true
-    assistQuit: Joi.number().valid(1, 2, 3, 4).when('assessedStatus', {
+    assistQuit: Joi.number().valid(1, 2, 3, 4).default(null).optional().when('assessedStatus', {
       is: true,
       then: Joi.required(),
       otherwise: Joi.optional().allow(null)
     }),
 
     // pharmacotherapy shown only if assistQuit == 2
-    pharmacotherapy: Joi.number().valid(1, 2, 3).when('assistQuit', {
+    pharmacotherapy: Joi.number().optional().valid(1, 2, 3).when('assistQuit', {
       is: 2,
       then: Joi.required(),
       otherwise: Joi.optional().allow(null)
     }),
 
     // dateOfPlan required if assistQuit == 1 or 2
-    dateOfPlan: Joi.date().iso().when('assistQuit', {
+    dateOfPlan: Joi.alternatives().conditional('assistQuit', {
       is: Joi.valid(1, 2),
-      then: Joi.required(),
-      otherwise: Joi.optional().allow(null)
+      then: Joi.date().iso().required(),
+      otherwise: Joi.date().iso().optional().allow(null)
     }),
 
     // planStatus required if assistQuit == 1 or 2
-    planStatus: Joi.number().valid(1, 2, 3).when('assistQuit', {
+    planStatus: Joi.number().optional().valid(1, 2, 3).when('assistQuit', {
       is: Joi.valid(1, 2),
       then: Joi.required(),
       otherwise: Joi.optional().allow(null)
