@@ -88,7 +88,7 @@ getEncounterTime() {
   }
 
   setOrganizationReference(){
-    this.fhirResource.serviceProvider.reference = "Organization/" + this.groupEncounterObj.orgId;
+    this.fhirResource.serviceProvider.reference = this.groupEncounterObj.orgId ? "Organization/" + this.groupEncounterObj.orgId : null;
 }
 
   setPractitionerReference() {

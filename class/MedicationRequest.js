@@ -63,7 +63,7 @@ getId() {
     }
 
     setEncounter() {
-        this.fhirResource.encounter.reference = "urn:uuid:" +this.medReqObj.encounterId;
+        this.fhirResource.encounter.reference = this.medReqObj.encounterId;
     }
 
     setNote() {
@@ -79,6 +79,19 @@ getId() {
         else {
             this.medReqObj.note = null;
         }
+    }
+
+    setBrandName() {
+        this.fhirResource.extension = [
+            {
+                "url": "http://www.heartcare.org/medication-brandNames",
+                "valueString": this.medReqObj?.brandName || null
+            }
+        ]
+    }
+
+    getBrandName() {
+        this.medReqObj.brandName = this.fhirResource.extension?.[0]?.valueString || null
     }
 
     setEffectiveDosePeriod() {
@@ -172,6 +185,7 @@ getId() {
         this.setIdentifier();
         this.setIntent();
         this.setMedication();
+        this.setBrandName();
         this.setGroupIdentifier();
         this.setPatientReference();
         this.setEncounter();
@@ -193,6 +207,7 @@ getId() {
     getFHIRToTransformedResult() {
         this.getId();
         this.getMedFhirId();
+        this.getBrandName();
         this.getNote();
         this.getDoseInstruction();
     }
