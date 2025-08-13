@@ -146,8 +146,8 @@ const riskFactorSchema = Joi.array().items(
     .allow(null),
 
     sugar: Joi.object({
-      softDrinkFrequency: Joi.number().valid(1, 2, 3, 4, 5, 6).optional().allow(null),
-      juiceFrequency: Joi.number().valid(1, 2, 3, 4, 5, 6).optional().allow(null)
+      softDrinkFrequency: Joi.number().valid(1, 2, 3, 4, 5, 6, 7).optional().allow(null),
+      juiceFrequency: Joi.number().valid(1, 2, 3, 4, 5, 6, 7).optional().allow(null)
     }).optional().allow(null),
 
     mealsOutsideHome: Joi.object({

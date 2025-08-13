@@ -127,7 +127,7 @@ let savePrescriptionData = async function (req, res) {
 
         if (response.status === 200 || response.status === 201) {
             const responseData = setPrescriptionResponse(bundleData.bundle.entry, response.data.entry, "post");
-            return res.status(201).json({ status: 1, message: "Practitioner data saved.", data: responseData });
+            return res.status(201).json({ status: 1, message: "Prescription data saved.", data: responseData });
         } else {
             return handleError(res, response);
         }
@@ -283,13 +283,7 @@ const buildPrescriptionData = (encData, apptEncounter, medReqList) => {
  */
 const getPrescriptionData = async function (req, res) {
     try {
-        // Validate input
-        // if (!req.query.patientId) {
-        //     return res.status(400).json({ status: 0, message: "Missing patient ID." });
-        // }
-        //  Get prescripiton encounters
         const queryParams = {
-            // "_revinclude": "MedicationRequest:encounter:Encounter",
             "type": "prescription-encounter-form",
             "_total": "accurate",
             "_count": req?.query?._count || 3000,
@@ -298,10 +292,12 @@ const getPrescriptionData = async function (req, res) {
             "_sort": req?.query?._sort || null
         };       
         const token = req.accessToken;
+        let resourceUrlData = { link: config.baseUrl + "Encounter", reqQuery: queryParams, allowNesting: 0, specialOffset: 1 }
+                
         const responseData = await fetchResource("Encounter", queryParams, token);
         console.log("responseData: ", responseData)
         if (!responseData.entry || responseData.total === 0) {
-            return res.status(200).json({ status: 1, message: "Data fetched", total: 0, data: [] });
+            return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: [] });
         }
         const prescriptionFormEncounterIds = [...new Set(responseData.entry.map((e) => e.resource.id))];
         //  Fetch medication requests from prescription encounters
@@ -320,9 +316,9 @@ const getPrescriptionData = async function (req, res) {
             const medReqList = extractMedicationRequests(medicationRequestResources.entry, encData.resource.id);
             return buildPrescriptionData(encData.resource, apptEncounter, medReqList);
         }).filter((prescriptionData) => prescriptionData.prescription.length > 0);
-
+        let resStatus = bundleStructure.setResponse(resourceUrlData, responseData);
         res.status(200).json({
-            status: 1,
+            status: resStatus,
             message: "Data fetched.",
             total: resourceResult.length,
             offset: +queryParams._offset || null,

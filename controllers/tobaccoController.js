@@ -131,7 +131,7 @@ let getTobaccoData = async function (req, res) {
             return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })
         } 
         const link = config.baseUrl + "QuestionnaireResponse"
-        let specialOffset = null;
+        let specialOffset = 1;
         const queryParams = req.query
         queryParams._total = "accurate";
         queryParams.questionnaire = "Questionnaire/" + questionnaireResource.entry[0].resource.id
@@ -157,7 +157,7 @@ let getTobaccoData = async function (req, res) {
             responseObj.appointmentUuid = primaryEncounter?.identifier?.[0].value
             resourceResult.push(responseObj)
         });
-        
+        resStatus = bundleStructure.setResponse(resourceUrlData, questionnaireResponses);
         res.status(200).json({ status: resStatus, message: "Data fetched.", total: resourceResult.length,"offset": +queryParams?._offset, data: resourceResult  })
         
     }
