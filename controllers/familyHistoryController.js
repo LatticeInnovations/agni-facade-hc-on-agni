@@ -129,7 +129,7 @@ let getFamilyHistoryData = async function (req, res) {
             return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })
         }         
         const link = config.baseUrl + "QuestionnaireResponse"
-        let specialOffset = null;
+        let specialOffset = 1;
         const queryParams = req.query
         queryParams._total = "accurate";
         queryParams.questionnaire = "Questionnaire/" + questionnaireResource.entry[0].resource.id
