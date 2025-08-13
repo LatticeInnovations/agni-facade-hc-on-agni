@@ -6,8 +6,8 @@ let axios = require("axios");
 let config = require("../config/nodeConfig");
 const bundleStructure = require("../services/bundleOperation")
 const responseService = require("../services/responseService");
-// let {TestExamSaveSchema} = require("../utils/Validator/TestExamValidator");
-// const {validateRequest} = require("../utils/validateRequest");
+let {examinationSchema} = require("../utils/Validator/examinationValidator");
+const {validateRequest} = require("../utils/validateRequest");
 
 const fetchMainEncounter = async (examData, token) => {
     const mainEncounter =   await fetchResource("Encounter", {
@@ -24,8 +24,8 @@ const fetchMainEncounter = async (examData, token) => {
 //  save TestExam data
 let saveExaminationData = async function (req, res) {    
     try {
-        // const validatedBody = validateRequest(req.body, TestExamSaveSchema, res);
-        // if (!validatedBody) return;
+        const validatedBody = validateRequest(req.body, examinationSchema, res);
+        if (!validatedBody) return;
         req.queueMeta = {
             data: req.data,
             entity: "examination",
