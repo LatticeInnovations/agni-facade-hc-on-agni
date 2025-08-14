@@ -26,7 +26,7 @@ function findMatchingResponse(responseData, item) {
   console.log("responseData: ", responseData, " item: ", item)
   return responseData.find(e =>
     (e.id && e.id === item.id) ||(item.uuid && e.id && e.id === item.uuid) ||
-    (e.fhirId && e.fhirId === item.fhirId)
+    (e.fhirId && e.fhirId === item.fhirId) || (e.err && e.err == "Duplicate record exists." && e.status == "200 OK")
   );
 }
 
