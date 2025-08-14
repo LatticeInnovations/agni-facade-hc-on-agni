@@ -287,17 +287,16 @@ const getPrescriptionData = async function (req, res) {
             "type": "prescription-encounter-form",
             "_total": "accurate",
             "_count": req?.query?._count || 3000,
-            _offset: req?.query?._offset || 0,
             "subject": req.query.patientId,
             "_sort": req?.query?._sort || null
         };       
         const token = req.accessToken;
-        let resourceUrlData = { link: config.baseUrl + "Encounter", reqQuery: queryParams, allowNesting: 0, specialOffset: 1 }
+        let resourceUrlData = { link: config.baseUrl + "Encounter", reqQuery: queryParams, allowNesting: 0, specialOffset: 0 }
                 
         const responseData = await fetchResource("Encounter", queryParams, token);
         console.log("responseData: ", responseData)
         if (!responseData.entry || responseData.total === 0) {
-            return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: [] });
+            return res.status(200).json({ status: 1, message: "Data fetched", total: 0, data: [] });
         }
         const prescriptionFormEncounterIds = [...new Set(responseData.entry.map((e) => e.resource.id))];
         //  Fetch medication requests from prescription encounters
@@ -316,9 +315,9 @@ const getPrescriptionData = async function (req, res) {
             const medReqList = extractMedicationRequests(medicationRequestResources.entry, encData.resource.id);
             return buildPrescriptionData(encData.resource, apptEncounter, medReqList);
         }).filter((prescriptionData) => prescriptionData.prescription.length > 0);
-        let resStatus = bundleStructure.setResponse(resourceUrlData, responseData);
+        // let resStatus = bundleStructure.setResponse(resourceUrlData, responseData);
         res.status(200).json({
-            status: resStatus,
+            status: 1,
             message: "Data fetched.",
             total: resourceResult.length,
             offset: +queryParams._offset || null,
