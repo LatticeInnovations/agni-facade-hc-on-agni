@@ -45,7 +45,7 @@ class RiskFactorQuestionnaireResponse {
         answer: [
           {
             valueCoding: {
-              code: this.answerObj.tobaccoUse != null ? this.answerObj?.tobaccoUse:  null
+              code: this.answerObj?.tobaccoUse ??  null
             },
           },
         ],
