@@ -31,7 +31,7 @@ const patientSchema = Joi.object({
     country: Joi.string().required()
   }).required(),
 
-  mobileNumber: Joi.string().pattern(/^[0-9]{10,15}$/).optional().allow(null, ""),
+  mobileNumber: Joi.string().pattern(/^[0-9]{5,15}$/).optional().allow(null, ""),
   mothersName: Joi.string().allow(null).required(),
   fathersName: Joi.string().allow(null).optional(),
   spouseName: Joi.string().allow(null).optional(),

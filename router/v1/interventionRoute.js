@@ -1,12 +1,16 @@
 let express = require("express");
 let router = express.Router();
-let interventionController = require("../../controllers/interventionMasterController")
+const interventionMasterController = require("../../controllers/interventionMasterController")
+const interventionController = require("../../controllers/interventionController")
 
-router.post("/master", interventionController.saveInterventionData); 
-router.put("/master", interventionController.updateInterventionData); 
+router.post("/master", interventionMasterController.saveInterventionData); 
+router.put("/master", interventionMasterController.updateInterventionData); 
  
-router.get("/master", interventionController.getInterventionData); 
-router.patch("/master", interventionController.patchInterventionData); 
+router.get("/master", interventionMasterController.getInterventionData); 
+router.patch("/master", interventionMasterController.patchInterventionData); 
+
+router.post("/", interventionController.saveInterventionData); 
+router.get("/", interventionController.getInterventionData); 
 
 
 module.exports = router
