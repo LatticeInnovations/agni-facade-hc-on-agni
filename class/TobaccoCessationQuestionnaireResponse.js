@@ -38,13 +38,14 @@ class RiskFactorQuestionnaireResponse {
   }
 
   setData() {
+    console.log(this.answerObj)
     this.fhirResource.item = [
       {
         linkId: "tobaccoUse",
         answer: [
           {
             valueCoding: {
-              code: this.answerObj?.tobaccoUse ?? null
+              code: this.answerObj?.tobaccoUse ??  null
             },
           },
         ],
@@ -53,7 +54,7 @@ class RiskFactorQuestionnaireResponse {
         linkId: "briefAdvice",
         answer: [
           {
-            valueBoolean:  this.answerObj?.briefAdvice ?? null
+            valueBoolean: this.answerObj?.briefAdvice ?? null
           },
         ],
       },
@@ -108,13 +109,14 @@ class RiskFactorQuestionnaireResponse {
 
   getData() {
     const item = this.fhirResource.item;
-    this.answerObj.tobaccoUse = item?.[0]?.answer?.[0]?.valueCoding?.code || null;
-    this.answerObj.briefAdvice = item?.[1]?.answer?.[0]?.valueBoolean || null;
-    this.answerObj.assessedStatus = item?.[2]?.answer?.[0]?.valueBoolean || null;
-    this.answerObj.assistQuit = item?.[3]?.answer?.[0]?.valueCoding?.code || null;
-    this.answerObj.pharmacotherapy = item?.[4]?.answer?.[0]?.valueCoding?.code || null;
-    this.answerObj.dateOfPlan = item?.[5]?.answer?.[0]?.valueDate || null;
-    this.answerObj.planStatus = item?.[6]?.answer?.[0]?.valueCoding?.code || null;
+    console.log("item 1", item[1])
+    this.answerObj.tobaccoUse = item?.[0]?.answer?.[0]?.valueCoding?.code ?? null;
+    this.answerObj.briefAdvice = item?.[1]?.answer?.[0]?.valueBoolean ?? null;
+    this.answerObj.assessedStatus = item?.[2]?.answer?.[0]?.valueBoolean ?? null;
+    this.answerObj.assistQuit = item?.[3]?.answer?.[0]?.valueCoding?.code ?? null;
+    this.answerObj.pharmacotherapy = item?.[4]?.answer?.[0]?.valueCoding?.code ?? null;
+    this.answerObj.dateOfPlan = item?.[5]?.answer?.[0]?.valueDate ?? null;
+    this.answerObj.planStatus = item?.[6]?.answer?.[0]?.valueCoding?.code ?? null;
   }
 
   getJsonToFhirTranslator() {

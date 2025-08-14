@@ -32,8 +32,10 @@ const medicineUpdateSchema = Joi.array().items(
       dosage: Joi.number().required(),
       brandList: Joi.array().required().items(
         Joi.object({
+
           id: Joi.number().optional(),
           name: Joi.string().required()
+          
         })
       )
     })
