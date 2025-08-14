@@ -27,10 +27,10 @@ const vitalSchema = Joi.object({
     appUpdatedDate: Joi.date().iso().required(),
 
     bloodGlucose: conditionalField(["mg/dL", "mmol/L"], ["fasting", "random"]),
-    serumCreatinine: conditionalField(["mg/dL"]),
+    serumCreatinine: conditionalField(["mg/dL", "µmol/L"]),
     abdominalCircumference: conditionalField(["in", "cm"]),
     hipCircumference: conditionalField(["in", "cm"]),
-    serumPotassium: conditionalField(["mEq/L"]),
+    serumPotassium: conditionalField(["mEq/L", "µmol/L"]),
 
     hbA1cPercentage: Joi.alternatives([Joi.number(), Joi.valid(null)]),
     urineProtein: Joi.string().allow('', null),
