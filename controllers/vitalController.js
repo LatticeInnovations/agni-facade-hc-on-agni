@@ -297,7 +297,8 @@ const getVitalData = async function(req, res) {
                 _count: req.query._count,
                 _offset: req.query._offset,
                 _sort: req.query._sort,
-                type: "vital-test-encounter"
+                type: "vital-test-encounter",
+                _lastUpdated: req.query._lastUpdated
             }
             const link = config.baseUrl + RESOURCE_TYPES.ENCOUNTER;
             const resourceUrlData = { link, reqQuery: queryParams, allowNesting: 0, specialOffset: 1 };

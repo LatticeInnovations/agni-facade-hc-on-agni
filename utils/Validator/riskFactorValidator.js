@@ -106,7 +106,7 @@ const riskFactorSchema = Joi.array().items(
         otherwise: Joi.number().allow(null)
       }),
 
-      vigorousTime: Joi.number().min(1).max(300).when('weeklyEngagement', {
+      vigorousTime: Joi.number().min(1).max(1440).when('weeklyEngagement', {
         is: true,
         then: Joi.required(),
         otherwise: Joi.number().allow(null)
@@ -118,7 +118,7 @@ const riskFactorSchema = Joi.array().items(
         otherwise: Joi.number().allow(null),
       }),
 
-      moderateTime: Joi.number().min(1).max(300).when('weeklyEngagement', {
+      moderateTime: Joi.number().min(1).max(1440).when('weeklyEngagement', {
         is: true,
         then: Joi.required(),
         otherwise: Joi.number().allow(null)
