@@ -111,7 +111,7 @@ const fetchResource = async (resourceType, queryParams, token) => {
                     const headers = {
                         'Accept': 'application/fhir+json',
                         'Content-Type': 'application/json',
-                        'authorization': token
+                        'Authorization': `Bearer ${token}`
                     }
                     console.log("check the request param in search: ", queryParams, headers)
                     let responseData = await axios.get(urlVal, { params: queryParams, headers: headers });

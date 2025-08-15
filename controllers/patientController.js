@@ -16,7 +16,7 @@ let savePatientData = async function (req, res) {
     try {
         const validatedBody = validateRequest(req.body, patientSaveSchema, res);
         if (!validatedBody) return;
-        let token = req.token;
+        let token= req.accessToken
         req.queueMeta = {
             data: req.body,
             entity: "patients",
@@ -28,7 +28,7 @@ let savePatientData = async function (req, res) {
         console.log("req body: ", req.body)
         for (let patientData of req.body) {
             // patientData.orgId = token.orgId;
-            patientData.userId = token.userId;
+            patientData.userId = req.decoded.userId;
             let patientResource = buildFHIRResource(Patient, patientData)
             const personId = uuidv4();
             console.log("patientId: ", patientData.id)
@@ -45,7 +45,7 @@ let savePatientData = async function (req, res) {
         }
         let bundleData = await bundleStructure.getBundleJSON({resourceResult});
         // return res.status(201).json({ status: 1, message: "Patient data saved.", data: bundleData.bundle })  
-        console.info("main bundle transaction resource: ", bundleData)
+        console.info("main bundle transaction resource: ", bundleData, token)
         let response = await axios.post(config.baseUrl, bundleData.bundle, {
             headers: {
                 'Authorization': `Bearer ${token}`,

@@ -2,7 +2,7 @@ let model = require('../models/index');
 
 const getTimestamp = async (req, res) => {
     try{
-        let token = req.token;
+        let token= req.accessToken
         let timestamp = await model.userTimeMap.findAll({ attributes: ['uuid', 'timestamp'], where : { orgId : token.orgId }});
         res.json({ status: 1, message: "timestamp fetched", data : timestamp });
     }
@@ -17,7 +17,7 @@ const getTimestamp = async (req, res) => {
 
 const updateTimestamp = async (req, res) => {
     try{
-        let token = req.token;
+        let token= req.accessToken
         let data = req.body;
         data = data.map((d) => {
             d.orgId = token.orgId;
