@@ -7,7 +7,7 @@ let config = require("../config/nodeConfig");
 const bundleStructure = require("../services/bundleOperation")
 const responseService = require("../services/responseService");
 const { buildFHIRResource, handleError, fetchResource, getTransformedResult } = require("../services/helperFunctions");
-const { prescriptionArraySchema } = require("../utils/Validator/prescriptionValidator");
+const { prescriptionArraySchema, prescriptionUpdateSchema } = require("../utils/Validator/prescriptionValidator");
 const {validateRequest} = require("../utils/validateRequest");
 const configUrls = require("../utils/heartcareSystemUrl")
 
@@ -95,14 +95,8 @@ let savePrescriptionData = async function (req, res) {
                     const appointmentEncounter = await fetchResource("Encounter", {  appointment: patPres.appointmentId, _count: 5000, _include: "Encounter:appointment"}, token);
                     const apptData = appointmentEncounter.entry[0].resource;
                     // Check if encounter of prescription already exists
-                    const prescriptionEncounter =  await fetchResource("Encounter", {  "part-of": appointmentEncounter.entry[0].resource.id, type: "prescription-encounter-form", _total: "accurate"}, token);
-                    // Create encounter bundle
-                    if (prescriptionEncounter.total > 0 && prescriptionEncounter.entry) {
-                       return await updatePrescription(prescriptionEncounter.entry[0].resource, patPres, token, req.decoded)
-                    }
-                    else {
-                        return await createPrescriptionResources(apptData, patPres, req.decoded)
-                    }
+                    // const prescriptionEncounter =  await fetchResource("Encounter", {  "part-of": appointmentEncounter.entry[0].resource.id, type: "prescription-encounter-form", _total: "accurate"}, token);
+                    return await createPrescriptionResources(apptData, patPres, req.decoded);
 
                 } catch (error) {
                     console.warn(`Error processing prescription: ${patPres.prescriptionId}`, error);
@@ -137,6 +131,59 @@ let savePrescriptionData = async function (req, res) {
     }
 };
 
+
+const updateExistingPrescription = async function (req, res) {
+    try {
+        const validatedBody = validateRequest(req.body, prescriptionUpdateSchema, res);
+        if (!validatedBody) return;
+        const token = req.accessToken;
+        const resourceResult = await Promise.all(
+            req.body.map(async (patPres) => {
+                try {
+                    // Fetch appointment encounter
+                    const appointmentEncounter = await fetchResource("Encounter", {  appointment: patPres.appointmentId, _count: 5000, _include: "Encounter:appointment"}, token);
+                    const apptData = appointmentEncounter.entry[0].resource;
+                    // Check if encounter of prescription already exists
+                    const prescriptionEncounter =  await fetchResource("Encounter", {  _id: patPres.prescriptionFhirId, type: "prescription-encounter-form", _total: "accurate"}, token);
+
+                    console.log("prescriptionEncounter: ", prescriptionEncounter)
+                    // Create encounter bundle
+                    return await updatePrescription(prescriptionEncounter.entry[0].resource, patPres, token, req.decoded)
+                 
+
+                } catch (error) {
+                    console.warn(`Error processing prescription: ${patPres.prescriptionId}`, error);
+                    return []; // Return empty array for skipped prescriptions
+                }
+            })
+        );
+        // Flatten the resource results
+        console.log(resourceResult)
+        const flattenedResourceResult = resourceResult.flat();
+
+        // Create bundle and send request   
+        const bundleData = await bundleStructure.getBundleJSON({ resourceResult: flattenedResourceResult });
+        // return res.status(201).json({ status: 1, message: "Update Prescription stopped", data: bundleData.bundle });
+        const response = await axios.post(config.baseUrl, bundleData.bundle, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/fhir+json'
+            }
+        });
+        console.info("get bundle json response: ", response.status);
+
+        if (response.status === 200 || response.status === 201) {
+            const responseData = setPrescriptionResponse(bundleData.bundle.entry, response.data.entry, "put");
+            return res.status(201).json({ status: 1, message: "Prescription data updated.", data: responseData });
+        } else {
+            return handleError(res, response);
+        }
+    } catch (error) {
+        console.error("savePrescriptionData Error: ", error);
+        return handleError(res, error);
+    }
+}
+
 const updatePrescription = async (prescriptionEncounter, patPres, token, decoded) => {
     // update section 
     prescriptionEncounter.period = {
@@ -151,7 +198,7 @@ const updatePrescription = async (prescriptionEncounter, patPres, token, decoded
             }
         }
     ]
-    prescriptionEncounter.uuid = patPres.prescriptionId;
+    prescriptionEncounter.uuid = prescriptionEncounter.identifier[0].value;
     const encounterBundle =  await bundleStructure.setBundlePut(prescriptionEncounter, null, prescriptionEncounter.id, HTTP_METHODS.PUT, BUNDLE_TYPES.IDENTIFIER)
         
     //  fetch existing medicationRequest
@@ -333,21 +380,21 @@ const getPrescriptionData = async function (req, res) {
 const setPrescriptionResponse  = (reqBundleData, responseBundleData, type) => {
     let filteredData = [];
     let response = [];
-    const responseData = bundleStructure.mapAssessmentBundleService(reqBundleData, responseBundleData)
+    const responseData = bundleStructure.mapBundleService(reqBundleData, responseBundleData)
     filteredData = responseData.filter(e => e.resource && e.resource.resourceType != "MedicationRequest" && e.resource.resourceType == "Encounter");            
     filteredData = filteredData.map(e => {              
         let medReqData = responseData.filter(medReq =>  medReq.resource && medReq.resource.resourceType == "MedicationRequest" && medReq.resource.identifier[1].value == e.resource.identifier[0].value)
         medReqData = medReqData.map(element => {
             return {
                 medReqUuid: element.resource.identifier[0].value, 
-                err: element.resource.reqUuid == element.resource.identifier[0].value ? null : "Duplicate record exists.",
+                // err: element.resource.reqUuid == element.resource.identifier[0].value ? null : "Duplicate record exists.",
                 medReqFhirId : element.response.location.substring(element.response.location.indexOf("/") + 1, element.response.location.indexOf("/_history"))
             }
         })
         e.prescription = medReqData
         return e
     });   
-    response = responseService.setDefaultAssessmentResponse("MedicationRequest", type, filteredData)
+    response = responseService.setDefaultResponse("Encounter", type, filteredData)
     for(let i=0; i<response.length; i++) {
         response[i].prescription = filteredData[i].prescription || []
     }
@@ -357,5 +404,6 @@ const setPrescriptionResponse  = (reqBundleData, responseBundleData, type) => {
 
 module.exports = {
     savePrescriptionData,
-    getPrescriptionData
+    getPrescriptionData,
+    updateExistingPrescription
 }

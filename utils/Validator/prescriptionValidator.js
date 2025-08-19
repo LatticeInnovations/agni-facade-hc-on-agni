@@ -46,9 +46,21 @@ const prescriptionRecordSchema = Joi.object({
   prescriptionFiles: Joi.array().items(prescriptionFileSchema).min(1).required()
 });
 
+const prescriptionUpdateRecordSchema =  Joi.object({
+  appointmentId: Joi.string().required(),
+  patientId: Joi.string().required(),
+  generatedOn: Joi.string().isoDate().required(), // Accepts ISO timestamp with timezone
+  appUpdatedOn: Joi.string().isoDate().required(),
+  prescriptionFhirId: Joi.string().required(),
+  prescription: Joi.array().min(1).items(prescriptionItemSchema).required()
+});
+
+const prescriptionUpdateSchema = Joi.array().min(1).items(prescriptionUpdateRecordSchema);
+
+
 // Final schema for the array of prescriptions
 const prescriptionFileArraySchema = Joi.array().min(1).items(prescriptionRecordSchema);
 
 
 
-module.exports = {prescriptionArraySchema, prescriptionFileArraySchema, deletePrescriptionSchema}
+module.exports = {prescriptionArraySchema, prescriptionFileArraySchema, deletePrescriptionSchema, prescriptionUpdateSchema}
