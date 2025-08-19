@@ -3,7 +3,7 @@ let model = require('../models/index');
 const getTimestamp = async (req, res) => {
     try{
         let token= req.accessToken
-        let timestamp = await model.userTimeMap.findAll({ attributes: ['uuid', 'timestamp'], where : { orgId : token.orgId }});
+        let timestamp = await model.userTimeMap.findAll({ attributes: ['uuid', 'timestamp']});
         res.json({ status: 1, message: "timestamp fetched", data : timestamp });
     }
     catch(e){
