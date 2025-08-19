@@ -28,7 +28,7 @@ const interventionSchema = Joi.array().items(
 const interventionUpdateSchema = Joi.array().items(
   Joi.object({
     fhirId: Joi.string()
-      .required(),
+      .optional(),
 
     appointmentId: Joi.string()
       .pattern(/^\d+$/)

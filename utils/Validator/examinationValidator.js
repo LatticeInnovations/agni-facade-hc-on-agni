@@ -29,7 +29,7 @@ const examinationSchema = Joi.array().items(
 const examinationUpdateSchema = Joi.array().items(
   Joi.object({
     fhirId: Joi.string()
-      .required(),
+      .optional(),
 
     appointmentId: Joi.string()
       .pattern(/^\d+$/)
