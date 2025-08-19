@@ -9,6 +9,7 @@ router.get("/master", examMasterController.getTestExamData);
 router.patch("/master", examMasterController.patchTestExamData); 
 
 router.post("/", examController.saveExaminationData); 
+router.put("/", examController.updateExaminationData); 
 router.get("/", examController.getExaminationData); 
 
 

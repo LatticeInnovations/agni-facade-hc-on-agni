@@ -87,6 +87,13 @@ let savePrescriptionData = async function (req, res) {
     try {
         const validatedBody = validateRequest(req.body, prescriptionArraySchema, res);
         if (!validatedBody) return;
+        req.queueMeta = {
+            data: req.data,
+            entity: "prescription",
+            requestType: "post",
+            apiName: "save-prescription",
+            tokenData: req.decoded
+          };
         const token = req.accessToken;
         const resourceResult = await Promise.all(
             req.body.map(async (patPres) => {
@@ -136,6 +143,13 @@ const updateExistingPrescription = async function (req, res) {
     try {
         const validatedBody = validateRequest(req.body, prescriptionUpdateSchema, res);
         if (!validatedBody) return;
+        req.queueMeta = {
+            data: req.data,
+            entity: "prescription",
+            requestType: "put",
+            apiName: "update-prescription",
+            tokenData: req.decoded
+          };
         const token = req.accessToken;
         const resourceResult = await Promise.all(
             req.body.map(async (patPres) => {

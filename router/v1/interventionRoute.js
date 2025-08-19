@@ -10,6 +10,7 @@ router.get("/master", interventionMasterController.getInterventionData);
 router.patch("/master", interventionMasterController.patchInterventionData); 
 
 router.post("/", interventionController.saveInterventionData); 
+router.put("/", interventionController.updateInterventionData); 
 router.get("/", interventionController.getInterventionData); 
 
 
