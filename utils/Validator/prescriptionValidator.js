@@ -51,7 +51,7 @@ const prescriptionUpdateRecordSchema =  Joi.object({
   patientId: Joi.string().required(),
   generatedOn: Joi.string().isoDate().required(), // Accepts ISO timestamp with timezone
   appUpdatedOn: Joi.string().isoDate().required(),
-  prescriptionFhirId: Joi.string().required(),
+  prescriptionFhirId: Joi.string().optional(),
   prescription: Joi.array().min(1).items(prescriptionItemSchema).required()
 });
 

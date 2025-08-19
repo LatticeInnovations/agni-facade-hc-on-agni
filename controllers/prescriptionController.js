@@ -87,6 +87,13 @@ let savePrescriptionData = async function (req, res) {
     try {
         const validatedBody = validateRequest(req.body, prescriptionArraySchema, res);
         if (!validatedBody) return;
+        req.queueMeta = {
+            data: req.data,
+            entity: "prescription",
+            requestType: "post",
+            apiName: "save-prescription",
+            tokenData: req.decoded
+          };
         const token = req.accessToken;
         const resourceResult = await Promise.all(
             req.body.map(async (patPres) => {
@@ -136,6 +143,13 @@ const updateExistingPrescription = async function (req, res) {
     try {
         const validatedBody = validateRequest(req.body, prescriptionUpdateSchema, res);
         if (!validatedBody) return;
+        req.queueMeta = {
+            data: req.data,
+            entity: "prescription",
+            requestType: "put",
+            apiName: "update-prescription",
+            tokenData: req.decoded
+          };
         const token = req.accessToken;
         const resourceResult = await Promise.all(
             req.body.map(async (patPres) => {
@@ -144,7 +158,7 @@ const updateExistingPrescription = async function (req, res) {
                     const appointmentEncounter = await fetchResource("Encounter", {  appointment: patPres.appointmentId, _count: 5000, _include: "Encounter:appointment"}, token);
                     const apptData = appointmentEncounter.entry[0].resource;
                     // Check if encounter of prescription already exists
-                    const prescriptionEncounter =  await fetchResource("Encounter", {  _id: patPres.prescriptionFhirId, type: "prescription-encounter-form", _total: "accurate"}, token);
+                    const prescriptionEncounter =  await fetchResource("Encounter", {  "part-of": appointmentEncounter.entry[0].resource.id, type: "prescription-encounter-form", _total: "accurate"}, token);
 
                     console.log("prescriptionEncounter: ", prescriptionEncounter)
                     // Create encounter bundle

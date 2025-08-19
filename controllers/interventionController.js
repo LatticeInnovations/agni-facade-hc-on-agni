@@ -5,7 +5,7 @@ let axios = require("axios");
 let config = require("../config/nodeConfig");
 const bundleStructure = require("../services/bundleOperation")
 const responseService = require("../services/responseService");
-let {interventionSchema} = require("../utils/Validator/interventionValidator");
+let {interventionSchema, interventionUpdateSchema} = require("../utils/Validator/interventionValidator");
 const {validateRequest} = require("../utils/validateRequest");
 
 const fetchMainEncounter = async (interventionData, token) => {
@@ -42,22 +42,12 @@ let saveInterventionData = async function (req, res) {
                 if (!baseEncounterId) return;    
                 const existingResponse = await fetchResource("ServiceRequest", {category: "409073007", encounter: baseEncounterId, _total: "accurate"}, token);
                 interventionData.activityList = interventionData.interventions.map(e => "ActivityDefinition/" + e)
-                if (existingResponse.total > 0 && existingResponse.entry) {
-                    console.log("put case")
-                    interventionData.uuid = existingResponse.entry[0].resource.identifier[0].value;
-                    const interventionResponseResource = buildFHIRResource(ServiceRequest, {...interventionData, categoryCode: "409073007", categoryDisplay: "interventions" ,encounterId: baseEncounterId, practitionerId: req.decoded.userId})
-                    console.log("interventionResponseResource: ", interventionResponseResource)
-                    interventionResponseResource.uuid = reqUuid
-                    const interventionResponseBundle = await bundleStructure.setBundlePut(interventionResponseResource, null, existingResponse.entry[0].resource.id, "PUT", "identifier")
-                    resourceResult.push(interventionResponseBundle)
-                    }
-                else {
+
                     const interventionResponseResource = buildFHIRResource(ServiceRequest, {...interventionData, categoryCode: "409073007", categoryDisplay: "Interventions" ,encounterId: baseEncounterId, practitionerId: req.decoded.userId})
                     console.log("interventionResponseResource: ", interventionResponseResource)
                     interventionResponseResource.uuid = reqUuid
                     const interventionResponseBundle =await  bundleStructure.setBundlePost(interventionResponseResource, interventionResponseResource.identifier, interventionData.uuid, "POST", "identifier")
                     resourceResult.push(interventionResponseBundle)
-                }  
         }             
            
             let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
@@ -85,12 +75,68 @@ let saveInterventionData = async function (req, res) {
 }
 
 
+//  save Intervention data
+let updateInterventionData = async function (req, res) {    
+    try {
+        const validatedBody = validateRequest(req.body, interventionUpdateSchema, res);
+        if (!validatedBody) return;
+        req.queueMeta = {
+            data: req.data,
+            entity: "intervention",
+            requestType: "put",
+            apiName: "update-intervention",
+            tokenData: req.decoded
+          };
+        const token = req.accessToken;
+        let resourceResult = [];
+        console.log("req body: ", req.body)
+        for (let interventionData of req.body) {
+                const encounterData = await fetchMainEncounter(interventionData, token)
+                const reqUuid = interventionData.uuid;
+                const baseEncounterId = encounterData?.entry?.[0]?.resource?.id;
+                if (!baseEncounterId) return;    
+                const existingResponse = await fetchResource("ServiceRequest", {category: "409073007", encounter: baseEncounterId, _total: "accurate"}, token);
+                interventionData.activityList = interventionData.interventions.map(e => "ActivityDefinition/" + e)
+                    console.log("put case", existingResponse)
+                    interventionData.uuid = existingResponse.entry[0].resource.identifier[0].value;
+                    const interventionResponseResource = buildFHIRResource(ServiceRequest, {...interventionData, categoryCode: "409073007", categoryDisplay: "interventions" ,encounterId: baseEncounterId, practitionerId: req.decoded.userId})
+                    console.log("interventionResponseResource: ", interventionResponseResource)
+                    interventionResponseResource.uuid = reqUuid
+                    const interventionResponseBundle = await bundleStructure.setBundlePut(interventionResponseResource, null, existingResponse.entry[0].resource.id, "PUT", "identifier")
+                    resourceResult.push(interventionResponseBundle) 
+        }             
+           
+            let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
+                    // return res.status(201).json({ status: 1, message: "Intervention data saved.", data: bundleData.bundle })
+            let response = await axios.post(config.baseUrl, bundleData.bundle, {
+                headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/fhir+json'
+                        }
+                    }); 
+                    console.info("get bundle json response: ", response.status)  
+            if (response.status == 200 || response.status == 201) {
+                let responseData = setInterventionSaveResponse(bundleData.bundle.entry, response.data.entry, "put");   
+                res.status(201).json({ status: 1, message: "Intervention data updated.", data: responseData })
+            }
+            else {
+                return res.status(500).json({  status: 0, message: "Unable to process. Please try again.", err: response  })
+            }
+    }
+    catch (error) {
+        console.error("saveInterventionData Error: ", error);
+        error.code && error.code == "ERR" ? handleError(res, error, error.statusCode, error.message ) :  handleError(res, error)
+    }
+
+}
+
+
 const setInterventionSaveResponse  = (reqBundleData, responseBundleData, type) => {
     let filteredData = [];
        let response = [];
-       const responseData = bundleStructure.mapAssessmentBundleService(reqBundleData, responseBundleData)
+       const responseData = bundleStructure.mapBundleService(reqBundleData, responseBundleData)
        filteredData = responseData.filter(e => e.resource.resourceType == "ServiceRequest");
-       response = responseService.setDefaultAssessmentResponse("ServiceRequest", type, filteredData)
+       response = responseService.setDefaultResponse("ServiceRequest", type, filteredData)
        console.info("responses: ============================>", filteredData)
        return response;
 }
@@ -138,5 +184,6 @@ let getInterventionData = async function (req, res) {
 
 module.exports = {
     saveInterventionData,
+    updateInterventionData,
     getInterventionData
 }
