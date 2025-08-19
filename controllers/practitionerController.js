@@ -45,6 +45,7 @@ let savePractitionerData = async function (req, res) {
             const healthCareResource = await fetchResource("Organization", {type: "health-facility", identifier: practitionerData.healthFacilityCode}, token)
             console.log("healthCareResource; ", healthCareResource)
             const practitionerRoleResource = buildFHIRResource(PractitionerRole, {userId: "urn:uuid:"+practitionerResource.id, roleId: practitionerData.roleId, roleGroupId:practitionerData.roleGroupId, orgId: healthCareResource?.entry?.[0]?.resource?.id|| null});
+            practitionerRoleResource.active = true;
             
             const practitionerRoleBundle = await bundleStructure.setBundlePost(practitionerRoleResource, null, uuidv4(), "POST", "identifier"); 
 
@@ -86,12 +87,13 @@ let savePractitionerData = async function (req, res) {
 let updatePractitionerData = async function (req, res) {
     try {
         const resType = "Practitioner"
+        let practitionerRoleResource = null;
         const validatedBody = validateRequest(req.body, practitionerUpdateArraySchema, res);
         if (!validatedBody) return;
         const token = req.accessToken;
         let resourceResult = [];
         const practitionerIds = req.body.map(e=>e.fhirId).join(",");
-        const practitionerRoleData = await fetchResource("PractitionerRole", {practitioner: practitionerIds}, token);
+        const practitionerRoleData = await fetchResource("PractitionerRole", {practitioner: practitionerIds, active: true}, token);
         for (let practitionerData of req.body) {
             // Check if practitioner    
             let queryParam ={email: practitionerData.email, phone: practitionerData.mobileNumber, "_total": "accurate"};
@@ -118,10 +120,25 @@ let updatePractitionerData = async function (req, res) {
             // 1. Find healthcare Id for practitioner
             const healthCareResource = practitionerData.healthFacilityId != null? await fetchResource("Organization", {type: "health-facility", _id: practitionerData.healthFacilityId}, token) : []
             console.log("healthCareResource; ", healthCareResource)
-            const roleResourceIndex = practitionerRoleData.entry.findIndex(e => e.resource.practitioner.reference.split("/")[1] == practitionerData.fhirId)
-            const practitionerRoleResource = buildFHIRResource(PractitionerRole, {userId: practitionerData.fhirId, roleId: practitionerData.roleId, roleGroupId:practitionerData.roleGroupId, orgId: healthCareResource?.entry?.[0]?.resource?.id|| null});
+            const roleResourceIndex = practitionerRoleData.entry.findIndex(e => e.resource.practitioner.reference.split("/")[1] == practitionerData.fhirId);
+            let practitionerRoleBundle = null;
+            if(practitionerData.healthFacilityId == practitionerRoleData.entry[roleResourceIndex].resource.organization.reference.split("/")[1]) {
+                practitionerRoleResource = buildFHIRResource(PractitionerRole, {userId: practitionerData.fhirId, roleId: practitionerData.roleId, roleGroupId:practitionerData.roleGroupId, orgId: healthCareResource?.entry?.[0]?.resource?.id|| null});
+                practitionerRoleBundle = await bundleStructure.setBundlePut(practitionerRoleResource, null, practitionerRoleData.entry[roleResourceIndex].resource.id, "PUT", "identifier"); 
+            }
+            else {
+                practitionerRoleResource = buildFHIRResource(PractitionerRole, {userId: practitionerData.fhirId, roleId: practitionerData.roleId, roleGroupId:practitionerData.roleGroupId, orgId: practitionerData.healthFacilityId|| null});
+                practitionerRoleResource.active = true;
+                const new_uuid = uuidv4();
+                practitionerRoleBundle = await bundleStructure.setBundlePost(practitionerRoleResource, null, new_uuid, "POST", "identifier"); 
+                const oldRoleResource = practitionerRoleData.entry[roleResourceIndex].resource;
+                oldRoleResource.active = false;
+                const oldRoleBundle = await bundleStructure.setBundlePut(oldRoleResource, null, oldRoleResource.id, "PUT", "identifier"); 
+                resourceResult.push(oldRoleBundle)
+            }
+
             
-            const practitionerRoleBundle = await bundleStructure.setBundlePut(practitionerRoleResource, null, practitionerRoleData.entry[roleResourceIndex].resource.id, "PUT", "identifier"); 
+            
 
             console.info("Practitioner bundle: ", practitionerBundle) 
             resourceResult.push(practitionerBundle, practitionerRoleBundle);  
@@ -179,7 +196,7 @@ let getPractitionerData = async function (req, res) {
             // get practitionerRole
             const practitionerIds = responseData.entry.map(e=>e.resource.id).join(",");
             
-            const practitionerRoleData = await fetchResource("PractitionerRole", {practitioner: practitionerIds}, token);
+            const practitionerRoleData = await fetchResource("PractitionerRole", {practitioner: practitionerIds, active:true}, token);
             for (let i = 0; i < responseData.entry.length; i++) {
                 let practitioner = getTransformedResult(Practitioner, responseData.entry[i].resource);
                 const roleResourceIndex = practitionerRoleData.entry.findIndex(e => e.resource.practitioner.reference.split("/")[1] == practitioner.fhirId)
