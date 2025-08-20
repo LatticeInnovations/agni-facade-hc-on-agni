@@ -19,9 +19,8 @@ const interventionSchema = Joi.array().items(
       .required(),
 
     interventions: Joi.array()
-      .items(Joi.string().pattern(/^\d+$/).required())
-      .min(1)
-      .required()
+      .items(Joi.string().pattern(/^\d+$/).optional())
+      .min(0) .required()
   })
 );
 
@@ -43,8 +42,8 @@ const interventionUpdateSchema = Joi.array().items(
       .required(),
 
     interventions: Joi.array()
-      .items(Joi.string().pattern(/^\d+$/).required())
-      .min(1)
+      .items(Joi.string().pattern(/^\d+$/).optional())
+      .min(0)
       .required()
   })
 );

@@ -19,8 +19,8 @@ const examinationSchema = Joi.array().items(
       .required(),
 
     examinations: Joi.array()
-      .items(Joi.string().pattern(/^\d+$/).required())
-      .min(1)
+      .items(Joi.string().pattern(/^\d+$/).optional())
+      .min(0)
       .required()
   })
 );
@@ -44,8 +44,8 @@ const examinationUpdateSchema = Joi.array().items(
       .required(),
 
     examinations: Joi.array()
-      .items(Joi.string().pattern(/^\d+$/).required())
-      .min(1)
+      .items(Joi.string().pattern(/^\d+$/).optional())
+      .min(0)
       .required()
   })
 );
