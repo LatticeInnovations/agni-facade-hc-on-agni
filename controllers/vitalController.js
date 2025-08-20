@@ -49,7 +49,6 @@ const fetchMainEncounter = async (vital, token) => {
          _include: "Encounter:appointment",
      }, token);
  
-     console.log(mainEncounter)
  
      return mainEncounter
  }
@@ -83,12 +82,9 @@ let setVitalData = async function (req, res) {
                 const encounterData = await fetchMainEncounter(vital, token)
                 const baseEncounterId = encounterData?.entry?.[0]?.resource?.id;
                 if (!baseEncounterId) return;
-                console.log("encounter data check: ============>", encounterData)
                 
                 const vitalEncounter = await fetchVitalEncounter(baseEncounterId, token)
-                console.log("vitalEncounter check: ", vitalEncounter)
                 if (vitalEncounter.total > 0 && vitalEncounter.entry) {
-                    console.log("put case")
                     // Update case (PUT)
                     await handleExistingVitalEncounter({vital, vitalEncounter, baseEncounterId, practitionerId, resourceResult}, token);
                 } else {
@@ -97,8 +93,6 @@ let setVitalData = async function (req, res) {
                       requestType = "put"
                     await handleNewVitalEncounter({vital, baseEncounterId, practitionerId, resourceResult, });
                 }
-                console.log("resourceResult: ", resourceResult)
-
                 allResourceResults.push(...resourceResult);
             })
         );
@@ -115,7 +109,6 @@ let setVitalData = async function (req, res) {
                 'Content-Type': 'application/fhir+json'
             }
         });
-        console.log("response: ", response.data, requestType)
         if ([200, 201].includes(response.status)) {
             
             const resourceResponse =  setVitalResponse(bundleData.bundle.entry, response.data.entry, "post");
@@ -163,7 +156,6 @@ async function handleExistingVitalEncounter({ vital, vitalEncounter, baseEncount
 
     const observationBundles = await Promise.all(
         Object.entries(vitalTypes).map(([key, code]) => {
-            console.log("check ere in existing: ", key, code)
             const vitalData = vital[key]
             let observationValue, unit, type;
             if(vitalData == null) {
@@ -216,7 +208,6 @@ async function handleNewVitalEncounter({ vital, baseEncounterId, practitionerId,
     const observationBundles = await Promise.all(
         Object.entries(vitalTypes).map(([key, value]) => {
             const vitalData = vital[key];
-            console.log("value: ", value)
             let observationValue, unit, type;
             if(vitalData == null) {
                 observationValue = null;
@@ -245,7 +236,6 @@ async function handleNewVitalEncounter({ vital, baseEncounterId, practitionerId,
             }, key, "post", "Vital" )
           })
     );
-    console.log("observationBundles: ", observationBundles)
     resourceResult.push(...observationBundles.filter(Boolean));
 }
 
@@ -280,8 +270,6 @@ const getVitalObservationList = async (vitalEncounterList, practitionerList, mai
                 return observationData;
             })
         )
-
-        console.log("observationData: ", result)
         return result;
     }
     catch(error) {
@@ -325,7 +313,6 @@ const getVitalData = async function(req, res) {
                    
             // Process vital encounters
             const resourceResult = await getVitalObservationList(vitalEncounterList, practitionerList, mainEncounters, token);
-            console.log("resourceResult:  ", resourceResult)
             const resStatus = bundleStructure.setResponse(resourceUrlData, responseData);
             return res.status(200).json({ status: resStatus, message: "Data fetched", total: resourceResult.length, data: resourceResult
             });
@@ -339,7 +326,6 @@ const getVitalData = async function(req, res) {
 const setVitalResponse  = (reqBundleData, responseBundleData, type) => {
    let filteredData = [];
        let response = [];
-       console.log("reqBundleData: ", reqBundleData, "and: responseBundleData",  responseBundleData)
        const responseData = bundleStructure.mapAssessmentBundleService(reqBundleData, responseBundleData)
        if(["post", "POST", "put", "PUT"].includes(type)){
            filteredData = responseData.filter(e => e.resource.resourceType == "Encounter" && e.resource?.type?.[0]?.coding?.[0]?.code == "vital-test-encounter");

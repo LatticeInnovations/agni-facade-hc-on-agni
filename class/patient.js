@@ -67,7 +67,6 @@ class Patient extends Person {
  
   getRelationData(relationCode) {
     const relationData = this.fhirResource.contact?.find(e => e.relationship[0].coding[0].code === relationCode);
-    console.log("check relationData: ", relationData, relationCode)
     if(relationData)
       return relationData?.name?.given?.[0]
     return relationData
@@ -102,7 +101,6 @@ class Patient extends Person {
   }
 
   setHeartcareId() {
-    console.log("heartcareUrls: ", heartcareUrls)
     this.fhirResource.identifier.push({
       "system": heartcareUrls.heartCareIdUrl,
       "value": this.patient_obj?.heartcareId || null
@@ -112,7 +110,6 @@ class Patient extends Person {
   getHeartcareId() {
     if(this.fhirResource.identifier) {
       const idData = this.fhirResource.identifier.find(e=> e.system === heartcareUrls.heartCareIdUrl) || {}
-      console.log("id data: ", idData ,this.fhirResource.identifier)
       this.patient_obj.heartcareId = idData?.value || null
     }
     else {

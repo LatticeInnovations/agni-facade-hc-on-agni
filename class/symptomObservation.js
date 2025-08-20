@@ -29,7 +29,6 @@ class Observation {
     }
 
     setSymptoms() {
-      console.log(this.observationObj)
         this.observationObj.symptoms.forEach(symptom => {
             this.fhirResource.component.push({
                 "code": {

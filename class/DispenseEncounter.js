@@ -24,7 +24,6 @@ class DispenseEncounter {
 
   getId() {
     if(!this.isMain) {
-      console.log(this.fhirResource)
       this.dispenseObj.dispenseId = this.fhirResource?.identifier[0]?.value;
       this.dispenseObj.dispenseFhirId = this.fhirResource?.id;
     }
@@ -81,7 +80,6 @@ class DispenseEncounter {
         ],
       },
     ];
-    console.log("check type: ", this.fhirResource.type[0].coding[0])
   }
   getType() {
     if(!this.isMain)

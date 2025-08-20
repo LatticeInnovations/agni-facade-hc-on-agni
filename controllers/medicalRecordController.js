@@ -77,7 +77,6 @@ let getMedicalRecord = async function (req, res) {
                 return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })
         }
         const encounterList = responseData.entry.map(e=> e.resource);
-        console.log("encounterList: ", encounterList)
         const labReportEncounterIds = encounterList.map(e => e.id);
         let mainEncounterIds = new Set(encounterList.map((e) => e.partOf.reference.split('/')[1]));
         mainEncounterIds = [...mainEncounterIds.values()].join(',');

@@ -16,9 +16,7 @@ const fetchMainEncounter = async (medicationData, token) => {
          _count: 5000,
          _include: "Encounter:appointment",
      }, token);
- 
-     console.log(mainEncounter)
- 
+  
      return mainEncounter
  }
  
@@ -64,14 +62,12 @@ let saveHistoryMedicationData = async function (req, res) {
                 console.log("put case")
                 medicationData.uuid = existingResponse.entry[0].resource.identifier.value;
                 const questionnaireResponseResource = buildFHIRResource(QuestionnaireResponse, {...medicationData, questionnaireId: questionnaireReference, encounterId: baseEncounterId, practitionerId: req.decoded.userId})
-                console.log("questionnaireResponseResource: ", questionnaireResponseResource)
                 questionnaireResponseResource.uuid = reqUuid
                 const questionnaireResponseBundle = await bundleStructure.setBundlePut(questionnaireResponseResource, null, existingResponse.entry[0].resource.id, "PUT", "identifier")
                 resourceResult.push(questionnaireResponseBundle)
                 }
             else {
                 const questionnaireResponseResource = buildFHIRResource(QuestionnaireResponse, {...medicationData, questionnaireId: questionnaireReference, encounterId: baseEncounterId, practitionerId: req.decoded.userId})
-                console.log("questionnaireResponseResource: ", questionnaireResponseResource)
                 questionnaireResponseResource.uuid = reqUuid
                 const questionnaireResponseBundle =await  bundleStructure.setBundlePost(questionnaireResponseResource,[questionnaireResponseResource.identifier], medicationData.uuid, "POST", "identifier")
                 resourceResult.push(questionnaireResponseBundle)

@@ -23,7 +23,6 @@ const entityFhirIdMap = {
 
 // Function to find the matching response object from body.data
 function findMatchingResponse(responseData, item) {
-  console.log("responseData: ", responseData, " item: ", item)
   return responseData.find(e =>
     (e.id && e.id === item.id) ||(item.uuid && e.id && e.id === item.uuid) ||
     (e.fhirId && e.fhirId === item.fhirId) || (e.err && e.err == "Duplicate record exists." && e.status == "200 OK")
@@ -33,7 +32,7 @@ function findMatchingResponse(responseData, item) {
 // Condition handler map
 const conditionHandlers = {
   appointments: (item, req, resultData) => {
-    console.log(item, req.queueMeta.requestType, resultData)
+    
     if (req.queueMeta.requestType === "put" && !["scheduled", "walkin", "cancelled"].includes(item.status?.value)) {
       return { skip: true };
     }
@@ -57,10 +56,6 @@ const conditionHandlers = {
 function queueLoggerMiddleware(req, res, next) {
   const originalJson = res.json;
 
-  console.info("req: ", req.queueMeta, req.body, req.url, req.method);
-  console.log("----------------------------------------------------");
-  console.log("req.headers: ", req.headers);
-
   const isSyncOrigin = req.headers['x-sync-origin'] === 'true';
 
   res.json = async function (body) {
@@ -68,10 +63,8 @@ function queueLoggerMiddleware(req, res, next) {
     try {
       if ( !isSyncOrigin &&  req.queueMeta &&  Array.isArray(req.body) && body?.status === 1) {
         console.log("✔️ Queue logging activated");
-        console.log("response body: ", body);
         const channel = await connectRabbitMQ();
         const queueName = queues[req.queueMeta.entity];
-        console.log("queueName: ", queueName)
         if (!channel || !queueName || queueName !== "AGNI_TO_HEARTCARE_MAIN") {
           console.error("Queue or channel not available. Skipping queue logging.");
           return originalJson.call(this, body);
@@ -87,7 +80,6 @@ function queueLoggerMiddleware(req, res, next) {
           }
 
           const dataResult = findMatchingResponse(body?.data || [], item);
-          console.log("dataResult: ", dataResult)
           if (!dataResult || dataResult.status == 0) {
             console.warn("No matching response for item:", item);
             continue;
@@ -98,7 +90,6 @@ function queueLoggerMiddleware(req, res, next) {
           if (handler) {
             const dataResponse = handler(item, req, dataResult);
             if (dataResponse?.skip) {
-              console.log("dataResponse: ", dataResponse)
               console.warn("! data match not found in appointment skipped")
               continue;
             }

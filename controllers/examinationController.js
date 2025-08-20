@@ -15,8 +15,6 @@ const fetchMainEncounter = async (examData, token) => {
          _include: "Encounter:appointment",
      }, token);
  
-     console.log(mainEncounter)
- 
      return mainEncounter
  }
 
@@ -34,7 +32,6 @@ let saveExaminationData = async function (req, res) {
           };
         const token = req.accessToken;
         let resourceResult = [];
-        console.log("req body: ", req.body)
         for (let examData of req.body) {
                 const encounterData = await fetchMainEncounter(examData, token)
                 const reqUuid = examData.uuid;
@@ -43,7 +40,6 @@ let saveExaminationData = async function (req, res) {
                 // const existingResponse = await fetchResource("ServiceRequest", {category: "10825200", encounter: baseEncounterId, _total: "accurate"}, token);
                 examData.activityList = examData.examinations.map(e => "ActivityDefinition/" + e)
                     const examinationResponseResource = buildFHIRResource(ServiceRequest, {...examData, categoryCode: "10825200", categoryDisplay: "Tests and examinations" ,encounterId: baseEncounterId, practitionerId: req.decoded.userId})
-                    console.log("examinationResponseResource: ", examinationResponseResource)
                     examinationResponseResource.uuid = reqUuid
                     const examinationResponseBundle =await  bundleStructure.setBundlePost(examinationResponseResource, examinationResponseResource.identifier, examData.uuid, "POST", "identifier")
                     resourceResult.push(examinationResponseBundle)
@@ -87,7 +83,6 @@ const updateExaminationData = async function (req, res) {
           };
         const token = req.accessToken;
         let resourceResult = [];
-        console.log("req body: ", req.body)
         for (let examData of req.body) {
                 const encounterData = await fetchMainEncounter(examData, token)
                 const reqUuid = examData.uuid;
@@ -98,7 +93,6 @@ const updateExaminationData = async function (req, res) {
                     console.log("put case")
                     examData.uuid = existingResponse.entry[0].resource.identifier[0].value;
                     const examinationResponseResource = buildFHIRResource(ServiceRequest, {...examData, categoryCode: "10825200", categoryDisplay: "Tests and examinations" ,encounterId: baseEncounterId, practitionerId: req.decoded.userId})
-                    console.log("examinationResponseResource: ", examinationResponseResource)
                     examinationResponseResource.uuid = reqUuid
                     const examinationResponseBundle = await bundleStructure.setBundlePut(examinationResponseResource, null, existingResponse.entry[0].resource.id, "PUT", "identifier")
                     resourceResult.push(examinationResponseBundle)

@@ -20,7 +20,6 @@ const getTransformedResult = (resourceClass, fhirResource) => {
 const buildFHIRResource = (resourceClass, resourceObj) => {
     try {
 
-        console.log(this.resourceObj)
         const { optionalParam, ...rest } = resourceObj;
         const resourceInstance = new resourceClass(rest, {}, optionalParam);
         resourceInstance.getJsonToFhirTranslator();
@@ -61,8 +60,7 @@ const postFHIRResource = async (resourceData, endpoint, token) => {
 
 const buildAndPost = async (resourceClass, resource, endpoint) => {
     try {
-        const resourceData = buildFHIRResource(resourceClass, resource)
-        console.log(resource, "--------resourceData: ", resourceData)
+        const resourceData = buildFHIRResource(resourceClass, resource);
         const data = postFHIRResource(resourceData, endpoint)
         return data;
     }
@@ -94,10 +92,11 @@ const handleError = (res, error, statusCode=500, message = "Unable to process. P
   };
 
 
+const {runWithLimit} = require("../utils/limiter");
+
 const fetchResource = async (resourceType, queryParams, token) => {
     try {
         if (!token || typeof token !== 'string' || token.trim() === '') {
-            console.log("check here:", resourceType, queryParams ,token)
             return Promise.reject({
                 status: 0,
                 code: "UNAUTHORIZED",
@@ -113,7 +112,9 @@ const fetchResource = async (resourceType, queryParams, token) => {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
                     }
-                    console.log("check the request param in search: ", queryParams, headers)
+                    // const responseData = await runWithLimit(() =>
+                    //     axios.get(urlVal.toString(), { params: queryParams, headers })
+                    //   );
                     let responseData = await axios.get(urlVal, { params: queryParams, headers: headers });
                     return responseData.data || {};
                 } catch (e) {

@@ -90,7 +90,7 @@ class BaseObservation {
         if(this.fhirResource.valueCodeableConcept) {
             
             const deceasedIndex = this.fhirResource.valueCodeableConcept.coding.findIndex(e => e.system === process.env.heartcare_url)
-            console.log(this.fhirResource.valueCodeableConcept.coding, deceasedIndex)
+      
             if(deceasedIndex != -1) {
                  this.observationObj.patientDeceasedReason = this.fhirResource?.valueCodeableConcept?.text || null
             }

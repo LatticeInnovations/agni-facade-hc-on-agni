@@ -23,7 +23,6 @@ let setScheduleData = async function (req, res) {
         const token = req.accessToken;
         let resourceResult = [], errData = [];
         const practitionerRoleResource = await fetchResource("PractitionerRole", { practitioner: req.decoded.userId, _elements: "_id,organization", _total: "accurate" }, token);
-        console.log("practitionerRoleResource: ", practitionerRoleResource.entry[0].resource)
         const roleId = practitionerRoleResource.entry[0].resource.id
         const orgId = practitionerRoleResource.entry[0].resource.organization.reference.split("/")[1]
         for (let scheduleData of req.body) {
@@ -45,8 +44,7 @@ let setScheduleData = async function (req, res) {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/fhir+json'
             }
-        }); 
-        console.log("get bundle json response: ", response.status)  
+        });  
         if (response.status == 200 || response.status == 201) {
             let responseData = setScheduleResponse(bundleData.bundle.entry, response.data.entry, "post");
             res.status(201).json({ status: 1, message: "Schedule data saved.", data: responseData })
@@ -65,7 +63,6 @@ let setScheduleData = async function (req, res) {
 const mapScheduleData = async (FHIRData, token) => {
     try {
         const roleList = FHIRData.map(e => e.resource.actor[0].reference.split("/")[1]).join(",")
-        console.log("roleList: ", roleList)
         const orgPractitionerRoleResources = await fetchResource("PractitionerRole", {"_id": roleList, _include: "PractitionerRole:organization"}, token)
 
         // Create lookup maps
@@ -130,7 +127,6 @@ const countBookedSlots = async (scheduleIds, token) => {
         _count: 5000,
         "_has:Appointment:slot:status": "proposed,arrived,noshow"
     }, token);
-    console.log("slotList: ", slotList)
     if(slotList.total == 0)
         return []
     const resData = slotList.entry.reduce((acc, { resource }) => {
@@ -160,7 +156,6 @@ const getScheduleData = async function(req, res) {
             const resourceType = "Schedule";
             const resourceUrlData = { link: config.baseUrl + resourceType, reqQuery: queryParams, allowNesting: 1, specialOffset: 1 }
             let responseData = await fetchResource(resourceType, queryParams, token);
-            console.log(responseData)
             if( !responseData.entry) {
                 return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })
             }

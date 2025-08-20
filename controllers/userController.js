@@ -28,8 +28,7 @@ let getUserProfile = async function (req, res) {
             return res.status(200).json({ status: 1, message: "Profile detail fetched", total: 0, data: responseData})
         }
         else {
-            practitionerData = getPractitioner(responseData)
-            console.log(practitionerData)
+            practitionerData = getPractitioner(responseData);
             practitionerData.userName = practitionerData.firstName + " " + (practitionerData.middleName? practitionerData.middleName + " " : "") + (practitionerData?.lastName || '');
             console.info(practitionerData)
             res.status(200).json({ status: 1, message: "Profile detail fetched", total: 1, data: practitionerData  })
@@ -56,10 +55,8 @@ let getUserProfile = async function (req, res) {
 function getPractitioner(responseData) {
     try {
             let practitioner = responseData.entry.find(e => e.resource.resourceType == "Practitioner");
-            let practitionerData = getTransformedResult(Practitioner, practitioner.resource)
-            console.log("practitionerData: ", practitionerData)
-            let role = getPractitionerRole(responseData)
-            console.log("role check:", role)
+            let practitionerData = getTransformedResult(Practitioner, practitioner.resource);
+            let role = getPractitionerRole(responseData);
             const data = {
                 "userId": practitionerData.fhirId,
                 "firstName": practitionerData.firstName,
@@ -86,12 +83,10 @@ function getPractitionerRole(responseData) {
                 let roleObj = getTransformedResult(PractitionerRole, roleArray[i].resource)
                 
                 let orgResource = responseData.entry.find(e => e.resource.resourceType == "Organization" && e.fullUrl.includes(roleArray[i].resource.organization.reference));
-                let orgData = getTransformedResult(Organization, orgResource.resource)
-                console.log("orgData: ", orgData)
+                let orgData = getTransformedResult(Organization, orgResource.resource);
                 roleObj.orgId = orgData.orgId;
                 roleObj.orgName = orgData.orgName,
                 roleObj.orgType = orgData.orgType;
-                console.log("roleObj: ", roleObj)
                 role.push(roleObj);
             }
             return role;
@@ -115,8 +110,7 @@ const deleteUserData = async (req, res) => {
         else if((type != "delete") || (req.decoded.userId != userId)){
             return res.status(422).json({ status: 0, message: "Invalid token" });
         }
-        const deActivateRes = await deactivateUserAccount(userId)
-        console.log("deActivateRes: ", deActivateRes)
+        const deActivateRes = await deactivateUserAccount(userId);
         const message = 'Your account has been successfully deleted.'            
         if (email) {
             let mailData = {
@@ -157,7 +151,6 @@ const deactivateUserAccount = async function(userId) {
             }
         });
 
-        console.log('Practitioner deactivated successfully:', response.data);
         return response;
     }
     catch(e) {
@@ -210,7 +203,6 @@ const createUser = async (req, res) => {
         const userId = await buildAndPost(Practitioner, { firstName, lastName, mobile, email, clinicName }, "Practitioner")
         const practitionerRoleResponse = await buildAndPost(PractitionerRole, {orgId, userId, roleId: "doctor"}, "PractitionerRole")
         const locationResponse = await buildAndPost(Location, {clinicName, position: { "longitude": 28.537, "latitude": 77.383 }, orgId,}, "Location")
-        console.log("practitionerRoleResponse: ", practitionerRoleResponse, " and locationResponse: ", locationResponse)
         
         await db.authentication_detail.create({ user_id: userId });
         const userProfile = {

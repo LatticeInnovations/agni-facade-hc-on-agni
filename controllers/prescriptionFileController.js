@@ -176,7 +176,6 @@ const fetchDocumentReferences = async (medReqList, token) => {
  * Build prescription file data object.
  */
 const buildPrescriptionFileData = (encData, apptEncounter, medReqList, documentRefs) => {
-    console.log("encdata: ", encData)
     apptEncounter.prescriptionFiles = [];
     apptEncounter.prescriptionDocumentFhirId = encData.id;
     apptEncounter.status = medReqList?.[0]?.status === "entered-in-error" ? "deleted" : "saved";
@@ -347,11 +346,9 @@ const setPrescriptionFileResponse  = (reqBundleData, responseBundleData, type) =
     filteredData = responseData.filter(e => e.resource.resourceType == "Encounter" && e.resource.type[0].coding[0].code == "prescription-encounter-document");
     let medicationRequest = responseData.filter(e => e.resource.resourceType == "MedicationRequest");
     let documentRefs = responseData.filter(e => e.resource.resourceType == "DocumentReference");
-    console.log("-->>", filteredData, medicationRequest, documentRefs, "<<--")
     filteredData = filteredData.map((e) => {
         e.documents = [];
         let med = medicationRequest.find((m) => {return m.resource.encounter.reference.split(':')[2] == e.fullUrl.split(':')[2]});
-        console.log("check med: ", med)
         med.resource.supportingInformation.forEach((m) => {
             let doc = documentRefs.find((d) => { return d.fullUrl.split(':')[2] == m.reference.split(':')[2] });
             e.documents.push({

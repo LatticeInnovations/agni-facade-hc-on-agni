@@ -27,7 +27,6 @@ const createdDispenseResources = async (req, existingMainEncountersList, token) 
               reqData.mainEnounterId = mainEncounter.resource.id ? "Encounter/" + mainEncounter.resource.id : "urn:uuid:" + mainEncounter.resource.identifier[0].value
               // console.info("check req data ==============> ", reqData)
               const newRecord = await dispenseService.addNewRecord(resType, reqData, token)
-              console.log("new record: ", newRecord)
               bundleResources = [...bundleResources]
               bundleResources.push(...newRecord);
             }

@@ -11,7 +11,6 @@ class GroupEncounter {
   }
 
   setIdentifier() {
-    console.log("check identifier", this.fhirResource.identifier, this.groupEncounterObj)
     this.fhirResource.identifier.push({
       system: config.snUrl,
       value: this.groupEncounterObj.uuid
@@ -20,7 +19,6 @@ class GroupEncounter {
 
   getId() {
     if(!this.isMain) {
-      console.log(this.fhirResource)
       this.groupEncounterObj.dispenseId = this.fhirResource?.identifier[0]?.value;
       this.groupEncounterObj.dispenseFhirId = this.fhirResource?.id;
     }
@@ -57,7 +55,6 @@ getEncounterTime() {
         ],
       },
     ];
-    console.log("check type: ", this.fhirResource.type[0].coding[0])
   }
 
   setPatientReference() {
@@ -83,7 +80,6 @@ getEncounterTime() {
   }
 
   getPractitionerReference() {
-    console.log("this?.fhirResource?.participant: ", this?.fhirResource?.participant)
     this.groupEncounterObj.practitionerId = this?.fhirResource?.participant?.[0]?.individual?.reference?.split('/')[1] || null;
   }
 
@@ -92,7 +88,6 @@ getEncounterTime() {
 }
 
   setPractitionerReference() {
-    console.log("encounter check", this.groupEncounterObj)
     if(this.groupEncounterObj.userId) {
       this.fhirResource.participant = [
         {

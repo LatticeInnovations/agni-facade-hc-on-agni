@@ -24,16 +24,13 @@ let saveLevelData = async function (req, res) {
         const token = req.accessToken;
         let resourceResult = [];
         let levelResource = null;
-        console.log("req body: ", req.body)
         for (let levelData of req.body) {
             if(levelData.levelType == "village") {
                 const islandData = await fetchResource("Organization", {_id: levelData.precedingLevelId, type: "health-facility"}, token);                
                 const locationData = islandData.entry[0].resource.extension.find(e => e.url == urlList.locationReferenceUrl)
-                console.log("locationData: ", locationData)
                 levelData.orgId = levelData.precedingLevelId;
                 levelData.precedingLevelId = locationData?.valueReference?.reference?.split("/")[1] || null
             }
-            console.log(levelData)
             if(levelData.levelType != "health-facility") {
                 
                 levelResource = buildFHIRResource(Location, levelData)
@@ -41,8 +38,7 @@ let saveLevelData = async function (req, res) {
             else {
                 levelResource = buildFHIRResource(Organization, levelData)
             }
-            
-            console.log("LevelId: ", levelResource);     
+                
             let levelBundle = await bundleStructure.setBundlePost(levelResource, null, levelData.uuid, "POST", "identifier");
             console.info("Level bundle: ", levelBundle)                           
             resourceResult.push(levelBundle);   
@@ -55,8 +51,7 @@ let saveLevelData = async function (req, res) {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/fhir+json'
             }
-        }); 
-        console.log("get bundle json response: ", response)  
+        });   
         if (response.status == 200 || response.status == 201) {
             let resourceResponse = setLevelSaveResponse(bundleData.bundle.entry, response.data.entry, "post");
             let responseData = [...resourceResponse, ...bundleData.errData];
@@ -89,16 +84,13 @@ let updateLevelData = async function (req, res) {
             tokenData: req.decoded
           };
         const token = req.accessToken;
-        console.log("req body: ", req.body)
         for (let levelData of req.body) {
             if(levelData.levelType == "village") {
                 const islandData = await fetchResource("Organization", {_id: levelData.precedingLevelId, type: "health-facility"}, token);                
                 const locationData = islandData.entry[0].resource.extension.find(e => e.url == urlList.locationReferenceUrl)
-                console.log("locationData: ", locationData)
                 levelData.orgId = levelData.precedingLevelId;
                 levelData.precedingLevelId = locationData?.valueReference?.reference?.split("/")[1] || null;
             }
-            console.log(levelData)
             if(levelData.levelType != "health-facility") {
                 
                 levelResource = buildFHIRResource(Location, levelData);
@@ -106,8 +98,7 @@ let updateLevelData = async function (req, res) {
             else {
                 levelResource = buildFHIRResource(Organization, levelData);                
             }
-            levelResource.id = levelData.fhirId
-            console.log("LevelId: ", levelResource);     
+            levelResource.id = levelData.fhirId    
             let levelBundle = await bundleStructure.setBundlePut(levelResource, null, levelData.fhirId, "PUT", "identifier");
             console.info("Level bundle: ", levelBundle)                           
             resourceResult.push(levelBundle);   
@@ -121,7 +112,6 @@ let updateLevelData = async function (req, res) {
                 'Content-Type': 'application/fhir+json'
             }
         }); 
-        console.log("get bundle json response: ", response)  
         if (response.status == 200 || response.status == 201) {
             let resourceResponse = setLevelSaveResponse(bundleData.bundle.entry, response.data.entry, "post");
             let responseData = [...resourceResponse, ...bundleData.errData];
@@ -156,7 +146,6 @@ let getLevelData = async function (req, res) {
         const token = req.accessToken;
         queryParams._total = "accurate"
         let resourceResult = [];
-        console.log("queryParams: ", queryParams)
         const responseResult = await fetchResource("Location", queryParams, token);
         const responseData = responseResult.entry || []
         if( !responseData) {
@@ -194,7 +183,6 @@ const patchLevelData = async function(req, res) {
             return handleError(res, "Level Id " + inputData.fhirId + " does not exist.", statusCode, "Level Id " + inputData.fhirId + " does not exist.")
         }        
         const levelPatchResource = patchFHIRResource(Location, inputData, resourceSavedData[0].resource)
-        console.log("levelPatchResource: ", levelPatchResource)
         let resourceData = [...levelPatchResource];
         let patchResource = await bundleStructure.setBundlePatch(resourceData,resourceType + "/"+inputData.fhirId);        
         resourceResult.push(patchResource);

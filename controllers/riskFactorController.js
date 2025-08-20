@@ -17,8 +17,6 @@ const fetchMainEncounter = async (riskFactorData, token) => {
          _include: "Encounter:appointment",
      }, token);
  
-     console.log(mainEncounter)
- 
      return mainEncounter
  }
  
@@ -64,14 +62,12 @@ let saveRiskFactorData = async function (req, res) {
                 console.log("put case")
                 riskFactorData.uuid = existingResponse.entry[0].resource.identifier.value;
                 const questionnaireResponseResource = buildFHIRResource(QuestionnaireResponse, {...riskFactorData, questionnaireId: questionnaireReference, encounterId: baseEncounterId, practitionerId: req.decoded.userId})
-                console.log("questionnaireResponseResource: ", questionnaireResponseResource)
                 questionnaireResponseResource.uuid = reqUuid
                 const questionnaireResponseBundle = await bundleStructure.setBundlePut(questionnaireResponseResource, null, existingResponse.entry[0].resource.id, "PUT", "identifier")
                 resourceResult.push(questionnaireResponseBundle)
                 }
             else {
                 const questionnaireResponseResource = buildFHIRResource(QuestionnaireResponse, {...riskFactorData, questionnaireId: questionnaireReference, encounterId: baseEncounterId, practitionerId: req.decoded.userId})
-                console.log("questionnaireResponseResource: ", questionnaireResponseResource)
                 questionnaireResponseResource.uuid = reqUuid
                 const questionnaireResponseBundle =await  bundleStructure.setBundlePost(questionnaireResponseResource,[questionnaireResponseResource.identifier], riskFactorData.uuid, "POST", "identifier")
                 resourceResult.push(questionnaireResponseBundle)

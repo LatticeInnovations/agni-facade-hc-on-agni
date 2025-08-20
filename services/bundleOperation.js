@@ -25,7 +25,6 @@ let setBundlePatch = async function (resource_data, patchUrl) {
 }
 
 let setBundlePost = async function (resourceData, identifier, id, reqMethod, identifierType) {
-    console.log("identifier: ", identifier)
     try {
     let identifierConcat = "";
         if(identifier || identifier != null) {
@@ -56,7 +55,6 @@ let setBundlePost = async function (resourceData, identifier, id, reqMethod, ide
 
 let setBundlePut = async function (resourceData, identifier, id, identifierType) {
     try {
-        console.log("id is: ", id)
         let identifierConcat = "";
         if(identifier || identifier != null) {
             identifierConcat = "";
@@ -142,7 +140,7 @@ let setResponse = function(resourceUrlData, responseData) {
             
         }
         else {      
-            // console.log("response data: ", responseData.data)
+            
              if(responseData.link) {
                 let nextIndex = responseData.link.findIndex(e => e.relation == "next");
                 if(nextIndex != -1) {
@@ -195,8 +193,7 @@ let mapBundleService = function(reqBundleData, responseBundleData) {
 
     return  responseBundleData.map((data, i) => {       
         const responseData =  Object.assign({}, data, reqBundleData[i])        
-        const uuidVal = responseData.resource?.uuid || null
-        console.log("responseData: ======================>>>>>>>>>>", responseData)
+        const uuidVal = responseData.resource?.uuid || null;
         responseData.fullUrl = "urn:uuid:" + uuidVal || null;
         
         return responseData;

@@ -43,7 +43,6 @@ let savePractitionerData = async function (req, res) {
             //  add PractitionerRole
             // 1. Find healthcare Id for practitioner
             const healthCareResource = await fetchResource("Organization", {type: "health-facility", identifier: practitionerData.healthFacilityCode}, token)
-            console.log("healthCareResource; ", healthCareResource)
             const practitionerRoleResource = buildFHIRResource(PractitionerRole, {userId: "urn:uuid:"+practitionerResource.id, roleId: practitionerData.roleId, roleGroupId:practitionerData.roleGroupId, orgId: healthCareResource?.entry?.[0]?.resource?.id|| null});
             practitionerRoleResource.active = true;
             
@@ -119,7 +118,6 @@ let updatePractitionerData = async function (req, res) {
             //  add PractitionerRole
             // 1. Find healthcare Id for practitioner
             const healthCareResource = practitionerData.healthFacilityId != null? await fetchResource("Organization", {type: "health-facility", _id: practitionerData.healthFacilityId}, token) : []
-            console.log("healthCareResource; ", healthCareResource)
             const roleResourceIndex = practitionerRoleData.entry.findIndex(e => e.resource.practitioner.reference.split("/")[1] == practitionerData.fhirId);
             let practitionerRoleBundle = null;
             if(practitionerData.healthFacilityId == practitionerRoleData.entry[roleResourceIndex].resource.organization.reference.split("/")[1]) {

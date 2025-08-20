@@ -35,7 +35,6 @@ class LevelLocation {
     }
 
     setPopulation() {
-        console.log("urlLis: ", urlList)
             this.fhirResource.extension.push(
             {
             "url": urlList.adminDivisionPopulationUrl,

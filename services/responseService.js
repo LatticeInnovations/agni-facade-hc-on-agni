@@ -44,7 +44,6 @@ const getFhirId = (element, reqMethod) => {
 };
 
 const getResponseData = (element, reqMethod) => {
-  console.log("check element **************", element)
   let data = {};
   let fullUrl = element.fullUrl.substring(
     element.fullUrl.indexOf("/") + 1,
@@ -78,9 +77,7 @@ const setDefaultAssessmentResponse = (resType, reqMethod, responseData) => {
     data.err = getDataError(element, resType);
     data.fhirId = getFhirId(element, reqMethod);
     if(element.response.status === "200 OK" && element.resource.identifier) {
-      const identifierUuid = Array.isArray(element.resource.identifier)? element.resource.identifier[0].value : element.resource.identifier.value 
-      console.log("responseData at error tracker =============>", identifierUuid, element.resource.uuid);
-      if(identifierUuid !== element.resource.uuid)
+      const identifierUuid = Array.isArray(element.resource.identifier)? element.resource.identifier[0].value : element.resource.identifier.value;
         data.err = "Duplicate record exists.";
     }
     response.push(data);
