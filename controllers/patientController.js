@@ -25,7 +25,6 @@ let savePatientData = async function (req, res) {
             tokenData: req.decoded
           };
         let resourceResult = [];
-        console.log("req body: ", req.body)
         for (let patientData of req.body) {
             // patientData.orgId = token.orgId;
             patientData.userId = req.decoded.userId;
@@ -33,7 +32,7 @@ let savePatientData = async function (req, res) {
             const personId = uuidv4();
             console.log("patientId: ", patientData.id)
             let personResource = buildFHIRResource(Person, {patientId: patientData.id, id: personId})
-            console.log("personResource: ", personResource)      
+
             let patientBundle = await bundleStructure.setBundlePost(patientResource, [patientResource.identifier[0]], patientData.id, "POST", "identifier");
             console.info("patient bundle: ", patientBundle)
             let personBundle = await bundleStructure.setBundlePost(personResource, null, personId, "POST", "identifier");
@@ -41,7 +40,6 @@ let savePatientData = async function (req, res) {
             const observationResource = buildFHIRResource(Observation, {categoryCode: "deceased-reason", categoryDisplay: "deceased-reason", patientUuid: patientData.id, practitionerId: req.decoded.userId, patientDeceasedReasonId: null, patientDeceasedReason: patientData.patientDeceasedReason})
             const deceasedBundle = await bundleStructure.setBundlePost(observationResource, null, observationUuid, "POST", "identifier");
             resourceResult.push(patientBundle, personBundle, deceasedBundle);            
-            console.log("observationResource: ", observationResource)
         }
         let bundleData = await bundleStructure.getBundleJSON({resourceResult});
         // return res.status(201).json({ status: 1, message: "Patient data saved.", data: bundleData.bundle })  
@@ -51,8 +49,7 @@ let savePatientData = async function (req, res) {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/fhir+json'
             }
-        }); 
-        console.log("get bundle json response: ", response)  
+        });  
         if (response.status == 200 || response.status == 201) {
             let resourceResponse = setPatientSaveResponse(bundleData.bundle.entry, response.data.entry, "post");
             let responseData = [...resourceResponse, ...bundleData.errData];
@@ -80,31 +77,24 @@ let updatePatientData = async function(req, res) {
             tokenData: req.decoded
           };
         let resourceResult = [];
-        console.log("req body: ", req.body)
         const token = req.accessToken;
         const patientIds = req.body.map(e => e.fhirId).join(",")       
         const deceasedResources = await fetchResource("Observation", {patient: patientIds, category: "deceased-reason", _count:1000}, token)
         const patientResources = await fetchResource("Patient", {_id: patientIds, _count: 1000}, token)
-        console.log("deceasedResources: ", deceasedResources)
         for (let patientData of req.body) {
             let patientPrevData = patientResources.entry.find(e => e.resource.id == patientData.fhirId)
-            console.log("previous patient data: ", patientPrevData)
             const identifierData = patientPrevData.resource.identifier.find(e => e.system === heartcareUrls.heartCareIdUrl)
             const agni_uuid = patientPrevData.resource.identifier.find(e => e.system === "https://www.thelattice.in/")
                let deceasedBundle = null;
-            console.log("check req. decoded: ", req.decoded)
             patientData.id = agni_uuid.value;
             patientData.userId = req.decoded.userId;
             // patientData.orgId = req.decoded.orgId;
             patientData.heartcareId = identifierData?.value || null
-            console.log("patientData: ========>", patientData, identifierData, agni_uuid)
             const patientResource = buildFHIRResource(Patient, patientData)
             let patientBundle = await bundleStructure.setBundlePut(patientResource, patientResource.identifier, patientData.fhirId, "put", "identifier");
             // Add deceased response
-            console.log("patientData.patientDeceasedReason: ", patientData.patientDeceasedReason)
              const deceasedData = deceasedResources.entry.find(e => e.resource.subject.reference.split("/")[1] == patientData.fhirId)
             const observationResource = buildFHIRResource(Observation, {categoryCode: "deceased-reason", categoryDisplay: "deceased-reason", patientId: patientData.fhirId, practitionerId: req.decoded.userId, patientDeceasedReasonId: patientData.patientDeceasedReasonId, patientDeceasedReason: patientData.patientDeceasedReason});
-            console.log("patientData.patientDeceasedReason Resource: ", observationResource)
             if(deceasedData) {
                 observationResource.id = deceasedData.resource.id
                 deceasedBundle = await bundleStructure.setBundlePut(observationResource, null, observationResource.id, "PUT", "identifier");
@@ -162,8 +152,7 @@ let getPatientData = async function (req, res) {
         let resourceResult = []
         const token = req.accessToken;
         const responseResult = await fetchResource("Patient", queryParams, token);
-        const responseData = responseResult.entry || []
-        console.log("==================>", responseData)
+        const responseData = responseResult.entry || [];
         if(!responseData.length) {
             return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })
         }
@@ -171,14 +160,10 @@ let getPatientData = async function (req, res) {
             resStatus = bundleStructure.setResponse({ link: link, reqQuery: queryParams, allowNesting: 1, specialOffset: true }, responseResult);  
             const patientIds = responseData.map(e => e.resource.id)   .join(",")       
             const deceasedResources = await fetchResource("Observation", {patient: patientIds, category: "deceased-reason", _count: req.query._count}, token)
-            console.log("deceasedResources: ", deceasedResources)
             for (let i = 0; i < responseData.length; i++) {
-                console.log("check resource of patient: ", responseData[i].resource)
                 const patient = getTransformedResult(Patient, responseData[i].resource);
                 const deceasedData = deceasedResources.entry? deceasedResources.entry.find(e => e.resource.subject.reference.split("/")[1] == patient.fhirId) : null;
-                console.log("deceasedData: ", deceasedData)
                 const deceasedObject = deceasedData? getTransformedResult(Observation, deceasedData?.resource) : null;
-                console.log("deceasedObject: ", deceasedObject)
                 patient.patientDeceasedReasonId = deceasedObject?.patientDeceasedReasonId || null;
                 patient.patientDeceasedReason =deceasedObject?.patientDeceasedReason || null
                 resourceResult.push(patient)                

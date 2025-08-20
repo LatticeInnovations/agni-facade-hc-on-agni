@@ -15,8 +15,6 @@ const fetchMainEncounter = async (allergyData, token) => {
          _include: "Encounter:appointment",
      }, token);
  
-     console.log(mainEncounter)
- 
      return mainEncounter
  }
  
@@ -46,13 +44,11 @@ let saveAllergyData = async function (req, res) {
             const existingResponses = await fetchResource("AllergyIntolerance", {patient: allergyData.patientId, _total: "accurate", _count: 1000}, token);
             if (existingResponses.total > 0 && existingResponses.entry) {
                 const currentAllergyData = existingResponses.entry.filter(e=> e.resource.encounter.reference.split("/")[1] === baseEncounterId);
-                console.log("currentAllergyData: ", currentAllergyData)
                 if(currentAllergyData.length > 0){
                     const reqUuid = allergyData.uuid;
                     allergyData.uuid = currentAllergyData[0].resource.identifier?.[0]?.value || allergyData.uuid;
                     const allergyResource = buildFHIRResource(AllergyIntolerance, {...allergyData,  encounterId: baseEncounterId, practitionerId: req.decoded.userId})
-                    allergyResource.uuid = reqUuid
-                    console.log("allergyResource: ", allergyResource)
+                    allergyResource.uuid = reqUuid;
                     allergyIntoleranceBundle = await bundleStructure.setBundlePut(allergyResource, null, currentAllergyData[0].resource.id, "PUT", "identifier")                    
                 }
                 else {
@@ -97,7 +93,6 @@ let saveAllergyData = async function (req, res) {
 }
 const createNewAllergyResource = async (allergyData, baseEncounterId, req) => {
     const allergyResource = buildFHIRResource(AllergyIntolerance, {...allergyData, encounterId: baseEncounterId, practitionerId: req.decoded.userId})
-    console.log("allergyResource: ", allergyResource)
     allergyResource.uuid = allergyData.uuid
     const allergyIntoleranceBundle =await  bundleStructure.setBundlePost(allergyResource,[allergyResource.identifier], allergyData.uuid, "POST", "identifier")
     return allergyIntoleranceBundle;
@@ -127,7 +122,6 @@ let getAllergyData = async function (req, res) {
         const token = req.accessToken;
         let resourceResult = []
         let resourceUrlData = { link: link, reqQuery: queryParams, allowNesting: 0, specialOffset: specialOffset }
-        console.log("resourceUrlData; ", resourceUrlData)
         let allergyIntoleranceResponses = await fetchResource("AllergyIntolerance", queryParams, token);
         let resStatus = 1;
         if(  allergyIntoleranceResponses.total == 0) {

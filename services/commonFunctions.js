@@ -20,7 +20,6 @@ const OBSERVATION_CLASS_MAP = {
 
 const createObservationBundle = async(resourceData, type, requestType, observationType) => {
     try {
-        console.log("check the data to be entered for observation: ", resourceData, type, requestType, observationType)
         const ObservationClass = OBSERVATION_CLASS_MAP[observationType];
         const resource = buildFHIRResource(ObservationClass, { ...resourceData, optionalParam: type });    
         if(requestType == "post") {
@@ -43,7 +42,6 @@ const createEncounterBundle = async(EncounterClass, encounterData, requestType) 
         const encounter = buildFHIRResource(EncounterClass, encounterData);
         encounter.appointment = null
         encounter.uuid = encounterData.reqUuid
-        console.log("encounter data: ", encounter)
         if(requestType == "post") {
             return await bundleStructure.setBundlePost(encounter, null, encounterData.uuid, HTTP_METHODS.POST, BUNDLE_TYPES.IDENTIFIER);
         }            
@@ -76,7 +74,6 @@ const processObservationData = (observationList, observationData, module_type) =
             observation.module_type = module_type;
             const ObservationClass = OBSERVATION_CLASS_MAP[module_type]
             const transformedObservation = getTransformedResult(ObservationClass, observation);
-            console.log("transformedObservation: ", transformedObservation)
             return { ...observationData, ...transformedObservation };
         } catch (error) {
             console.warn(`Error processing observation: ${observation.id}`, error.message);

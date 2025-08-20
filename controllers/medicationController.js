@@ -23,7 +23,6 @@ let saveMedicationData = async function (req, res) {
           };
         const token = req.accessToken;
         let resourceResult = [];
-        console.log("req body: ", req.body)
         for (let medicine of req.body) {
             //  add a check if medicine already exists
             const existingMedicine = await fetchResource("Medication", {code: medicine.code, _total: "accurate"}, token)
@@ -62,7 +61,7 @@ let saveMedicationData = async function (req, res) {
                 'Content-Type': 'application/fhir+json'
             }
         }); 
-        console.log("get bundle json response: ", response)  
+        console.log("get bundle json response: ", responseService.status)  
         if (response.status == 200 || response.status == 201) {
             let resourceResponse = setMedicineSaveResponse(bundleData.bundle.entry, response.data.entry, "post");
             let responseData = [...resourceResponse, ...bundleData.errData];
@@ -94,14 +93,12 @@ let updateMedicationData = async function (req, res) {
           };
         const token = req.accessToken;
         let resourceResult = [];
-        console.log("req body: ", req.body)
         for (let medicine of req.body) {
             //  add a check if medicine already exists
             const existingMedicine = await fetchResource("Medication", {code: medicine.code, _total: "accurate"}, token)
             if(existingMedicine.total > 1 && existingMedicine.entry)
                     return res.status(400).json({ status: 0, message: "Medicine already exists." });
             const existingMedKnowledge =  await fetchResource("MedicationKnowledge", {code: medicine.code, _total: "accurate"}, token)
-            console.log("existingMedKnowledge: ", existingMedKnowledge)
             const medicationResource = buildFHIRResource(Medication, medicine);
             const medBundle = await bundleStructure.setBundlePut(medicationResource, null, medicine.fhirId, "PUT", "identifier");
             const brandNames = existingMedKnowledge.entry.map(e => { return {
@@ -112,16 +109,11 @@ let updateMedicationData = async function (req, res) {
             const updatedBrandNames = medicine.brandList;
             const arr1Names = new Set(brandNames.map(item => item.name));
             const arr2Names = new Set(updatedBrandNames.map(item => item.name));
-            console.log("arr1Names: ", arr1Names, "arr2Names: ", arr2Names)
             // Find removed (in arr1, not in arr2)
             const removed = brandNames.filter(item => !arr2Names.has(item.name));
 
             // Find added (in arr2, not in arr1)
             const added = updatedBrandNames.filter(item => !arr1Names.has(item.name));
-
-            console.log("arr1Names:", arr1Names, brandNames);
-            console.log("arr2Names:", arr2Names);
-            console.log("removed: ", removed, " added: ", added)
             const knowledgeBundles= await Promise.all(
                 [...(added.length ? added : [null])
                   ].map(async e => {
@@ -154,7 +146,6 @@ let updateMedicationData = async function (req, res) {
                 'Content-Type': 'application/fhir+json'
             }
         }); 
-        console.log("get bundle json response: ", response)  
         if (response.status == 200 || response.status == 201) {
             let resourceResponse = setMedicineSaveResponse(bundleData.bundle.entry, response.data.entry, "post");
             let responseData = [...resourceResponse, ...bundleData.errData];
@@ -185,7 +176,6 @@ const setMedicineSaveResponse  = (reqBundleData, responseBundleData, type) => {
     let filteredData = [];
     let response = [];
     const responseData = bundleStructure.mapBundleService(reqBundleData, responseBundleData)
-    console.log("responseData: ", responseData)
     filteredData = responseData.filter(e => (e.resource && e.resource.resourceType == "Medication")|| (type == "patch" && e.resource.resourceType == "Binary"));
     response = responseService.setDefaultResponse("Medication", type, filteredData);
     return response;
@@ -209,15 +199,13 @@ let getMedicationList = async function (req, res) {
             const FHIRData = element.resource;            
             const medicationData = getTransformedResult(Medication, FHIRData);
             const existingMedKnowledge =  await fetchResource("MedicationKnowledge", {code: medicationData.code, _total: "accurate"}, token)
-            console.log("existingMedKnowledge: ", existingMedKnowledge)
             const brandList = existingMedKnowledge.entry.map(e=> getTransformedResult(MedicationKnowledge, e.resource));
             
             medicationData.classId = brandList[0].classId
             medicationData.className = brandList[0].className
             medicationData.categoryId = brandList[0].categoryId
             medicationData.categoryName = brandList[0].categoryName
-            medicationData.brandList = brandList.map(e=> e?.brandName).filter(e=> e != null);            
-            console.log("medicationData: ", medicationData)
+            medicationData.brandList = brandList.map(e=> e?.brandName).filter(e=> e != null);     
             return medicationData;
         }));
         
@@ -246,7 +234,6 @@ const patchMedicationData = async function(req, res) {
             return handleError(res, "Medicine Id " + inputData.fhirId + " does not exist.", statusCode, "Medicine Id " + inputData.fhirId + " does not exist.")
         }        
         const medicationPatchResource = patchFHIRResource(Medication, inputData, resourceSavedData[0].resource)
-        console.log("medicationPatchResource: ", medicationPatchResource)
         let resourceData = [...medicationPatchResource];
         let patchResource = await bundleStructure.setBundlePatch(resourceData,resourceType + "/"+inputData.fhirId);        
         resourceResult.push(patchResource);

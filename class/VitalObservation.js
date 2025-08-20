@@ -23,7 +23,6 @@ class VitalObservation extends BaseObservation {
       this.observationObj = observationObj;
       this.fhirResource = fhirResource;
       this.vitalType = vitalType;  
-      console.log(observationObj, vitalType)
     }
 
   setEncounterReference() {
@@ -73,15 +72,12 @@ class VitalObservation extends BaseObservation {
       ...this.getValueForComponent(vitalType, value)
     };
     
-    console.log("COMPONENT CHECK: ", component)
     this.fhirResource.component.push(component);
   }
 
   getComponent() {
-    const key = reverseVitalCodeMap[this.fhirResource.code.coding[0].code]
-    console.log(reverseVitalCodeMap, this.fhirResource.code.coding)
+    const key = reverseVitalCodeMap[this.fhirResource.code.coding[0].code];
     const component = this.fhirResource.component ?? null;
-    console.log("-----------", component, "-----------------",key, "-------------------", this.observationObj)
     if(component) {
       this.observationObj[key] = this._extractComponentValue(component[0])
       if(key === 'hbA1cPercentage' ) {
@@ -156,8 +152,6 @@ class VitalObservation extends BaseObservation {
     
     if(vitalType == "hbA1cPercentage") {
       unit = "%";
-      console.log("check vital type: )))))))))))))))))))))))))))))))))))))", vitalType, value)
-      console.log(this.observationObj)
     }
     else {
       unit = this.observationObj.unit

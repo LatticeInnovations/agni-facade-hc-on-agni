@@ -73,7 +73,6 @@ const getSymptomsDiagnosisList = async function (req, res) {
 const createEncounterBundle = async(mainEncounter, symDiagData, patientId, token, type) => {
     try {
         // const encounterUuid = uuidv4();
-        console.log(symDiagData)
         const oldUuid = symDiagData.oldUuid;
         const encounter = buildFHIRResource(Encounter, { 
             uuid: symDiagData.uuid,  encounterId: mainEncounter.id, patientId: patientId, progressNote: symDiagData.progressNote,
@@ -158,20 +157,16 @@ const saveSymptomDiagnosisData = async function (req, res) {
                 let mainEncounter = mainEncounters.filter(e => e.appointment[0]?.reference?.split('/')[1] == symDiagData.appointmentId)
                 console.log("Diagnosis POST");
                 mainEncounter = mainEncounter[0]
-                console.log("getMainEncounters: ", mainEncounter)
                 const diagnosisEncounter = await fetchDiagnosisEncounter(mainEncounter.id, token)
-                console.log("diagnosisEncounter ", diagnosisEncounter)
                 const patientId = mainEncounter.subject.reference.split("/")[1];
                 symDiagData.oldUuid = symDiagData.uuid
                 if (diagnosisEncounter.total > 0 && diagnosisEncounter.entry) {
                     console.log("put case")
                     let diagnosisList = await fetchResource("Condition", { "encounter": diagnosisEncounter.entry[0].resource.id, _count: 5000 }, token);
                     diagnosisList = diagnosisList?.entry || [];
-                     console.log("diagnosis resources: ", diagnosisList)
                      symDiagData.fhirId = diagnosisEncounter?.entry?.[0]?.resource.id;
                      symDiagData.uuid = diagnosisEncounter?.entry?.[0]?.resource.identifier[0].value
                      subEncounterBundle = await createEncounterBundle(mainEncounter, symDiagData, patientId, req.token, "PUT")
-                     console.log("subEncounterBundle: ", subEncounterBundle)
                      diagnosisResult = await handleUpdateDiagnosisList(diagnosisList, symDiagData, patientId, req.token, symDiagData.fhirId)
                 }
                 else {                   
@@ -191,8 +186,7 @@ const saveSymptomDiagnosisData = async function (req, res) {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/fhir+json'
             }
-        }); 
-        console.log("get bundle json response: ", response.status)  
+        });  
         if (response.status == 200 || response.status == 201) {
             let responseData = setSymptomDiagnosisResponse(bundleData.bundle.entry, response.data.entry, "post");
             return res.status(201).json({ status: 1, message: "Symptom and diagnosis data saved.", data: responseData })
@@ -223,7 +217,6 @@ const handleUpdateDiagnosisList = async (diagnosisResources, symDiagData, patien
     const diagnosisList = diagnosisResources.map(element => {
         return  getTransformedResult(Condition, element.resource);
     }).map(element => element.code)
-    console.log("existing diagnosis List: ", diagnosisList)
     const removed = diagnosisList.filter(item => !symDiagData.diagnosis.includes(item)); // present in arr1 but not in arr2
     const added = symDiagData.diagnosis.filter(item => !diagnosisList.includes(item));   // present in arr2 but not in arr1
     symDiagData.diagnosis = added
@@ -232,8 +225,6 @@ const handleUpdateDiagnosisList = async (diagnosisResources, symDiagData, patien
         .map(cond => cond.resource.id);
     const deletedResources = await deleteConditionResources(idsToDelete)
     conditionResources = [...newDiagnosisBundles, ...deletedResources]
-    console.log("Removed from arr2 (present in arr1):", removed);
-    console.log("Added in arr2 (not present in diagnosisList):", added);
     return conditionResources;
 }
 
@@ -244,7 +235,6 @@ const getSymDiagForEncounter = async(mainEncounterList, subEncounterList, sympto
         for(let encounter of subEncounterList){
             let diagnosisList = [];
             const mainEncounter = mainEncounterList.filter(e => e.id == encounter.partOf.reference.split("/")[1])[0]
-            console.log("mainEncounter: ", mainEncounter, encounter.partOf.reference)
             const diagnosisResources = diagnosis.filter(e => e.resource.resourceType == "Condition" && e.resource.encounter.reference.split("/")[1] == encounter.id).map(e => e.resource)
             if(diagnosisResources.length > 0)
                 diagnosisList = diagnosisResources.map(element => {
@@ -265,7 +255,6 @@ const getSymDiagForEncounter = async(mainEncounterList, subEncounterList, sympto
                 diagnosis: diagnosisList,
                 practitionerName: practitionerName.trim()
             }
-            console.log(subEncounter)
             resourceResult.push(subEncounter)
         }
         return resourceResult;
@@ -297,9 +286,7 @@ const getSymptomDiagnosisData = async function(req, res) {
         const FHIRData =  responseData.entry 
         const mainEncounterIds = responseData.entry.map(e=> e.resource.partOf.reference.split("/")[1]).join(",");
         let mainEncounterList = await fetchResource("Encounter", {_count: 1000, "_id": mainEncounterIds}, token)
-        console.log("mainEncounterIds: ", mainEncounterList)
         mainEncounterList = mainEncounterList.entry.map(e => e.resource);
-        console.log("mainEncounterList: ", mainEncounterList)
         let subEncounterList = FHIRData.filter(e => e.resource.resourceType == "Encounter" && e.resource.type && e.resource.type[0].coding[0].code == "symptom-diagnosis-encounter").map(e => e.resource);
         
         let subEncounterIds = subEncounterList.map((e) => e.id).join(',');
@@ -328,7 +315,6 @@ const getSymptomDiagnosisData = async function(req, res) {
 const setSymptomDiagnosisResponse  = (reqBundleData, responseBundleData, type) => {
    let filteredData = [];
        let response = [];
-       console.log("reqBundleData: ", reqBundleData, "and: responseBundleData",  responseBundleData)
        const responseData = bundleStructure.mapAssessmentBundleService(reqBundleData, responseBundleData)
        if(["post", "POST", "put", "PUT"].includes(type)){
            filteredData = responseData.filter(e => e.resource && e.resource.resourceType == "Encounter" && e.resource?.type?.[0]?.coding?.[0]?.code == "symptom-diagnosis-encounter");
@@ -386,10 +372,8 @@ const patchSymptomDiagnosisData = async (req, res) => {
         const token = req.accessToken;
         console.log("Symptom and Diagnosis Patch");
         const allSymptomEncounterIds = req.body.map(e=> e.symDiagFhirId).join(",");
-        console.log("allSymptomEncounterIds: ", allSymptomEncounterIds)
         let allResources = await fetchResource("Encounter", {"_revinclude:0": "Condition:encounter", "_revinclude:1": "Observation:encounter", "_id": allSymptomEncounterIds, _count: 2000}, token)
         allResources = allResources.entry;
-        console.log("Symptom and Diagnosis Patch", allResources);
         const subEncounterResources = allResources.filter(e => e.resource.resourceType == "Encounter").map(e => e.resource)
         const resourceResult = await createPatchArray(req.body, subEncounterResources, allResources, req.token)
         console.info(resourceResult)
@@ -403,7 +387,6 @@ const patchSymptomDiagnosisData = async (req, res) => {
                 'Content-Type': 'application/fhir+json'
             }
         }); 
-        console.log("get bundle json response: ", response.status)  
         if (response.status == 200 || response.status == 201) {
             let resourceResponse = setSymptomDiagnosisResponse(bundleData.bundle.entry, response.data.entry, "patch");
             let responseData = [...resourceResponse, ...bundleData.errData];
@@ -436,7 +419,6 @@ const observationResourcePatch = async function(observationResource, symDiagData
     // update existing symptom resource
     else if(symDiagData.symptoms.length > 0 ){
         let symptomResource =  buildFHIRResource(Observation, symDiagData);
-        console.log(symptomResource, observationResource)
         observationResource[0].resource.component = symptomResource.component
         symptomBundle = await bundleStructure.setBundlePost(observationResource[0].resource, null, observationResource[0].resource.id, "PUT", null);  
         
@@ -452,13 +434,10 @@ const conditionResourcePatch = async function(conditionResources, symDiagData, t
     try {
         let conditionResourcesList = [], newConditions = [], deleteConditions = [];
         const existingCodes = conditionResources.map(item => item.code.coding[0].code)
-        console.log("existingCodes: ", existingCodes)
         //  find resources not having new code and create resource
         newConditions = symDiagData.diagnosis.filter(item => !existingCodes.includes(item))
-        console.log("newConditions: ", newConditions)
         // find resources that existed but now needs to be deleted
         deleteConditions = conditionResources.filter(item => !symDiagData.diagnosis.includes(item.code.coding[0].code)).map(e => ({id: e.id, code: e.code.coding[0].code}))
-        console.log("deleteConditions: ", deleteConditions)
         // check if conditionResources list is empty
         if(newConditions.length > 0 ) {
              // create condition resource
@@ -479,7 +458,6 @@ const conditionResourcePatch = async function(conditionResources, symDiagData, t
                 conditionResourcesList.push(deleteCondition)
             })                
         }
-        console.log(conditionResourcesList)
         return conditionResourcesList;
     }
     catch(e) {

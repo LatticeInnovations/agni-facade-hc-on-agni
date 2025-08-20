@@ -88,8 +88,6 @@ const fetchMainEncounter = async (priorDx, token) => {
         _include: "Encounter:appointment",
     }, token );
 
-    console.log(mainEncounter)
-
     return mainEncounter
 }
 
@@ -111,7 +109,6 @@ const savePriorDxData = async (req, res) => {
             tokenData: req.decoded
           };
         const token = req.accessToken;
-        console.log("inside priorDx")
         const allResourceResults = [], errData = [];
         await Promise.all(
             req.body.map(async (priorDxData) => {
@@ -122,18 +119,15 @@ const savePriorDxData = async (req, res) => {
                 if (!baseEncounterId) return;
 
                 const priorDxEncounter = await fetchPriorDxEncounter(baseEncounterId, token)
-                console.log("cvdEncounter check: ", priorDxEncounter)
                 
                 if (priorDxEncounter.total > 0 && priorDxEncounter.entry) {
                     // Update case (PUT)
-                      console.log("Inside PUT request")
                       await handleExistingPriorDx({priorDxData, priorDxEncounter, baseEncounterId, practitionerId, resourceResult}, token);
                 } else {
                     // Create case (POST)
                     console.log("post case")
                     await handleNewPriorDx({priorDxData, priorDxEncounter, baseEncounterId, practitionerId, resourceResult});
                 }
-                console.log("resourceResult: ", resourceResult)
 
                 allResourceResults.push(...resourceResult);
             })
@@ -149,7 +143,6 @@ const savePriorDxData = async (req, res) => {
                 'Content-Type': 'application/fhir+json'
             }
         });
-        console.log("response: ", response.data, "---------------------")
         if ([200, 201].includes(response.status)) {            
             const resourceResponse = setPriorDxResponse(bundleData.bundle.entry, response.data.entry, "post");
             const responseData = [...resourceResponse, ...errData];   
@@ -173,7 +166,6 @@ const savePriorDxData = async (req, res) => {
 
 const getPriorDxData = async (req, res) => {
     try {
-        console.log("GET section")
         const queryParams = {
                     _total : "accurate",
                     _count: req.query._count,
@@ -205,7 +197,6 @@ const getPriorDxData = async (req, res) => {
                 .map((e) => e.partOf?.reference?.split("/")[1])
                 .filter(Boolean)
                 .join(",");
-                console.log('priorDxEncounterIds: ', priorDxEncounterIds)
                 const mainEncounterList = await fetchResource("Encounter", { _id: mainEncounterIds, _count: 10000 }, token)
                     
                 const mainEncounters = mainEncounterList.entry.map((e) => e.resource);
@@ -282,7 +273,6 @@ const processConditionData = (conditionList, conditionData, module_type) => {
             // Dynamically transform the observation using the helper function
             condition.module_type = module_type;
             const transformedCondition = getTransformedResult(Condition, condition);
-            console.log("transformedCondition: =====>>>>", transformedCondition)
             return { ...conditionData, ...transformedCondition };
         } catch (error) {
             console.warn(`Error processing condition: ${condition.id}`, error.message);
@@ -296,7 +286,6 @@ const createEncounterBundle = async(EncounterClass, encounterData, requestType) 
         const encounter = buildFHIRResource(EncounterClass, encounterData);
         encounter.appointment = null
         encounter.uuid = encounterData.reqUuid
-        console.log("encounter data: ", encounter)
         if(requestType == "post") {
             return await bundleStructure.setBundlePost(encounter, null, encounterData.uuid, HTTP_METHODS.POST, BUNDLE_TYPES.IDENTIFIER);
         }            
@@ -407,7 +396,6 @@ const createConditionResource = async(resourceData, requestType) => {
 const setPriorDxResponse  = (reqBundleData, responseBundleData, type) => {
     let filteredData = [];
     let response = [];
-    // console.log("reqBundleData: ", reqBundleData, "and responseBundleData",  responseBundleData)
     const responseData = bundleStructure.mapAssessmentBundleService(reqBundleData, responseBundleData)
     if(["post", "POST", "put", "PUT"].includes(type)){
         filteredData = responseData.filter(e => e.resource.resourceType == "Encounter" && e.resource?.type?.[0]?.coding?.[0]?.code == "priorDx-encounter");

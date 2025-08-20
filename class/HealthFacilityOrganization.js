@@ -40,7 +40,6 @@ class FacilityOrganization extends Organization {
   }
 
   setPopulation() {
-    console.log("urlLis: ", urlList);
     this.fhirResource.extension.push({
       url: urlList.adminDivisionPopulationUrl,
       valueInteger: this.orgObj?.population || null,

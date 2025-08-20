@@ -22,15 +22,13 @@ let saveInterventionData = async function (req, res) {
         const token = req.accessToken;
         let resourceResult = [];
         let interventionResource = null;
-        console.log("req body: ", req.body)
         for (let interventionData of req.body) {
                 const previousInterventionCheck = await fetchResource("ActivityDefinition", {identifier: interventionData.code, topic: "384758001"}, token);
                 if(previousInterventionCheck.entry && previousInterventionCheck.entry.length > 0)  {
                     return res.status(400).json({ status: 0, message: "Intervention with given code already exists." })
                 }              
                 interventionResource = buildFHIRResource(ActivityDefinition, interventionData)
-           
-            console.log("InterventionId: ", interventionResource);     
+   
             let InterventionBundle = await bundleStructure.setBundlePost(interventionResource, interventionResource.identifier, interventionData.uuid, "POST", "identifier");
             console.info("Intervention bundle: ", InterventionBundle)                           
             resourceResult.push(InterventionBundle);   
@@ -44,7 +42,7 @@ let saveInterventionData = async function (req, res) {
                 'Content-Type': 'application/fhir+json'
             }
         }); 
-        console.log("get bundle json response: ", response)  
+        console.log("get bundle json response: ", response.status)  
         if (response.status == 200 || response.status == 201) {
             let resourceResponse = setInterventionSaveResponse(bundleData.bundle.entry, response.data.entry, "post");
             let responseData = [...resourceResponse, ...bundleData.errData];
@@ -77,7 +75,6 @@ let updateInterventionData = async function (req, res) {
             tokenData: req.decoded
           };
         const token = req.accessToken;
-        console.log("req body: ", req.body)
         for (let interventionData of req.body) {
             const previousInterventionCheck = await fetchResource("ActivityDefinition", {identifier: interventionData.code, topic: "384758001"}, token);
                 if(previousInterventionCheck.entry && previousInterventionCheck.entry.length > 1)  {
@@ -85,8 +82,7 @@ let updateInterventionData = async function (req, res) {
                 }  
               
                 interventionResource = buildFHIRResource(ActivityDefinition, interventionData);
-                interventionResource.id = interventionData.fhirId
-            console.log("InterventionId: ", interventionResource);     
+                interventionResource.id = interventionData.fhirId;   
             let InterventionBundle = await bundleStructure.setBundlePut(interventionResource, null, interventionData.fhirId, "PUT", "identifier");
             console.info("Intervention bundle: ", InterventionBundle)                           
             resourceResult.push(InterventionBundle);   
@@ -100,7 +96,7 @@ let updateInterventionData = async function (req, res) {
                 'Content-Type': 'application/fhir+json'
             }
         }); 
-        console.log("get bundle json response: ", response)  
+        console.log("get bundle json response: ", response.status)  
         if (response.status == 200 || response.status == 201) {
             let resourceResponse = setInterventionSaveResponse(bundleData.bundle.entry, response.data.entry, "post");
             let responseData = [...resourceResponse, ...bundleData.errData];
@@ -137,7 +133,6 @@ let getInterventionData = async function (req, res) {
         const token = req.accessToken;
         queryParams._total = "accurate"
         let resourceResult = [];
-        console.log("queryParams: ", queryParams)
         const responseResult = await fetchResource("ActivityDefinition", queryParams, token);
         const responseData = responseResult.entry || []
         if( !responseData) {
@@ -182,7 +177,6 @@ const patchInterventionData = async function(req, res) {
             return handleError(res, "Intervention Id " + inputData.fhirId + " does not exist.", statusCode, "Intervention Id " + inputData.fhirId + " does not exist.")
         }        
         const InterventionPatchResource = patchFHIRResource(ActivityDefinition, inputData, resourceSavedData[0].resource)
-        console.log("InterventionPatchResource: ", InterventionPatchResource)
         let resourceData = [...InterventionPatchResource];
         let patchResource = await bundleStructure.setBundlePatch(resourceData,resourceType + "/"+inputData.fhirId);        
         resourceResult.push(patchResource);

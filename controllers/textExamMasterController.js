@@ -22,7 +22,6 @@ let saveTestExamData = async function (req, res) {
         const token = req.accessToken;
         let resourceResult = [];
         let testExamResource = null;
-        console.log("req body: ", req.body)
         for (let testExamData of req.body) {
                 const previousTestExamCheck = await fetchResource("ActivityDefinition", {identifier: testExamData.code, topic: "43782000"}, token);
                 if(previousTestExamCheck.entry && previousTestExamCheck.entry.length > 0)  {
@@ -30,7 +29,6 @@ let saveTestExamData = async function (req, res) {
                 }              
                 testExamResource = buildFHIRResource(ActivityDefinition, testExamData)
            
-            console.log("TestExamId: ", testExamResource);     
             let TestExamBundle = await bundleStructure.setBundlePost(testExamResource, testExamResource.identifier, testExamData.uuid, "POST", "identifier");
             console.info("TestExam bundle: ", TestExamBundle)                           
             resourceResult.push(TestExamBundle);   
@@ -44,7 +42,6 @@ let saveTestExamData = async function (req, res) {
                 'Content-Type': 'application/fhir+json'
             }
         }); 
-        console.log("get bundle json response: ", response)  
         if (response.status == 200 || response.status == 201) {
             let resourceResponse = setTestExamSaveResponse(bundleData.bundle.entry, response.data.entry, "post");
             let responseData = [...resourceResponse, ...bundleData.errData];
@@ -77,7 +74,6 @@ let updateTestExamData = async function (req, res) {
             tokenData: req.decoded
           };
         const token = req.accessToken;
-        console.log("req body: ", req.body)
         for (let testExamData of req.body) {
             const previousTestExamCheck = await fetchResource("ActivityDefinition", {identifier: testExamData.code, topic: "43782000"}, token);
                 if(previousTestExamCheck.entry && previousTestExamCheck.entry.length > 1)  {
@@ -85,8 +81,7 @@ let updateTestExamData = async function (req, res) {
                 }  
               
                 testExamResource = buildFHIRResource(ActivityDefinition, testExamData);
-                testExamResource.id = testExamData.fhirId
-            console.log("TestExamId: ", testExamResource);     
+                testExamResource.id = testExamData.fhirId    
             let TestExamBundle = await bundleStructure.setBundlePut(testExamResource, null, testExamData.fhirId, "PUT", "identifier");
             console.info("TestExam bundle: ", TestExamBundle)                           
             resourceResult.push(TestExamBundle);   
@@ -99,8 +94,7 @@ let updateTestExamData = async function (req, res) {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/fhir+json'
             }
-        }); 
-        console.log("get bundle json response: ", response)  
+        });   
         if (response.status == 200 || response.status == 201) {
             let resourceResponse = setTestExamSaveResponse(bundleData.bundle.entry, response.data.entry, "post");
             let responseData = [...resourceResponse, ...bundleData.errData];
@@ -137,7 +131,6 @@ let getTestExamData = async function (req, res) {
         const token = req.accessToken;
         queryParams._total = "accurate"
         let resourceResult = [];
-        console.log("queryParams: ", queryParams)
         const responseResult = await fetchResource("ActivityDefinition", queryParams, token);
         const responseData = responseResult.entry || []
         if( !responseData) {
@@ -182,7 +175,6 @@ const patchTestExamData = async function(req, res) {
             return handleError(res, "TestExam Id " + inputData.fhirId + " does not exist.", statusCode, "TestExam Id " + inputData.fhirId + " does not exist.")
         }        
         const TestExamPatchResource = patchFHIRResource(ActivityDefinition, inputData, resourceSavedData[0].resource)
-        console.log("TestExamPatchResource: ", TestExamPatchResource)
         let resourceData = [...TestExamPatchResource];
         let patchResource = await bundleStructure.setBundlePatch(resourceData,resourceType + "/"+inputData.fhirId);        
         resourceResult.push(patchResource);
@@ -196,8 +188,7 @@ const patchTestExamData = async function(req, res) {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/fhir+json'
         }
-    }); 
-    console.log("get bundle json response: ", response.status)  
+    });  
     if (response.status == 200 || response.status == 201) {
         let resourceResponse = setTestExamSaveResponse(bundleData.bundle.entry, response.data.entry, "patch");
         const responseData = [...resourceResponse, ...bundleData.errData];

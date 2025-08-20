@@ -16,13 +16,11 @@ class BaseEncounter {
   }
 
   setUuid() {
-    console.log("encounter obj: ", this.encounterObj);
     if (this.encounterObj.uuid) {
       this.fhirResource.identifier.push({
         system: config.snUrl,
         value: this.encounterObj.uuid,
       });
-      console.log("The identifier set is: ", this.fhirResource.identifier);
     }
   }
 
@@ -65,9 +63,7 @@ setPartOf () {
 
 
 setPatientReference() {
-  console.log("patinet data: ", this.encounterObj.patientId)
-    this.fhirResource.subject.reference = "Patient/" + this.encounterObj.patientId
-    console.log(this.fhirResource.subject)
+    this.fhirResource.subject.reference = "Patient/" + this.encounterObj.patientId;
 }
 
 setOrganizationReference(){
@@ -114,7 +110,6 @@ getPatientReference() {
   }
 
   getFHIRToTransformedResult() {
-    console.log("practitoner check: ", this?.fhirResource);
     this.getId();
     this.getAppointmentReference();
     this.getPatientReference();
@@ -127,7 +122,6 @@ getPatientReference() {
   }
 
   getFHIRResource() {
-    console.log("fhir resource for encounter check: ", this.fhirResource)
     return this.fhirResource;
   }
 

@@ -76,8 +76,7 @@ class HistoryMedicationQuestionnaireResponse {
     }
 
     setMedicinePrescribedOthers() {
-        const otherCheckIndex = this.answerObj.medicinePrescribed.findIndex(e => e === "74964007")
-        console.log("otherCheckIndex: ", otherCheckIndex)
+        const otherCheckIndex = this.answerObj.medicinePrescribed.findIndex(e => e === "74964007");
         if(otherCheckIndex > -1)
         this.fhirResource.item[1].answer.push({
             "valueString": this.answerObj.medicinePrescribedOthers

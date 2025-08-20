@@ -17,7 +17,6 @@ const fetchMainEncounter = async (familyHistoryData, token) => {
          _include: "Encounter:appointment",
      }, token);
  
-     console.log(mainEncounter)
  
      return mainEncounter
  }
@@ -64,14 +63,12 @@ let saveFamilyHistoryData = async function (req, res) {
                 const reqUuid = familyHistoryData.uuid;
                 familyHistoryData.uuid = existingResponse.entry[0].resource.identifier.value;
                 const questionnaireResponseResource = buildFHIRResource(QuestionnaireResponse, {...familyHistoryData, questionnaireId: questionnaireReference, encounterId: baseEncounterId, practitionerId: req.decoded.userId})
-                console.log("questionnaireResponseResource: ", questionnaireResponseResource)
                 questionnaireResponseResource.uuid = reqUuid
                 const questionnaireResponseBundle = await bundleStructure.setBundlePut(questionnaireResponseResource, null, existingResponse.entry[0].resource.id, "PUT", "identifier")
                 resourceResult.push(questionnaireResponseBundle)
                 }
             else {
                 const questionnaireResponseResource = buildFHIRResource(QuestionnaireResponse, {...familyHistoryData, questionnaireId: questionnaireReference, encounterId: baseEncounterId, practitionerId: req.decoded.userId})
-                console.log("questionnaireResponseResource: ", questionnaireResponseResource)
                 questionnaireResponseResource.uuid = familyHistoryData.uuid
                 const questionnaireResponseBundle =await  bundleStructure.setBundlePost(questionnaireResponseResource,[questionnaireResponseResource.identifier], familyHistoryData.uuid, "POST", "identifier")
                 resourceResult.push(questionnaireResponseBundle)
@@ -135,7 +132,6 @@ let getFamilyHistoryData = async function (req, res) {
         queryParams.questionnaire = "Questionnaire/" + questionnaireResource.entry[0].resource.id
         let resourceResult = []
         let resourceUrlData = { link: link, reqQuery: queryParams, allowNesting: 0, specialOffset: specialOffset }
-        console.log("resourceUrlData; ", resourceUrlData)
         let questionnaireResponses = await fetchResource("QuestionnaireResponse", queryParams, token);
         let resStatus = 1;
         if(  questionnaireResponses.total == 0) {

@@ -49,7 +49,6 @@ class MedicationKnowledge {
     }
 
     getData() {
-        console.log(" this.fhirResource: ",  this.fhirResource)
         this.medKnowledgeObj.categoryId = this.fhirResource.productType[0].coding[0].code
         this.medKnowledgeObj.categoryName = this.fhirResource.productType[0].coding[0].display
         this.medKnowledgeObj.classId = this.fhirResource.medicineClassification?.[0]?.classification?.[0]?.coding?.[0]?.code || null

@@ -111,7 +111,6 @@ getId() {
             this.medReqObj.doseForm = this.fhirResource.dosageInstruction[0].doseAndRate[0].doseQuantity.unit;
             this.medReqObj.doseFormCode = doseFormList[this.fhirResource.dosageInstruction[0].doseAndRate[0].doseQuantity.unit];
             this.medReqObj.duration = this.fhirResource.dosageInstruction[0].timing.repeat.period;
-            console.log()
             if(this.fhirResource.dosageInstruction[0].additionalInstruction) {
                 this.medReqObj.timing = this.fhirResource.dosageInstruction[0].additionalInstruction[0].coding[0].code;
             }

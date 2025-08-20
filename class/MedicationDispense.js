@@ -8,7 +8,6 @@ class MedicationDispense {
   constructor(med_dispense_obj, fhir_resource) {
     this.medDispenseObj = med_dispense_obj;
     this.fhirResource = fhir_resource;
-    console.log(this.fhirResource)
     this.fhirResource.resourceType = "MedicationDispense"
   }
 
@@ -57,8 +56,6 @@ class MedicationDispense {
   setMedication() {
     this.fhirResource.medicationReference.reference =
       "Medication/" + this.medDispenseObj.medFhirId;
-
-      console.log("check the medication reference: ", this.fhirResource.medicationReference, "*****************", this.medDispenseObj, "^^^^^^^^^^^^^")
   }
 
   setPatientReference() {
@@ -106,7 +103,6 @@ class MedicationDispense {
   setMedicationDetail() {
     this.fhirResource.medicationReference.reference =
     "Medication/" + this.medDispenseObj.medFhirId;
-    console.log("check the medication reference: ", this.fhirResource.medicationReference, "*****************", this.medDispenseObj, "^^^^^^^^^^^^^")
   }
 
   getMedicationDetail() {
@@ -123,7 +119,6 @@ class MedicationDispense {
   }
 
   setMedicationDispenseCategory() {
-    console.log(this.medDispenseObj?.category)
     this.fhirResource.category = {
       coding: [
         {

@@ -6,7 +6,6 @@ class CVDObservation extends BaseObservation {
   constructor(observationObj, fhirResource, vitalType) {
     super(observationObj, fhirResource);
     this.vitalType = vitalType;
-    console.log("==============>?????????", observationObj, fhirResource.id, vitalType)
   }
 
   setEncounterReference() {
@@ -525,7 +524,6 @@ setRiskCode() {
 }
 
 setRiskComponent() {
-    console.log("check if it reaches risk: ", this.observationObj)
     if(this.observationObj?.risk){
         this.fhirResource.component.push({
             "code": {
@@ -550,7 +548,6 @@ setRiskComponent() {
 
 getJsonToFhirTranslator() {
     const config = vitalCVDMethodConfig[this.vitalType]
-    // console.log("config is: ", config, vitalMethodConfig)
     if(!config)
         console.warn(`Unsupported vitalType: ${this.vitalType}`);
     else {

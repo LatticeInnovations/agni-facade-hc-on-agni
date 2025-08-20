@@ -28,8 +28,6 @@ const fetchMainEncounter = async (cvd, token) => {
         _include: "Encounter:appointment",
     }, token);
 
-    console.log(mainEncounter)
-
     return mainEncounter
 }
 
@@ -61,9 +59,7 @@ const saveCVDData = async (req, res) => {
                 const encounterData = await fetchMainEncounter(cvd, token)
                 const baseEncounterId = encounterData?.entry?.[0]?.resource?.id;
                 if (!baseEncounterId) return;
-                console.log("encounter data check: ============>", encounterData)
                 const cvdEncounter = await fetchCVDEncounter(baseEncounterId, token)
-                console.log("cvdEncounter check: ", cvdEncounter)
                 if (cvdEncounter.total > 0 && cvdEncounter.entry) {
                     console.log("put case")
                     // Update case (PUT)
@@ -85,7 +81,6 @@ const saveCVDData = async (req, res) => {
                     requestType = "put"
                     await handleNewCVDEncounter({cvd, baseEncounterId, practitionerId, resourceResult, });
                 }
-                console.log("resourceResult: ", resourceResult)
 
                 allResourceResults.push(...resourceResult);
             })
@@ -103,7 +98,6 @@ const saveCVDData = async (req, res) => {
                 'Content-Type': 'application/fhir+json'
             }
         });
-        console.log("response: ", response.data, requestType)
         if ([200, 201].includes(response.status)) {
             
             const resourceResponse =  setCVDResponse(bundleData.bundle.entry, response.data.entry, "post");
@@ -133,7 +127,6 @@ const getCVDObservationList = async (CVDEncounterList, practitionerList, mainEnc
         const observationFinalData = await Promise.all(
             CVDEncounterList.map(async (encounter) => {
                 const allObservations = await fetchResource("Observation", { encounter: encounter.id, _count: 20000 }, token)
-                console.log("========>",allObservations, encounter.id)
                 const observations = allObservations.entry.map((e) => e.resource);
                 let observationData = getTransformedResult(Encounter, encounter);
                 // Add practitioner name
@@ -155,12 +148,10 @@ const getCVDObservationList = async (CVDEncounterList, practitionerList, mainEnc
                     (obs) => obs.encounter.reference === `${RESOURCE_TYPES.ENCOUNTER}/${encounter.id}`
                 );
                 const observationResult = await processObservationData(observationList, observationData, "CVD", token);
-                // console.log("observationResult: ", observationResult)
                 return observationResult;
             })
         )
 
-        console.log("observationFinalData: ", observationFinalData)
         return observationFinalData;
     }
     catch(error) {
@@ -187,7 +178,6 @@ const getCVDData = async (req, res) => {
             fetchResource(RESOURCE_TYPES.ENCOUNTER, queryParams, token),
             fetchResource(RESOURCE_TYPES.PRACTITIONER, { _count: 100 }, token)
         ]);
-        console.log("responseData: ", responseData)
         if( !responseData.entry || responseData.total == 0) {
             return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })
         }
@@ -211,7 +201,6 @@ const getCVDData = async (req, res) => {
         
         // Process cvd encounters
         const resourceResult = await getCVDObservationList(cvdEncounterList, practitionerList, mainEncounters, token);
-        console.log("resourceResult: ", resourceResult)
         const resStatus = bundleStructure.setResponse(resourceUrlData, responseData);
         
         res.status(200).json({
@@ -236,7 +225,6 @@ const patchToBundle = async(type, cvd, observation) => {
             path: "/component", 
             value : observation.component
         }
-        console.log("patch val: ", patchVal)
         const patchData = await bundleStructure.setBundlePatch([patchVal], patchUrl);
         return patchData
     }
@@ -255,10 +243,7 @@ const updateCVDData = async (req, res) => {
         await Promise.all(req.body.map(async (cvd) => {
             let observations = await fetchResource(RESOURCE_TYPES.OBSERVATION, { "encounter": cvd.cvdFhirId, "code:text": cvd.key }, token)
             let observation = getPatchComponent(cvd.key, cvd.component, observations.entry[0].resource);
-            console.log("check patch data: ", observation.component)
-            console.log("check observation here: ", observation)
             const patchData = await patchToBundle(cvd.key, cvd, observation);
-            console.log("check observation patchData: ", patchData)
             let encounterPatchExist = resourceResult.find(e => e.fullUrl == "Encounter"+ "/"+ cvd.cvdFhirId);
                 if(!encounterPatchExist){
                     let patchPractitionerRefInEncounter = await bundleFun.setBundlePatch([{
@@ -313,7 +298,6 @@ async function handleExistingCVDEncounter({ cvd, cvdEncounter, baseEncounterId, 
     const observations = await fetchResource(RESOURCE_TYPES.OBSERVATION, {
         encounter: existingEncounter.id,
     }, token);
-    console.log("existingEncounter: ", existingEncounter)
     const encounterBundle = await createEncounterBundle(Encounter, {
         encounterId: baseEncounterId,
         fhirId: existingEncounter.id,
@@ -409,7 +393,6 @@ const checkDuplicateScreening = async (cvd, baseEncounterId, token) => {
 const setCVDResponse  = (reqBundleData, responseBundleData, type) => {
     let filteredData = [];
     let response = [];
-    console.log("reqBundleData: ", reqBundleData, "and: responseBundleData",  responseBundleData)
     const responseData = bundleStructure.mapAssessmentBundleService(reqBundleData, responseBundleData)
     if(["post", "POST", "put", "PUT"].includes(type)){
         filteredData = responseData.filter(e => e.resource.resourceType == "Encounter" && e.resource?.type?.[0]?.coding?.[0]?.code == "cvd-encounter");

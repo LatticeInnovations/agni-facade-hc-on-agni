@@ -40,7 +40,6 @@ const createEncounterBundle = async (patPres, apptData, token) => {
 };
 
 const createMedicationRequestBundle = async (prescription, patPres, encounterData, type) => {
-    console.log("patPres: ", patPres)
     const dateToday = new Date(patPres.generatedOn).getTime().toString();
     const lastDigits = dateToday.slice(9, -1);
     const grpIdentify = lastDigits + patPres.patientId;
@@ -111,8 +110,7 @@ let savePrescriptionData = async function (req, res) {
                 }
             })
         );
-        // Flatten the resource results
-        console.log(resourceResult)
+
         const flattenedResourceResult = resourceResult.flat();
 
         // Create bundle and send request   
@@ -160,7 +158,6 @@ const updateExistingPrescription = async function (req, res) {
                     // Check if encounter of prescription already exists
                     const prescriptionEncounter =  await fetchResource("Encounter", {  "part-of": appointmentEncounter.entry[0].resource.id, type: "prescription-encounter-form", _total: "accurate"}, token);
 
-                    console.log("prescriptionEncounter: ", prescriptionEncounter)
                     // Create encounter bundle
                     return await updatePrescription(prescriptionEncounter.entry[0].resource, patPres, token, req.decoded)
                  
@@ -172,7 +169,6 @@ const updateExistingPrescription = async function (req, res) {
             })
         );
         // Flatten the resource results
-        console.log(resourceResult)
         const flattenedResourceResult = resourceResult.flat();
 
         // Create bundle and send request   
@@ -204,7 +200,6 @@ const updatePrescription = async (prescriptionEncounter, patPres, token, decoded
         "start": patPres.generatedOn,
         "end": patPres.generatedOn
     }
-    console.log("decoded: ", decoded)
     prescriptionEncounter.participant = [
         {
             "individual": {
@@ -217,14 +212,12 @@ const updatePrescription = async (prescriptionEncounter, patPres, token, decoded
         
     //  fetch existing medicationRequest
     let existingMedRequest =  await fetchResource("MedicationRequest", {  "encounter": prescriptionEncounter.id, "encounter.type": "prescription-encounter-form", _total: "accurate"}, token);
-    console.log("existing medication request:", existingMedRequest)
     existingMedRequest = existingMedRequest.entry ? existingMedRequest.entry.map(e => e.resource) : [];
 
     // Create sets for quick lookup
         const previousMedIds = new Set(existingMedRequest.map(item => item.medicationReference.reference.split("/")[1]));
         const reqMedIds = new Set(patPres.prescription.map(item => item.medFhirId));
         const previousMedIdsMap = new Map(existingMedRequest.map(item => [item.medicationReference.reference.split("/")[1], item]));
-        console.log("previousMedIds:", previousMedIds, "reqMedIds: ", reqMedIds, "previousMedIdsMap: ", previousMedIdsMap, " prescriptionEncounter: ", prescriptionEncounter)
         // Added → in reqMedIds but not in previousMedIds
         patPres.subEncounterId = prescriptionEncounter.id
         const added = patPres.prescription.filter(item => !previousMedIds.has(item.medFhirId));
@@ -309,7 +302,6 @@ const transformAppointmentEncounter = (encData, appointmentEncounters) => {
  * Extract medication requests for a specific encounter ID.
  */
 const extractMedicationRequests = (FHIRData, encounterId) => {
-    // console.log("*** ", FHIRData, "^^^^", encounterId)
     return FHIRData.filter(
         (e) =>
             e.resource.resourceType === "MedicationRequest" &&
@@ -321,7 +313,6 @@ const extractMedicationRequests = (FHIRData, encounterId) => {
  * Build prescription data object.
  */
 const buildPrescriptionData = (encData, apptEncounter, medReqList) => {
-    console.log(" =>>>" ,encData, apptEncounter, medReqList, "<<=")
     const prescriptionData = {
         prescriptionId: encData.identifier[0].value,
         prescriptionFhirId: encData.id,
@@ -335,7 +326,6 @@ const buildPrescriptionData = (encData, apptEncounter, medReqList) => {
             return medData;
         })
     };
-    console.log("Final prescriptions: ", prescriptionData)
     return prescriptionData;
 };
 
@@ -355,21 +345,17 @@ const getPrescriptionData = async function (req, res) {
         let resourceUrlData = { link: config.baseUrl + "Encounter", reqQuery: queryParams, allowNesting: 0, specialOffset: 0 }
                 
         const responseData = await fetchResource("Encounter", queryParams, token);
-        console.log("responseData: ", responseData)
         if (!responseData.entry || responseData.total === 0) {
             return res.status(200).json({ status: 1, message: "Data fetched", total: 0, data: [] });
         }
         const prescriptionFormEncounterIds = [...new Set(responseData.entry.map((e) => e.resource.id))];
         //  Fetch medication requests from prescription encounters
-        console.log("prescriptionFormEncounterIds: ", prescriptionFormEncounterIds)
         const medicationRequestResources = await fetchResource("MedicationRequest", {_count:3000, encounter: prescriptionFormEncounterIds.join(",")}, token);
         const prescriptionFormEncounters = responseData.entry;
         //  get appointment encounter ids from prescription encounter
         const appointmentEncounterIds = [...new Set(prescriptionFormEncounters.map((e) => parseInt(e.resource.partOf.reference.split("/")[1])))];
-        console.log("appointmentEncounterIds: ", appointmentEncounterIds)
         //  fetch primary encounters from encounter ids
         const appointmentEncounters = await fetchAppointmentEncounters(appointmentEncounterIds, token);
-        console.log("medicationRequestResources: ", medicationRequestResources)
         //  map the data together according to main encounter
         const resourceResult = prescriptionFormEncounters.map((encData) => {
             const apptEncounter = transformAppointmentEncounter(encData, appointmentEncounters);

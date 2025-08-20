@@ -38,7 +38,6 @@ class RiskFactorQuestionnaireResponse {
   }
 
   setData() {
-    console.log(this.answerObj)
     this.fhirResource.item = [
       {
         linkId: "tobaccoUse",
@@ -109,7 +108,6 @@ class RiskFactorQuestionnaireResponse {
 
   getData() {
     const item = this.fhirResource.item;
-    console.log("item 1", item[1])
     this.answerObj.tobaccoUse = item?.[0]?.answer?.[0]?.valueCoding?.code ?? null;
     this.answerObj.briefAdvice = item?.[1]?.answer?.[0]?.valueBoolean ?? null;
     this.answerObj.assessedStatus = item?.[2]?.answer?.[0]?.valueBoolean ?? null;

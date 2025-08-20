@@ -23,7 +23,7 @@ let saveRelatedPersonData = async function (req, res) {
             }
 
             let person1Link = await fetchResource("Person", { link: "Patient/" + inputData.id, _include: "Person:link:RelatedPerson" }, token);
-            console.log("person1Link: ", person1Link)
+
             if (person1Link.total != 1) {
                 return res.status(500).json({ status: 0,  message: "Patient Id " + inputData.id + " does not exist." })
             }
