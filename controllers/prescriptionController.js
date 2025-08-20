@@ -227,11 +227,13 @@ const updatePrescription = async (prescriptionEncounter, patPres, token, decoded
                 return createMedicationRequestBundle(prescription, patPres, prescriptionEncounter, "post")
             })
         );
+        console.log("added: ", added)
         
         // Removed → in previousMedIds but not in reqMedIds
         const removed = existingMedRequest.filter(item => !reqMedIds.has(item.medicationReference.reference.split("/")[1]));
-        const idsToDelete = removed.filter(element => element.id)
-        .map(resource => resource.id);
+        const idsToDelete = removed.filter(element => element.id).map(resource => resource.id);
+        console.log("remove section: ", idsToDelete)
+        
         const deletedResources = await deleteMedicationRequestResources(idsToDelete)
 
         // Common → in both
@@ -302,11 +304,12 @@ const transformAppointmentEncounter = (encData, appointmentEncounters) => {
  * Extract medication requests for a specific encounter ID.
  */
 const extractMedicationRequests = (FHIRData, encounterId) => {
-    return FHIRData.filter(
+    console.log(FHIRData)
+    return FHIRData? FHIRData.filter(
         (e) =>
             e.resource.resourceType === "MedicationRequest" &&
             e.resource.encounter.reference === `Encounter/${encounterId}`
-    ).map((e) => e.resource);
+    ).map((e) => e.resource) : [];
 };
 
 /**
@@ -319,12 +322,12 @@ const buildPrescriptionData = (encData, apptEncounter, medReqList) => {
         // practitionerId: encData?.participant?.[0]?.individual?.reference?.split("/")?.[1] || null,
         generatedOn: encData.period.start,
         ...apptEncounter,
-        prescription: medReqList.map((medReq) => {
+        prescription: medReqList ? medReqList.map((medReq) => {
             medReq.prescriptionId = encData.identifier[0].value;
             const medData = getTransformedResult(MedicationRequest, medReq);
             medData.qtyPrescribed = medData.qtyPerDose * medData.frequency * medData.duration;
             return medData;
-        })
+        }): []
     };
     return prescriptionData;
 };
@@ -361,7 +364,8 @@ const getPrescriptionData = async function (req, res) {
             const apptEncounter = transformAppointmentEncounter(encData, appointmentEncounters);
             const medReqList = extractMedicationRequests(medicationRequestResources.entry, encData.resource.id);
             return buildPrescriptionData(encData.resource, apptEncounter, medReqList);
-        }).filter((prescriptionData) => prescriptionData.prescription.length > 0);
+        })
+        // .filter((prescriptionData) => prescriptionData.prescription.length > 0);
         // let resStatus = bundleStructure.setResponse(resourceUrlData, responseData);
         res.status(200).json({
             status: 1,

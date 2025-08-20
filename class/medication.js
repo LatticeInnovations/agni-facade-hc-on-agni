@@ -98,12 +98,12 @@ class Medication {
             if(this.fhirResource.ingredient[0].strength) {
                 this.medicineObj.medUnit = this.fhirResource.ingredient[0].strength.numerator.code;
                 this.medicineObj.medNumeratorVal = this.fhirResource.ingredient[0].strength.numerator.value;
-                this.medicineObj.strength = this.fhirResource.ingredient.map(e => {
-                   const medName = e.itemCodeableConcept.coding[0].display;
-                   const unitMeasureValue = e.strength.numerator.value;
-                   const medMeasureCode = e.strength.numerator.code;
-                   return {medName, unitMeasureValue, medMeasureCode}
-                })
+                // this.medicineObj.strength = this.fhirResource.ingredient.map(e => {
+                //    const medName = e.itemCodeableConcept.coding[0].display;
+                //    const unitMeasureValue = e.strength.numerator.value;
+                //    const medMeasureCode = e.strength.numerator.code;
+                //    return {medName, unitMeasureValue, medMeasureCode}
+                // })
             }
         }
     }
@@ -122,7 +122,8 @@ class Medication {
         this.getCode();
         this.getIsOTC();
         this.getDoseForm(); 
-        this.getStatus();     
+        this.getStatus();  
+        this.getIngredientData();   
     }
 
     setPatchData() {
