@@ -78,6 +78,7 @@ const setDefaultAssessmentResponse = (resType, reqMethod, responseData) => {
     data.fhirId = getFhirId(element, reqMethod);
     if(element.response.status === "200 OK" && element.resource.identifier) {
       const identifierUuid = Array.isArray(element.resource.identifier)? element.resource.identifier[0].value : element.resource.identifier.value;
+      if(identifierUuid !== element.resource.uuid)
         data.err = "Duplicate record exists.";
     }
     response.push(data);
