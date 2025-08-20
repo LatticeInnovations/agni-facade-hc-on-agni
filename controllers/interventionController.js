@@ -40,11 +40,10 @@ let saveInterventionData = async function (req, res) {
                 if (!baseEncounterId) return;    
                 const existingResponse = await fetchResource("ServiceRequest", {category: "409073007", encounter: baseEncounterId, _total: "accurate"}, token);
                 interventionData.activityList = interventionData.interventions.map(e => "ActivityDefinition/" + e)
-
-                    const interventionResponseResource = buildFHIRResource(ServiceRequest, {...interventionData, categoryCode: "409073007", categoryDisplay: "Interventions" ,encounterId: baseEncounterId, practitionerId: req.decoded.userId})
-                    interventionResponseResource.uuid = reqUuid
-                    const interventionResponseBundle =await  bundleStructure.setBundlePost(interventionResponseResource, interventionResponseResource.identifier, interventionData.uuid, "POST", "identifier")
-                    resourceResult.push(interventionResponseBundle)
+                const interventionResponseResource = buildFHIRResource(ServiceRequest, {...interventionData, categoryCode: "409073007", categoryDisplay: "Interventions" ,encounterId: baseEncounterId, practitionerId: req.decoded.userId})
+                interventionResponseResource.uuid = reqUuid
+                const interventionResponseBundle =await  bundleStructure.setBundlePost(interventionResponseResource, interventionResponseResource.identifier, interventionData.uuid, "POST", "identifier")
+                resourceResult.push(interventionResponseBundle)
         }             
            
             let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
@@ -92,10 +91,11 @@ let updateInterventionData = async function (req, res) {
                 const baseEncounterId = encounterData?.entry?.[0]?.resource?.id;
                 if (!baseEncounterId) return;    
                 const existingResponse = await fetchResource("ServiceRequest", {category: "409073007", encounter: baseEncounterId, _total: "accurate"}, token);
+                console.log("existingResponse: ", existingResponse)
                 interventionData.activityList = interventionData.interventions.map(e => "ActivityDefinition/" + e)
                     interventionData.uuid = existingResponse.entry[0].resource.identifier[0].value;
                     const interventionResponseResource = buildFHIRResource(ServiceRequest, {...interventionData, categoryCode: "409073007", categoryDisplay: "interventions" ,encounterId: baseEncounterId, practitionerId: req.decoded.userId})
-                    interventionResponseResource.uuid = reqUuid
+                    interventionResponseResource.uuid = reqUuid;
                     const interventionResponseBundle = await bundleStructure.setBundlePut(interventionResponseResource, null, existingResponse.entry[0].resource.id, "PUT", "identifier")
                     resourceResult.push(interventionResponseBundle) 
         }             
@@ -160,7 +160,7 @@ let getInterventionData = async function (req, res) {
             const responseObj = getTransformedResult(ServiceRequest, interventionResponse.resource);
             const primaryEncounter = mainEncounters.find((e) => e.id === interventionResponse.resource.encounter.reference.split("/")[1]);
             responseObj.practitionerName = getPractitionerName(responseObj.practitionerId, practitionerList.entry);
-            responseObj.interventions = responseObj.activityList
+            responseObj.interventions = responseObj?.activityList || []
             delete responseObj["activityList"]
             responseObj.appointmentId = primaryEncounter?.appointment?.[0]?.reference?.split("/")[1] || null;
             responseObj.appointmentUuid = primaryEncounter?.identifier?.[0].value
