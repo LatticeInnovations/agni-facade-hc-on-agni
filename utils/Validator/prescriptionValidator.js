@@ -21,7 +21,7 @@ const prescriptionBlockSchema = Joi.object({
   generatedOn: Joi.string().isoDate().required(), // Accepts ISO timestamp with timezone
   appUpdatedOn: Joi.string().isoDate().required(),
   prescriptionId: Joi.string().uuid().required(),
-  prescription: Joi.array().min(1).items(prescriptionItemSchema).required()
+  prescription: Joi.array().min(0).items(prescriptionItemSchema).required()
 });
 
 // Full array schema
@@ -43,7 +43,7 @@ const prescriptionRecordSchema = Joi.object({
   patientId: Joi.string().required(),
   generatedOn: Joi.string().isoDate().required(),
   prescriptionId: Joi.string().uuid().required(),
-  prescriptionFiles: Joi.array().items(prescriptionFileSchema).min(1).required()
+  prescriptionFiles: Joi.array().items(prescriptionFileSchema).min(0).required()
 });
 
 const prescriptionUpdateRecordSchema =  Joi.object({
@@ -52,7 +52,7 @@ const prescriptionUpdateRecordSchema =  Joi.object({
   generatedOn: Joi.string().isoDate().required(), // Accepts ISO timestamp with timezone
   appUpdatedOn: Joi.string().isoDate().required(),
   prescriptionFhirId: Joi.string().optional(),
-  prescription: Joi.array().min(1).items(prescriptionItemSchema).required()
+  prescription: Joi.array().min(0).items(prescriptionItemSchema).required()
 });
 
 const prescriptionUpdateSchema = Joi.array().min(1).items(prescriptionUpdateRecordSchema);
