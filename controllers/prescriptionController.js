@@ -87,7 +87,7 @@ let savePrescriptionData = async function (req, res) {
         const validatedBody = validateRequest(req.body, prescriptionArraySchema, res);
         if (!validatedBody) return;
         req.queueMeta = {
-            data: req.data,
+            data: req.body,
             entity: "prescription",
             requestType: "post",
             apiName: "save-prescription",
@@ -141,8 +141,10 @@ const updateExistingPrescription = async function (req, res) {
     try {
         const validatedBody = validateRequest(req.body, prescriptionUpdateSchema, res);
         if (!validatedBody) return;
+        console.log(req.body, req.data)
+        req.data = req.body.map(e => e.fhirId = e.prescriptionFhirId)
         req.queueMeta = {
-            data: req.data,
+            data: req.body,
             entity: "prescription",
             requestType: "put",
             apiName: "update-prescription",
