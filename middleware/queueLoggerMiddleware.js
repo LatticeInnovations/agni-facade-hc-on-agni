@@ -14,7 +14,9 @@ const queues = {
   "riskFactor": "AGNI_TO_HEARTCARE_MAIN",
   "tobaccoCessation": "AGNI_TO_HEARTCARE_MAIN",
   "diagnosis": "AGNI_TO_HEARTCARE_MAIN",
-  "prescription": "AGNI_TO_HEARTCARE_MAIN"
+  "prescription": "AGNI_TO_HEARTCARE_MAIN",
+  "intervention": "AGNI_TO_HEARTCARE_MAIN",
+  "examination": "AGNI_TO_HEARTCARE_MAIN"
 };
 
 // Maps entity name to the key that should be used as `fhirId`
