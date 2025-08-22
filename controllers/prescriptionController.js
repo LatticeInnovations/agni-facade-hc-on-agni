@@ -161,7 +161,7 @@ const updateExistingPrescription = async function (req, res) {
                     const prescriptionEncounter =  await fetchResource("Encounter", {  "part-of": appointmentEncounter.entry[0].resource.id, type: "prescription-encounter-form", _total: "accurate"}, token);
 
                     // Create encounter bundle
-                    return await updatePrescription(prescriptionEncounter.entry[0].resource, patPres, token, req.decoded)
+                    return await updateMedRequest(prescriptionEncounter.entry[0].resource, patPres, token, req.decoded)
                  
 
                 } catch (error) {
@@ -196,7 +196,7 @@ const updateExistingPrescription = async function (req, res) {
     }
 }
 
-const updatePrescription = async (prescriptionEncounter, patPres, token, decoded) => {
+const updateMedRequest = async (prescriptionEncounter, patPres, token, decoded) => {
     // update section 
     prescriptionEncounter.period = {
         "start": patPres.generatedOn,
@@ -229,7 +229,7 @@ const updatePrescription = async (prescriptionEncounter, patPres, token, decoded
                 return createMedicationRequestBundle(prescription, patPres, prescriptionEncounter, "post")
             })
         );
-        console.log("added: ", added)
+        console.log("existingMedRequest: ", existingMedRequest)
         
         // Removed → in previousMedIds but not in reqMedIds
         const removed = existingMedRequest.filter(item => !reqMedIds.has(item.medicationReference.reference.split("/")[1]));
@@ -347,13 +347,14 @@ const getPrescriptionData = async function (req, res) {
             "_sort": req?.query?._sort || null
         };       
         const token = req.accessToken;
-        let resourceUrlData = { link: config.baseUrl + "Encounter", reqQuery: queryParams, allowNesting: 0, specialOffset: 0 }
+        // let resourceUrlData = { link: config.baseUrl + "Encounter", reqQuery: queryParams, allowNesting: 0, specialOffset: 0 }
                 
         const responseData = await fetchResource("Encounter", queryParams, token);
         if (!responseData.entry || responseData.total === 0) {
             return res.status(200).json({ status: 1, message: "Data fetched", total: 0, data: [] });
         }
         const prescriptionFormEncounterIds = [...new Set(responseData.entry.map((e) => e.resource.id))];
+        console.log("prescriptionFormEncounterIds: ", prescriptionFormEncounterIds)
         //  Fetch medication requests from prescription encounters
         const medicationRequestResources = await fetchResource("MedicationRequest", {_count:3000, encounter: prescriptionFormEncounterIds.join(",")}, token);
         const prescriptionFormEncounters = responseData.entry;
