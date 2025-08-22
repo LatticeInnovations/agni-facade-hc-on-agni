@@ -10,7 +10,7 @@ const prescriptionItemSchema = Joi.object({
   timing: Joi.string().required(),
   duration: Joi.number().required(),
   qtyPrescribed: Joi.number().required(),
-  note: Joi.string().allow(null).optional(),
+  note: Joi.string().allow(null, "").optional(),
   brandName: Joi.string().allow(null).optional()
 });
 

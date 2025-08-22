@@ -1,7 +1,7 @@
 // utils/limiter.js
 let active = 0;
 const queue = [];
-const MAX_CONCURRENT = 20; // only 10 requests at a time
+const MAX_CONCURRENT = 20; // only 20 requests at a time
 
 async function runWithLimit(fn) {
   if (active >= MAX_CONCURRENT) {
