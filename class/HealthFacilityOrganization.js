@@ -75,45 +75,45 @@ class FacilityOrganization extends Organization {
   }
 
    getIdentifier() {
-          this.locationObj.code = this.fhirResource.identifier?.[0]?.value
-          this.locationObj.heartcareId = this.fhirResource.identifier?.[1]?.value
+        this.orgObj.healthFacilityId = this.fhirResource.id;
+          this.orgObj.code = this.fhirResource.identifier?.[0]?.value
+          this.orgObj.heartcareId = this.fhirResource.identifier?.[1]?.value
       }
   
       getOrgName() {
-          if(this.locationObj.name){
-              this.locationObj.name = this.fhirResource.name
-          }
+        console.log(this.fhirResource)
+        this.orgObj.name = this.fhirResource.name;
       }
   
       getTypeAndDescription() {
           if(this.fhirResource.description) {
-              this.locationObj.levelType = this.fhirResource.description
+              this.orgObj.levelType = this.fhirResource.description
           }
       }
   
       
       getOrganizationReference() {
-          this.locationObj.organization = this.fhirResource.managingOrganization.reference
+          this.orgObj.organization = this.fhirResource.managingOrganization.reference
       }
   
   
   
      getStatus() {
-      this.locationObj.status = this.fhirResource.status;
+      this.orgObj.status = this.fhirResource.status;
      }
   
      getPopulation () {
       const data = this.fhirResource.extension.find(e => e.url === urlList.adminDivisionPopulationUrl)
-      this.locationObj.population = data?.[0]?.valueInteger || null
+      this.orgObj.population = data?.[0]?.valueInteger || null
      }
 
      getLocation() {
         const data = this.fhirResource.extension.find(e => e.url === urlList.locationReferenceUrl)
-      this.locationObj.precedingLevelId = data?.[0]?.valueReference?.reference.split("/")[1] || null
+      this.orgObj.precedingLevelId = data?.[0]?.valueReference?.reference.split("/")[1] || null
      }
   
      getAliasName() {
-      this.locationObj.secondaryName = this.fhirResource?.alias?.[0] || null
+      this.orgObj.secondaryName = this.fhirResource?.alias?.[0] || null
      }
     
      getJsonToFhirTranslator() {
@@ -131,10 +131,18 @@ class FacilityOrganization extends Organization {
           this.getOrgName();
           this.getIdentifier();
           this.getTypeAndDescription();
-          this.getPopulation();
-          this.getAliasName();
-          this.getStatus();
-          this.getLocation();
+          // this.getPopulation();
+          // this.getAliasName();
+          // this.getStatus();
+          // this.getLocation();
+      }
+
+      getSimplifiedOutput() {
+        return this.orgObj
+      }
+    
+      getFHIRResource() {
+        return this.fhirResource
       }
   
   
