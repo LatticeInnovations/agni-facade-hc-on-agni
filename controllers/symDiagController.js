@@ -8,7 +8,6 @@ const responseService = require("../services/responseService");
 const { v4: uuidv4 } = require('uuid');
 let config = require("../config/nodeConfig");
 const diagnosisList = require("../utils/diagnosisList.json").concept;
-const symptomList = require("../utils/symptomsList.json").compose.include[0].concept;
 const {buildFHIRResource, fetchResource, handleError, getTransformedResult} = require("../services/helperFunctions");
 const { symDiagSaveArraySchema, symDiagPatchArraySchema } = require("../utils/Validator/symDxValidator");
 const {validateRequest} = require("../utils/validateRequest");
