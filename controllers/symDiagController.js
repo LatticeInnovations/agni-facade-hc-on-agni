@@ -36,8 +36,8 @@ const populateDiagnosisMap = (diagnosisList) => {
     });
 }
 
-populateSymptomMap(symptomList);
-populateDiagnosisMap(diagnosisList);
+// populateSymptomMap(symptomList);
+ populateDiagnosisMap(diagnosisList);
 
 const getSymptomsDiagnosisList = async function (req, res) {
     try {

@@ -64,11 +64,12 @@ class Condition {
 
 
     setDiagnosis() {
+        const diagData = global.diagnosisMap.get(this.conditionObj.diagnosis) || "";
         let diagnosis_list = [];
         diagnosis_list.push({
             "system": "https://hl7.org/fhir/sid/icd-10",
             "code": this.conditionObj.diagnosis,
-            "display": global.diagnosisMap.get(this.conditionObj.diagnosis) || ""
+            "display": diagData
         });
         this.fhirResource.code = {
             "coding": diagnosis_list
