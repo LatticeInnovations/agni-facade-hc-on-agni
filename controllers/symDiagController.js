@@ -141,7 +141,11 @@ const saveSymptomDiagnosisData = async function (req, res) {
                 return []
             }
             const mainEncounters = getMainEncounters.entry.map(e => e.resource)
-            for(let symDiagData of req.body) {
+            for(let diagData of req.body) {
+                let symDiagData = {
+                    ...diagData,
+                    diagnosis: [...(diagData.diagnosis || [])]
+                  };
                 let mainEncounter = mainEncounters.filter(e => e.appointment[0]?.reference?.split('/')[1] == symDiagData.appointmentId)
                 console.log("Symptom and Diagnosis POST");
                 mainEncounter = mainEncounter[0]
