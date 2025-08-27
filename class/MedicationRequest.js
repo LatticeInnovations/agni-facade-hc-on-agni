@@ -141,7 +141,7 @@ getId() {
                     {
                         "doseQuantity":{
                             "value":this.medReqObj.qtyPerDose,
-                            "unit":this.medReqObj.doseForm,
+                            "unit":this.medReqObj.doseForm || "Tablet",
                             "system":config.sctCodeUr,
                             "code": doseFormList[this.medReqObj.doseForm]
                          }

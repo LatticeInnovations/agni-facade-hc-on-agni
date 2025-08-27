@@ -64,7 +64,7 @@ class ServiceRequest {
    }
 
    getInitiatesCanonical() {
-    this.requestObj.activityList = this.fhirResource?.instantiatesCanonical?.map(element => element.split("/")[1]) ?? null
+    this.requestObj.activityList = this.fhirResource?.instantiatesCanonical?.map(element => element.split("/")[1]) ?? []
    }
 
     getId() {
