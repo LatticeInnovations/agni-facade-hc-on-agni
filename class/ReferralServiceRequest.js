@@ -58,8 +58,12 @@ class ReferralServiceRequest {
    }
 
    setNote() {
-    this.fhirResource.note = this.requestObj.note;
+    this.fhirResource.note = [{
+        "text": this.requestObj.note
+    }];
    }
+
+
    setIdentifier() {
     this.fhirResource.identifier = [
         {
@@ -94,7 +98,7 @@ class ReferralServiceRequest {
    }
 
    getNote() {
-    this.requestObj.note = this.fhirResource.note;
+    this.requestObj.note = this.fhirResource?.note?.[0]?.text || null;
    }
 
     getJsonToFhirTranslator() {
