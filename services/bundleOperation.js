@@ -102,7 +102,12 @@ let searchData = async function (link, reqQuery) {
     const urlVal = (new URL(link));
     if (schemaList.includes(urlVal.protocol) && domainsList.includes(urlVal.hostname)) {
         try {
-            let responseData = await axios.get(urlVal, { params: reqQuery });
+            const headers = {
+                'Accept': 'application/fhir+json',
+                'Content-Type': 'application/json'
+            }
+            console.log("check the request param in search: ", reqQuery, headers)
+            let responseData = await axios.get(urlVal, { params: reqQuery, headers: headers });
             return responseData;
         } catch (e) {
             let eData = { status: 0, code: "ERR", e: e, statusCode: 500 }
@@ -135,7 +140,7 @@ let setResponse = function(resourceUrlData, responseData) {
             
         }
         else {      
-            // console.log("response data: ", responseData.data)
+            
              if(responseData.link) {
                 let nextIndex = responseData.link.findIndex(e => e.relation == "next");
                 if(nextIndex != -1) {
@@ -180,6 +185,19 @@ let mapBundleService = function(reqBundleData, responseBundleData) {
 
     return  responseBundleData.map((data, i) => Object.assign({}, data, reqBundleData[i]));
  }
- 
 
-module.exports = {setBundlePatch, setBundlePost, setBundleDelete, searchData, setBundlePut, getBundleJSON, mapBundleService, setResponse};
+ let mapAssessmentBundleService = function(reqBundleData, responseBundleData) {
+    if (!Array.isArray(reqBundleData) || !Array.isArray(responseBundleData)) {
+        return []; // Return an empty array if inputs are undefined or not arrays
+    }
+
+    return  responseBundleData.map((data, i) => {       
+        const responseData =  Object.assign({}, data, reqBundleData[i])        
+        const uuidVal = responseData.resource?.uuid || null;
+        responseData.fullUrl = "urn:uuid:" + uuidVal || null;
+        
+        return responseData;
+    });
+ }
+
+module.exports = {setBundlePatch, setBundlePost, setBundleDelete, searchData, setBundlePut, getBundleJSON, mapBundleService, setResponse, mapAssessmentBundleService};

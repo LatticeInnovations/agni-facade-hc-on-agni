@@ -85,7 +85,7 @@ const fetchExistingMainEncounters = async (prescriptionIds, token) => {
 
   const existingMainEncounters = await fetchResource("Encounter", mainEncounterQuery,
     token);
-  if (existingMainEncounters.total > 0) {
+  if (existingMainEncounters.total > 0 && existingMainEncounters.entry) {
       return await Promise.all(
           existingMainEncounters.entry.map(async (encounter) => {
               return await bundleStructure.setBundlePost(  encounter.resource, encounter.resource.identifier, encounter.resource.id, "PUT", "identifier");
@@ -200,7 +200,6 @@ const getMainEncountersForPrescription = async function (reqInput, token, prescr
 
   const getMedicationRequestAndMedication = async function(medDispResources, token) {
     try {
-      console.log("medDispResources: ", medDispResources)
       // Get medication Request ids and medicationIds to further fetch the data from medication details
       let {medReqIds, medicationIds} = medDispResources.reduce((acc, element) => {
         if(element.resource.authorizingPrescription){
@@ -279,7 +278,6 @@ const getMainEncountersForPrescription = async function (reqInput, token, prescr
       bundleResources.push(subEncounterResInBundle)
       //  create medical dispense record
        // Add the remaining unmatched items from the lookup
-       console.log("$$$$$$$$$$$$$$$$$$: ", reqInput)
        const medDispenseData = reqInput.medicineDispensedList.map((medDispense) => {
         medDispense.date  =  reqInput.generatedOn,
         medDispense.subEncounterId = reqInput.dispenseId,

@@ -3,6 +3,8 @@ let {sendInvalidDataError} = require("../utils/responseStatus");
 const config = require("../config/nodeConfig");
 let { validationResult } = require('express-validator');
 const bundleStructure = require("../services/bundleOperation");
+const schemaList = config.schemaList;
+const domainsList = config.domainsList;
 
 const getTransformedResult = (resourceClass, fhirResource) => {
     try {
@@ -18,7 +20,6 @@ const getTransformedResult = (resourceClass, fhirResource) => {
 const buildFHIRResource = (resourceClass, resourceObj) => {
     try {
 
-        console.log(this.resourceObj)
         const { optionalParam, ...rest } = resourceObj;
         const resourceInstance = new resourceClass(rest, {}, optionalParam);
         resourceInstance.getJsonToFhirTranslator();
@@ -41,9 +42,14 @@ const patchFHIRResource = (resourceClass, resourceObj, fetchedResourceData) => {
 }
 
 
-const postFHIRResource = async (resourceData, endpoint) => {
+const postFHIRResource = async (resourceData, endpoint, token) => {
     try {
-        const response = await axios.post(config.baseUrl + endpoint, resourceData);
+        const response = await axios.post(config.baseUrl + endpoint, resourceData, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/fhir+json'
+            }
+        });
         return response.data.id || response.data;
     }   catch (error) {
         console.error(`Error creating resource at ${endpoint}:`, error);
@@ -54,8 +60,7 @@ const postFHIRResource = async (resourceData, endpoint) => {
 
 const buildAndPost = async (resourceClass, resource, endpoint) => {
     try {
-        const resourceData = buildFHIRResource(resourceClass, resource)
-        console.log(resource, "--------resourceData: ", resourceData)
+        const resourceData = buildFHIRResource(resourceClass, resource);
         const data = postFHIRResource(resourceData, endpoint)
         return data;
     }
@@ -87,10 +92,40 @@ const handleError = (res, error, statusCode=500, message = "Unable to process. P
   };
 
 
-const fetchResource = async (resourceType, queryParams) => {
+const {runWithLimit} = require("../utils/limiter");
+
+const fetchResource = async (resourceType, queryParams, token) => {
     try {
-        const response = await bundleStructure.searchData(config.baseUrl + resourceType, queryParams);
-        return response.data || {}
+        if (!token || typeof token !== 'string' || token.trim() === '') {
+            return Promise.reject({
+                status: 0,
+                code: "UNAUTHORIZED",
+                e: "Missing or invalid authorization token",
+                statusCode: 401
+            });
+        }
+            const urlVal = (new URL(config.baseUrl + resourceType));
+            if (schemaList.includes(urlVal.protocol) && domainsList.includes(urlVal.hostname)) {
+                try {
+                    const headers = {
+                        'Accept': 'application/fhir+json',
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                    // const responseData = await runWithLimit(() =>
+                    //     axios.get(urlVal.toString(), { params: queryParams, headers })
+                    //   );
+                    let responseData = await axios.get(urlVal, { params: queryParams, headers: headers });
+                    return responseData.data || {};
+                } catch (e) {
+                    let eData = { status: 0, code: "ERR", e: e, statusCode: 500 }
+                    return Promise.reject(eData);
+                }
+            }
+            else {
+                let error = { status: 0, code: "ERR", e: "INVALID_URL", statusCode: 500 }
+                return Promise.reject(error)
+            }
     } catch (error) {
         console.error(`Error fetching ${resourceType}:`, error);
         throw error;

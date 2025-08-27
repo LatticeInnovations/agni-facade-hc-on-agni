@@ -19,6 +19,7 @@ let saveMedicalRecord = async function (req, res) {
         const validatedBody = validateRequest(req.body, medicalReportArraySchema, res);
         if (!validatedBody) return;
         let resourceResult = [];
+        const token = req.accessToken;
         for(let medicalRecord of req.body){ 
             const encounterUuid = uuidv4();
             const encounterBundle = await createEncounterResource(Encounter, medicalRecord, {code: "medical-report-encounter", display:  "medical Report encounter"}, encounterUuid, req)
@@ -36,7 +37,12 @@ let saveMedicalRecord = async function (req, res) {
         }
         let bundleData = await bundleStructure.getBundleJSON({resourceResult});
         // return  res.status(201).json({ status: 1, message: "Medical record data saved.", data: bundleData.bundle }) 
-        let response = await axios.post(config.baseUrl, bundleData.bundle); 
+        let response = await axios.post(config.baseUrl, bundleData.bundle, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/fhir+json'
+            }
+        }); 
         console.info("get bundle json response: ", response.status)  
         if (response.status == 200 || response.status == 201) {
             let responseData = setMedicalRecordResponse(bundleData.bundle.entry, response.data.entry, "post"); 
@@ -63,22 +69,22 @@ let getMedicalRecord = async function (req, res) {
             "_count": req.query.count,
             "_offset": req.query.offset
         }
+        const token = req.accessToken;
         let resourceResult = []
-        let responseData = await fetchResource("Encounter", queryParams);
+        let responseData = await fetchResource("Encounter", queryParams, token);
         let resStatus = 1;
         if( !responseData.entry || responseData.total == 0) {
                 return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })
         }
         const encounterList = responseData.entry.map(e=> e.resource);
-        console.log("encounterList: ", encounterList)
         const labReportEncounterIds = encounterList.map(e => e.id);
         let mainEncounterIds = new Set(encounterList.map((e) => e.partOf.reference.split('/')[1]));
         mainEncounterIds = [...mainEncounterIds.values()].join(',');
 
-        let mainEncounterList = await fetchResource("Encounter", { _id: mainEncounterIds, _count: 5000});
+        let mainEncounterList = await fetchResource("Encounter", { _id: mainEncounterIds, _count: 5000}, token);
         mainEncounterList = mainEncounterList?.entry?.map((e) => e?.resource) || [];
 
-        const documentManifestResources = await fetchResource("DocumentManifest", {"related-ref": labReportEncounterIds.join(","), _count:1000})
+        const documentManifestResources = await fetchResource("DocumentManifest", {"related-ref": labReportEncounterIds.join(","), _count:1000}, token)
 
         for(let encounter of encounterList){
             let mainEncounter = mainEncounterList.find((e) => e.id == encounter.partOf.reference.split('/')[1]);
@@ -122,12 +128,13 @@ const deleteDocumentManifestResources = async (documentManifestData, documentRef
 
 const deleteMedicalRecord = async (req, res) => {
     try {
+        const token = req.accessToken;
         let documentManifestIds = req.body.join(',');
-        let documentManifestData = await fetchResource("DocumentManifest", { _id: documentManifestIds, _count: 5000});
+        let documentManifestData = await fetchResource("DocumentManifest", { _id: documentManifestIds, _count: 5000}, token);
         documentManifestData = documentManifestData?.entry?.map((e) => e?.resource) || [];
         let encounterIds = documentManifestData.map((e) => e?.related?.[0]?.ref?.reference.split('/')[1]);
         encounterIds = encounterIds.join(',');
-        let encounterData = await fetchResource("Encounter", { _id: encounterIds, _count: 5000});
+        let encounterData = await fetchResource("Encounter", { _id: encounterIds, _count: 5000}, token);
         encounterData = encounterData?.entry?.map((e) => e?.resource) || [];
         const deleteEncList = await deleteEncounter(Encounter, encounterData);
         let documentReferenceIds = [];
@@ -139,12 +146,17 @@ const deleteMedicalRecord = async (req, res) => {
             });
         });
         documentReferenceIds = documentReferenceIds.join(',');
-        let documentReferenceData = await fetchResource("DocumentReference", { _id: documentReferenceIds, _count: 5000});
+        let documentReferenceData = await fetchResource("DocumentReference", { _id: documentReferenceIds, _count: 5000}, token);
         documentReferenceData = documentReferenceData?.entry?.map((e) => e?.resource) || [];
         const deleteDocManifestList = await deleteDocumentManifestResources(documentManifestData, documentReferenceData);
         const resourceResult = [...deleteEncList, ...deleteDocManifestList]
          let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
-        let response = await axios.post(config.baseUrl, bundleData.bundle); 
+        let response = await axios.post(config.baseUrl, bundleData.bundle, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/fhir+json'
+            }
+        }); 
         console.info("get bundle json response: ", response)  
         if (response.status == 200) {
             let responseData = setDeleteMedicalRecordResponse(bundleData.bundle.entry, response.data.entry, "delete");        

@@ -3,7 +3,6 @@ let PractitionerRole = require("../class/practitionerRole");
 let Organization = require("../class/Organization");
 let Practitioner = require("../class/practitioner");
 let Location = require("../class/location");
-let model = require('../models/index');
 const config = require("../config/nodeConfig");
 let jwt = require("jsonwebtoken");
 let secretKey = require('../config/nodeConfig').jwtSecretKey;
@@ -22,14 +21,14 @@ let getUserProfile = async function (req, res) {
                 "_include": "*",
                 "_total": "accurate"
         }
-        let responseData = await fetchResource(resourceType, queryParams)
+        const token = req.accessToken;
+        let responseData = await fetchResource(resourceType, queryParams, token)
         let practitionerData = {};
         if( !responseData.entry || responseData.total == 0) {
             return res.status(200).json({ status: 1, message: "Profile detail fetched", total: 0, data: responseData})
         }
         else {
-            practitionerData = getPractitioner(responseData)
-            console.log(practitionerData)
+            practitionerData = getPractitioner(responseData);
             practitionerData.userName = practitionerData.firstName + " " + (practitionerData.middleName? practitionerData.middleName + " " : "") + (practitionerData?.lastName || '');
             console.info(practitionerData)
             res.status(200).json({ status: 1, message: "Profile detail fetched", total: 1, data: practitionerData  })
@@ -47,7 +46,7 @@ let getUserProfile = async function (req, res) {
         return res.status(500).json({
             status: 0,
             message: "Unable to process. Please try again.",
-            error: e
+            err: e
         })
     }
 
@@ -56,10 +55,8 @@ let getUserProfile = async function (req, res) {
 function getPractitioner(responseData) {
     try {
             let practitioner = responseData.entry.find(e => e.resource.resourceType == "Practitioner");
-            let practitionerData = getTransformedResult(Practitioner, practitioner.resource)
-            console.log("practitionerData: ", practitionerData)
-            let role = getPractitionerRole(responseData)
-            console.log("role check:", role)
+            let practitionerData = getTransformedResult(Practitioner, practitioner.resource);
+            let role = getPractitionerRole(responseData);
             const data = {
                 "userId": practitionerData.fhirId,
                 "firstName": practitionerData.firstName,
@@ -86,12 +83,10 @@ function getPractitionerRole(responseData) {
                 let roleObj = getTransformedResult(PractitionerRole, roleArray[i].resource)
                 
                 let orgResource = responseData.entry.find(e => e.resource.resourceType == "Organization" && e.fullUrl.includes(roleArray[i].resource.organization.reference));
-                let orgData = getTransformedResult(Organization, orgResource.resource)
-                console.log("orgData: ", orgData)
+                let orgData = getTransformedResult(Organization, orgResource.resource);
                 roleObj.orgId = orgData.orgId;
                 roleObj.orgName = orgData.orgName,
                 roleObj.orgType = orgData.orgType;
-                console.log("roleObj: ", roleObj)
                 role.push(roleObj);
             }
             return role;
@@ -102,46 +97,7 @@ function getPractitionerRole(responseData) {
     }
 }
 
-const getTimestamp = async (req, res) => {
-    try{
-        let token = req.token;
-        let timestamp = await model.userTimeMap.findAll({ attributes: ['uuid', 'timestamp'], where : { orgId : token.orgId }});
-        res.json({ status: 1, message: "timestamp fetched", data : timestamp });
-    }
-    catch(e){
-        return res.status(500).json({
-            status: 0,
-            message: "Unable to process. Please try again.",
-            error: e
-        });
-    }
-} 
 
-const updateTimestamp = async (req, res) => {
-    try{
-        let token = req.token;
-        let data = req.body;
-        let response = resourceValid(data);
-        if (response.error) {
-            console.error(response.error.details)
-            let errData = { status: 0, response: { data: response.error.details }, message: "Invalid input" }
-            return res.status(422).json(errData);
-        }
-        data = data.map((d) => {
-            d.orgId = token.orgId;
-            return d;
-        });      
-        await model.userTimeMap.bulkCreate(data, { updateOnDuplicate: [ 'timestamp', 'orgId' ] });
-        res.json({ status: 1, message: "timestamp updated", data });
-    }
-    catch(e){
-        return res.status(500).json({
-            status: 0,
-            message: "Unable to process. Please try again.",
-            error: e
-        });
-    }
-}
 
 const deleteUserData = async (req, res) => {
     try{
@@ -154,8 +110,7 @@ const deleteUserData = async (req, res) => {
         else if((type != "delete") || (req.decoded.userId != userId)){
             return res.status(422).json({ status: 0, message: "Invalid token" });
         }
-        const deActivateRes = await deactivateUserAccount(userId)
-        console.log("deActivateRes: ", deActivateRes)
+        const deActivateRes = await deactivateUserAccount(userId);
         const message = 'Your account has been successfully deleted.'            
         if (email) {
             let mailData = {
@@ -175,7 +130,7 @@ const deleteUserData = async (req, res) => {
         return res.status(500).json({
             status: 0,
             message: "Unable to process. Please try again.",
-            error: e
+            err: e
         });
     }
 }
@@ -196,7 +151,6 @@ const deactivateUserAccount = async function(userId) {
             }
         });
 
-        console.log('Practitioner deactivated successfully:', response.data);
         return response;
     }
     catch(e) {
@@ -249,7 +203,6 @@ const createUser = async (req, res) => {
         const userId = await buildAndPost(Practitioner, { firstName, lastName, mobile, email, clinicName }, "Practitioner")
         const practitionerRoleResponse = await buildAndPost(PractitionerRole, {orgId, userId, roleId: "doctor"}, "PractitionerRole")
         const locationResponse = await buildAndPost(Location, {clinicName, position: { "longitude": 28.537, "latitude": 77.383 }, orgId,}, "Location")
-        console.log("practitionerRoleResponse: ", practitionerRoleResponse, " and locationResponse: ", locationResponse)
         
         await db.authentication_detail.create({ user_id: userId });
         const userProfile = {
@@ -270,8 +223,6 @@ const createUser = async (req, res) => {
 
 module.exports = {
     getUserProfile,
-    getTimestamp,
-    updateTimestamp,
     deleteUserData,
     createUser
 }

@@ -2,6 +2,7 @@ let express = require("express");
 let router = express.Router();
 let practitionerRoleController = require("../../controllers/practitionerRoleController")
 
+
  
 /**
  * Get practitioner Role

@@ -4,11 +4,10 @@ router.use(bodyParser.json()); // support json encoded bodies
 router.use(bodyParser.urlencoded({ extended: true }));
 let jwt = require('jsonwebtoken');
 let secretKey = require('../config/nodeConfig').jwtSecretKey;
-
+const roles = require("../utils/role.json")
 //middleware to verify the
 router.use(function (req, res, next) {
     // check header or url parameters or post parameters for token
-    console.log("req.headers: ", req.headers['x-access-token'])
     let tokenData = req.headers['x-access-token'];
 
     // decode token
@@ -27,7 +26,11 @@ router.use(function (req, res, next) {
                 // if everything is good, save to request for use in other routes
                 console.log("passed")
                 req.decoded = decoded;
-                req.token = {"userId": decoded.userId, "orgId": decoded.orgId, "type": decoded?.type || null, "userName": decoded.userName, "encodedToken": token || null };
+                req.decoded.orgId = req.decoded?.orgId || "1";
+                req.accessToken = token;
+                const typeIndex = roles.findIndex(e => e.userTypeId === decoded.user_type_id)
+                req.decoded.userId = req.headers["sync-user-fhir-id"] ? req.headers["sync-user-fhir-id"] : req.decoded?.fhir_id || null;
+                req.token = {"userId": req.decoded.userId, "orgId": req.decoded?.orgId || "1", "type": roles?.[typeIndex]?.display || null || null, "userName": req.decoded.user_id, email: req.decoded.sub, "encodedToken": token || null };
                 next();
             }
         });

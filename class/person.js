@@ -192,6 +192,9 @@ class Person {
         if (!checkEmptyData(this.personObj.active)) {
             this.fhirResource.active = this.personObj.active
         }
+        else {
+            this.fhirResource.active = true
+        }
     }
 
     patchActive() {
@@ -289,7 +292,7 @@ class Person {
         if (!checkEmptyData(this.personObj.mobileNumber)) {
             this.fhirResource.telecom.push({
                 system: "phone",
-                value: this.personObj.mobileNumber,
+                value: this.personObj?.mobileNumber || null,
                 rank: 1
             });
         }
@@ -298,9 +301,10 @@ class Person {
     getPhone() {
         if (this.fhirResource.telecom) {
             let index = this.fhirResource.telecom.findIndex(e => e.system == "phone");
-            if (index > -1) {
-                this.personObj.mobileNumber = this.fhirResource.telecom[index].value
-            }
+            this.personObj.mobileNumber = this.fhirResource?.telecom?.[index]?.value || null
+        }
+        else {
+            this.personObj.mobileNumber = null
         }
     }
 
@@ -317,7 +321,7 @@ class Person {
                 city: this.personObj[addressType].city,
                 district: this.personObj[addressType].district,
                 state: this.personObj[addressType].state,
-                postalCode: this.personObj[addressType].postalCode,
+                postalCode: this.personObj?.[addressType]?.postalCode || null,
                 country: this.personObj[addressType].country
             })
         }
@@ -353,7 +357,7 @@ class Person {
                 city: this.personObj[addressType].value.city,
                 district: this.personObj[addressType].value.district,
                 state: this.personObj[addressType].value.state,
-                postalCode: this.personObj[addressType].value.postalCode,
+                postalCode: this.personObj?.[addressType]?.value?.postalCode || null,
                 country: this.personObj[addressType].value.country
             };
             if(this.personObj[addressType].operation == "remove") {
@@ -385,7 +389,7 @@ class Person {
                     city: this.fhirResource.address[i].city,
                     district: this.fhirResource.address[i].district,
                     state: this.fhirResource.address[i].state,
-                    postalCode: this.fhirResource.address[i].postalCode,
+                    postalCode: this.fhirResource?.address?.[i]?.postalCode || null,
                     country: this.fhirResource.address[i].country
                 }
                 if (this.fhirResource.address[i].line) {
@@ -434,9 +438,12 @@ class Person {
     }
 
     setManagingOrg(){
-        this.fhirResource.managingOrganization = {
-            reference : "Organization/"+this.personObj.orgId
+        if(this.personObj.orgId) {
+            this.fhirResource.managingOrganization = {
+                reference : "Organization/"+this.personObj.orgId
+            }
         }
+
     }
 
     setGeneralPractitioner(){

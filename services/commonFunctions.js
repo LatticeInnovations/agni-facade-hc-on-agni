@@ -1,5 +1,6 @@
 const {buildFHIRResource, fetchResource, getTransformedResult} = require("../services/helperFunctions");
-const Observation = require("../class/VitalCVDObservation");
+const CVDObservation = require("../class/CVDObservation");
+const VitalObservation = require("../class/VitalObservation");
 const bundleStructure = require("../services/bundleOperation");
 const { v4: uuidv4 } = require('uuid');
 
@@ -12,12 +13,23 @@ const BUNDLE_TYPES = {
     IDENTIFIER: "identifier"
 }
 
-const createObservationBundle = async(resourceData, type) => {
+const OBSERVATION_CLASS_MAP = {
+    "CVD": CVDObservation,
+    "Vital": VitalObservation
+}
+
+const createObservationBundle = async(resourceData, type, requestType, observationType) => {
     try {
-        resourceData.module_type = "CVD";
-        const resource = buildFHIRResource(Observation, { ...resourceData, optionalParam: type });
-        resource.id = uuidv4();
-        return await bundleStructure.setBundlePost(resource, null, resource.id, HTTP_METHODS.POST, BUNDLE_TYPES.IDENTIFIER);
+        const ObservationClass = OBSERVATION_CLASS_MAP[observationType];
+        const resource = buildFHIRResource(ObservationClass, { ...resourceData, optionalParam: type });    
+        if(requestType == "post") {
+            resource.id = uuidv4();
+            return await bundleStructure.setBundlePost(resource, null, resource.id, HTTP_METHODS.POST, BUNDLE_TYPES.IDENTIFIER);
+        }            
+        else {
+            resource.id = resourceData.fhirId;
+            return await bundleStructure.setBundlePut(resource, null, resource.id, "PUT", BUNDLE_TYPES.IDENTIFIER);
+        }
     }
     catch (error) {
         console.warn(`CVD '${type}' skipped:`, error.message);
@@ -25,11 +37,19 @@ const createObservationBundle = async(resourceData, type) => {
     }
 }
 
-const createEncounterBundle = async(EncounterClass, encounterData) => {
+const createEncounterBundle = async(EncounterClass, encounterData, requestType) => {
     try {
         const encounter = buildFHIRResource(EncounterClass, encounterData);
-        console.log("encounter data: ", encounter)
-    return await bundleStructure.setBundlePost(encounter, null, encounterData.id, HTTP_METHODS.POST, BUNDLE_TYPES.IDENTIFIER);
+        encounter.appointment = null
+        encounter.uuid = encounterData.reqUuid
+        if(requestType == "post") {
+            return await bundleStructure.setBundlePost(encounter, null, encounterData.uuid, HTTP_METHODS.POST, BUNDLE_TYPES.IDENTIFIER);
+        }            
+        else {
+            encounter.id = encounterData.fhirId;
+            return await bundleStructure.setBundlePut(encounter, null, encounterData.fhirId, HTTP_METHODS.POST, BUNDLE_TYPES.IDENTIFIER);
+        }
+            
     }
     catch (error) {
         console.error(`createEncounterBundle Error:`, error.message);
@@ -52,7 +72,8 @@ const processObservationData = (observationList, observationData, module_type) =
         try {
             // Dynamically transform the observation using the helper function
             observation.module_type = module_type;
-            const transformedObservation = getTransformedResult(Observation, observation);
+            const ObservationClass = OBSERVATION_CLASS_MAP[module_type]
+            const transformedObservation = getTransformedResult(ObservationClass, observation);
             return { ...observationData, ...transformedObservation };
         } catch (error) {
             console.warn(`Error processing observation: ${observation.id}`, error.message);
@@ -98,7 +119,8 @@ const createDocumentFiles = async (ResourceClass, labReport, uuidKey) => {
 };
 
 const createEncounterResource = async (ResourceClass, report, typeData,encounterUuid, req) => {
-    let encounterData = await fetchResource("Encounter", { "appointment": report.appointmentId, _count: 5000 , "_include": "Encounter:appointment" });    
+    const token = req.accessToken;
+    let encounterData = await fetchResource("Encounter", { "appointment": report.appointmentId, _count: 5000 , "_include": "Encounter:appointment" }, token);    
     let encounter = buildFHIRResource(ResourceClass, { 
         id: encounterUuid,
         uuid: encounterUuid,
@@ -133,12 +155,12 @@ const fetchDocumentData = (DocumentReferenceClass, documents) => {
     return result;
 }
 
-const getDocumentReport = async (ResourceClass, DocumentReferenceClass, reportList, reportData) => {
+const getDocumentReport = async (ResourceClass, DocumentReferenceClass, reportList, reportData, token) => {
     reportData.report = []
     for(let report of reportList){
         let transformedData = getTransformedResult(ResourceClass, report);
         if(transformedData.documentIds.length > 0){
-            let documentReferenceResponse = await fetchResource("DocumentReference", { "_id": transformedData.documentIds.join(','), _count: 5000 })
+            let documentReferenceResponse = await fetchResource("DocumentReference", { "_id": transformedData.documentIds.join(','), _count: 5000 }, token)
             const documentReferenceData = documentReferenceResponse.entry;
             transformedData.documents = fetchDocumentData(DocumentReferenceClass, documentReferenceData);
             delete transformedData.documentIds;

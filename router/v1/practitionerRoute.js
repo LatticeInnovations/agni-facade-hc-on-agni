@@ -30,6 +30,8 @@ let practitionerController = require("../../controllers/practitionerController")
 
 router.post("/",  practitionerController.savePractitionerData);
 
+router.put("/",  practitionerController.updatePractitionerData);
+
 /**
  * @typedef resource
  * @property {Array} identifier - resource Identifier

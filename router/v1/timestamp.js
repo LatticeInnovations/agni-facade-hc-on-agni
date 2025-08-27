@@ -1,7 +1,7 @@
 let express = require("express");
 let router = express.Router();
-let userController = require("../../controllers/userController");
-let { check, oneOf, checkIf, body } = require('express-validator');
+let {getTimestamp,
+    updateTimestamp} = require("../../controllers/timestampController");
 
 
 /**
@@ -14,8 +14,8 @@ let { check, oneOf, checkIf, body } = require('express-validator');
  * @returns {Error} 504 - Database connection error
  */
 
-router.get("/", userController.getTimestamp);
+router.get("/", getTimestamp);
 
-router.post("/", userController.updateTimestamp);
+router.post("/", updateTimestamp);
 
 module.exports = router

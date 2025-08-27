@@ -3,7 +3,7 @@ const Joi = require("joi");
 
 // Define schema for a single object
 const patientSchema = Joi.object({
-  id: Joi.string().uuid().required(),
+  id: Joi.string().uuid().optional().allow(null, ""),
   firstName: Joi.string().required(),
   lastName: Joi.string().required(),
   middleName: Joi.string().allow(null, '').optional(),
@@ -16,28 +16,29 @@ const patientSchema = Joi.object({
       use: Joi.string().allow(null).optional()
     })
   ).optional(),
-
+  appUpdatedDate: Joi.string().optional(),
   gender: Joi.string().valid("male", "female", "other").required(),
   active: Joi.boolean().required(),
   birthDate: Joi.string().isoDate().required(), // Ensures YYYY-MM-DD format
 
   permanentAddress: Joi.object({
-    addressLine1: Joi.string().optional(),
-    addressLine2: Joi.string().allow(null).optional(),
+    addressLine1: Joi.string().optional().allow(null, ""),
+    addressLine2: Joi.string().allow(null).optional().allow(null, ""),
     district: Joi.string().optional(),
     city: Joi.string().required(),
     state: Joi.string().required(),
-    postalCode: Joi.string().required(),
+    postalCode: Joi.string().optional().allow(null, ""),
     country: Joi.string().required()
   }).required(),
 
-  mobileNumber: Joi.string().pattern(/^[0-9]{10,15}$/).required(),
+  mobileNumber: Joi.string().pattern(/^[0-9]{5,15}$/).optional().allow(null, ""),
   mothersName: Joi.string().allow(null).required(),
   fathersName: Joi.string().allow(null).optional(),
   spouseName: Joi.string().allow(null).optional(),
   patientDeceasedReasonId: Joi.number().allow(null).optional(),
   patientDeceasedReason: Joi.string().allow(null).optional(),
-  email: Joi.string().email().optional()
+  email: Joi.string().email().optional(),
+  heartcareId: Joi.string().optional().allow(null, "")
 });
 
 // Define allowed operations
@@ -48,17 +49,17 @@ const patchField = (valueSchema) =>
   Joi.object({
     operation: operationEnum,
     value: valueSchema.when("operation", {
-      is: Joi.string().valid("replace"),
+      is: Joi.string().valid("replace", "add"),
       then: Joi.required(),
       otherwise: Joi.forbidden()
     }),
-    "deletedReason": Joi.string().required()
+    "deletedReason": Joi.string().optional()
   });
 
 // Address schema used inside permanentAddress
 const addressSchema = Joi.object({
-  addressLine1: Joi.string().optional(),
-  addressLine2: Joi.string().optional(),
+  addressLine1: Joi.string().optional().allow(null, ""),
+  addressLine2: Joi.string().optional().allow(null, ""),
   district: Joi.string().optional(),
   city: Joi.string(),
   state: Joi.string(),
@@ -68,20 +69,23 @@ const addressSchema = Joi.object({
 
 // Main PATCH schema for Patient
 const patientPatchObject = Joi.object({
-  id: Joi.number().required(),
+  fhirId: Joi.number().required(),
+  id: Joi.string().optional(),
 
   // firstName: patchField(Joi.string()).optional(),
   // middleName: patchField(Joi.string().allow(null, '')).optional(),
   // lastName: patchField(Joi.string()).optional(),
 
   // gender: patchField(Joi.string().valid("male", "female", "other", "unknown")).optional(),
-  active: patchField(Joi.boolean()).required(),
+  
+  active: patchField(Joi.boolean()).optional(),
   // birthDate: patchField(Joi.string().isoDate()).optional(),
 
   // permanentAddress: patchField(addressSchema).optional(),
 
   // email: patchField(Joi.string().email()).optional(),
-  mobileNumber: patchField(Joi.string().pattern(/^[0-9]{10}$/)).optional()
+  mobileNumber: patchField(Joi.string().pattern(/^[0-9]{10}$/)).optional().allow(null, ""),
+  heartcareId: patchField(Joi.string().optional())
 });
 
 // Array of practitioners

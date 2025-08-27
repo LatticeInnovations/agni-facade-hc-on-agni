@@ -6,11 +6,12 @@ const prescriptionItemSchema = Joi.object({
   medReqUuid: Joi.string().uuid().required(),
   qtyPerDose: Joi.number().required(),
   frequency: Joi.number().required(),
-  doseForm: Joi.string().required(),
-  timing: Joi.string().required(),
+  doseForm: Joi.string().optional().allow(null),
+  timing: Joi.string().optional().allow(null),
   duration: Joi.number().required(),
   qtyPrescribed: Joi.number().required(),
-  note: Joi.string().allow(null).optional()
+  note: Joi.string().allow(null, "").optional(),
+  brandName: Joi.string().allow(null).optional()
 });
 
 // Prescription block schema
@@ -18,8 +19,9 @@ const prescriptionBlockSchema = Joi.object({
   appointmentId: Joi.string().required(),
   patientId: Joi.string().required(),
   generatedOn: Joi.string().isoDate().required(), // Accepts ISO timestamp with timezone
+  appUpdatedOn: Joi.string().isoDate().required(),
   prescriptionId: Joi.string().uuid().required(),
-  prescription: Joi.array().min(1).items(prescriptionItemSchema).required()
+  prescription: Joi.array().min(0).items(prescriptionItemSchema).required()
 });
 
 // Full array schema
@@ -41,12 +43,24 @@ const prescriptionRecordSchema = Joi.object({
   patientId: Joi.string().required(),
   generatedOn: Joi.string().isoDate().required(),
   prescriptionId: Joi.string().uuid().required(),
-  prescriptionFiles: Joi.array().items(prescriptionFileSchema).min(1).required()
+  prescriptionFiles: Joi.array().items(prescriptionFileSchema).min(0).required()
 });
+
+const prescriptionUpdateRecordSchema =  Joi.object({
+  appointmentId: Joi.string().required(),
+  patientId: Joi.string().required(),
+  generatedOn: Joi.string().isoDate().required(), // Accepts ISO timestamp with timezone
+  appUpdatedOn: Joi.string().isoDate().required(),
+  prescriptionFhirId: Joi.string().optional(),
+  prescription: Joi.array().min(0).items(prescriptionItemSchema).required()
+});
+
+const prescriptionUpdateSchema = Joi.array().min(1).items(prescriptionUpdateRecordSchema);
+
 
 // Final schema for the array of prescriptions
 const prescriptionFileArraySchema = Joi.array().min(1).items(prescriptionRecordSchema);
 
 
 
-module.exports = {prescriptionArraySchema, prescriptionFileArraySchema, deletePrescriptionSchema}
+module.exports = {prescriptionArraySchema, prescriptionFileArraySchema, deletePrescriptionSchema, prescriptionUpdateSchema}

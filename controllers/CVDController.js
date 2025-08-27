@@ -1,7 +1,7 @@
 const bundleStructure = require("../services/bundleOperation")
 const responseService = require("../services/responseService");
 let config = require("../config/nodeConfig");
-const Observation = require("../class/VitalCVDObservation");
+const Observation = require("../class/CVDObservation");
 const Encounter = require("../class/CVDEncounter");
 let bundleFun = require("../services/bundleOperation");
 let axios = require("axios");
@@ -19,103 +19,140 @@ const {createObservationBundle, createEncounterBundle, getPractitionerName, proc
 
 const CVD_ENCOUNTER_CODE = "cvd-encounter";
 
-const cvdTypes = ["height", "weight",  "bp", "cholesterol", "bmi", "diabetic", "smoker", "risk"];
+const cvdTypes = ["height", "weight",  "bp", "cholesterol", "bmi", "diabetic", "smoker", "heartAttackHistory"];
 
+const fetchMainEncounter = async (cvd, token) => {
+   const mainEncounter =   await fetchResource("Encounter", {
+        appointment: cvd.appointmentId,
+        _count: 5000,
+        _include: "Encounter:appointment",
+    }, token);
 
+    return mainEncounter
+}
 
-
+const fetchCVDEncounter = async (baseEncounterId, token) => {
+   const result =  await fetchResource("Encounter", {  "part-of": baseEncounterId, type: "cvd-encounter", _total: "accurate"}, token);
+   return result;
+}
 
 const saveCVDData = async (req, res) => {
     try {
         const validatedBody = validateRequest(req.body, cvdSaveSchema, res);
         if (!validatedBody) return;
-        const allResourceResults = [];
-        await Promise.all(req.body.map(async (cvd) => {
-                    const resourceResult = [];
-                    // Fetch encounter data
-                    const encounterData = await fetchResource("Encounter", {
-                        appointment: cvd.appointmentId,
-                        _count: 5000,
-                        _include: "Encounter:appointment"
-                    });
-        
-                    // Create encounter bundle
-                    let encounterUuid = cvd.cvdUuid;
-                    const encounterBundle = await createEncounterBundle(Encounter, { 
-                        id: encounterUuid,
-                        encounterId: encounterData.entry[0].resource.id,
-                        patientId: cvd.patientId,
-                        cvdUuid: encounterUuid,
-                        practitionerId: req.decoded.userId,
-                        generatedOn: cvd.createdOn,
-                        orgId: req.decoded.orgId
-                    });
-                    resourceResult.push(encounterBundle);
-                    console.log("encounterBundle: ", encounterBundle)
-                    cvd.encounterId = cvd.cvdUuid;
-                    cvd.practitionerId = req.decoded.userId;
-                    cvd.categoryCode = "CVD";
-                    cvd.categoryDisplay = "CVD risk assessment";
-                    const observationBundles = await Promise.all(                
-                        cvdTypes.map((type) => createObservationBundle(cvd, type))
-                    );
-        
-                    // Filter out null values (skipped cvd types)
-                    resourceResult.push(...observationBundles);        
-                    allResourceResults.push(...resourceResult);
-        
-                }));
-        let bundleData = await bundleStructure.getBundleJSON({resourceResult: allResourceResults, errData: []})  
-        // res.status(201).json({ status: 1, message: "CVD data saved.", data: bundleData })
-        let response = await axios.post(config.baseUrl, bundleData.bundle); 
-        console.info("get bundle json response: ", response.status)  
-        if (response.status == 200 || response.status == 201) {
-            let responseData = setCVDResponse(bundleData.bundle.entry, response.data.entry, "post");        //    
-            res.status(201).json({ status: 1, message: "Practitioner data saved.", data: responseData })
-        }
-        else {
-            return handleError(res, response)
-        }
-    }
-    catch(error) {
-        console.error("setCVDData Error: ", error)
-        return handleError(res, error)
-    }
+        req.queueMeta = {
+            data: req.body,
+            entity: "cvd",
+            requestType: "post",
+            apiName: "save-cvd",
+            tokenData: req.decoded
+          };
+          const token = req.accessToken;
+        console.log("inside cvd")
+        let requestType = "post"
+        const allResourceResults = [], errData = [];
+        await Promise.all(
+            req.body.map(async (cvd) => {
+                const resourceResult = [];
+                const practitionerId = req.decoded.userId;
 
-}
+                const encounterData = await fetchMainEncounter(cvd, token)
+                const baseEncounterId = encounterData?.entry?.[0]?.resource?.id;
+                if (!baseEncounterId) return;
+                const cvdEncounter = await fetchCVDEncounter(baseEncounterId, token)
+                if (cvdEncounter.total > 0 && cvdEncounter.entry) {
+                    console.log("put case")
+                    // Update case (PUT)
+                    await handleExistingCVDEncounter({cvd, cvdEncounter, baseEncounterId, practitionerId, resourceResult, token});
+                } else {
+                    // Create case (POST)
+                    console.log("post case")
+                    const duplicateEncounterId = await checkDuplicateScreening(cvd, baseEncounterId, token);
+                    if (duplicateEncounterId) {
+                        console.log("duplicate screening case case")
+                        errData.push({
+                            status: 0,
+                            "id": cvd.uuid,
+                            "err": "Another appointment exists for the same screening date",
+                            "fhirId": null
+                        });
+                        return;
+                    }
+                    requestType = "put"
+                    await handleNewCVDEncounter({cvd, baseEncounterId, practitionerId, resourceResult, });
+                }
+
+                allResourceResults.push(...resourceResult);
+            })
+        );
+
+        const bundleData = await bundleStructure.getBundleJSON({
+            resourceResult: allResourceResults, errData,
+        });
+
+        // return res.status(201).json({   status: 1,   message: "CVD data saved.",  data: allResourceResults });
+
+        const response = await axios.post(config.baseUrl, bundleData.bundle, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/fhir+json'
+            }
+        });
+        if ([200, 201].includes(response.status)) {
+            
+            const resourceResponse =  setCVDResponse(bundleData.bundle.entry, response.data.entry, "post");
+            const responseData = [...resourceResponse, ...errData];   
+            return res.status(201).json({
+                status: 1,
+                message: "CVD data saved.",
+                data: responseData,
+            });
+        }
+
+        return handleError(res, response);
+    } catch (error) {
+        console.error("setCVDData Error: ", error);
+        return handleError(res, error);
+    }
+};
+
 
 // Process observation data and merge with encounter data.
 
 
 
 
-const getCVDObservationList = async (CVDEncounterList, practitionerList, mainEncounters, observations) => {
+const getCVDObservationList = async (CVDEncounterList, practitionerList, mainEncounters, token) => {
     try {
-        return CVDEncounterList.map((encounter) => {
-            let observationData = getTransformedResult(Encounter, encounter);
+        const observationFinalData = await Promise.all(
+            CVDEncounterList.map(async (encounter) => {
+                const allObservations = await fetchResource("Observation", { encounter: encounter.id, _count: 20000 }, token)
+                const observations = allObservations.entry.map((e) => e.resource);
+                let observationData = getTransformedResult(Encounter, encounter);
+                // Add practitioner name
+                observationData.practitionerName = getPractitionerName(observationData.practitionerId, practitionerList);
+    
+                // Add creation date
+                observationData.createdOn = encounter.period.start;
+    
+                // Add appointment ID from main encounter
+                const primaryEncounter = mainEncounters.find((e) => e.id === observationData.primaryEncounterId);
+                observationData.appointmentId = primaryEncounter?.appointment?.[0]?.reference?.split("/")[1] || null;
+                observationData.appointmentUuid = primaryEncounter?.identifier?.[0].value
+                // Remove unnecessary fields
+                delete observationData.primaryEncounterId;
+                // delete observationData.practitionerId;
+    
+                // Process observations for the encounter
+                const observationList = observations.filter(
+                    (obs) => obs.encounter.reference === `${RESOURCE_TYPES.ENCOUNTER}/${encounter.id}`
+                );
+                const observationResult = await processObservationData(observationList, observationData, "CVD", token);
+                return observationResult;
+            })
+        )
 
-            // Add practitioner name
-            observationData.practitionerName = getPractitionerName(observationData.practitionerId, practitionerList);
-
-            // Add creation date
-            observationData.createdOn = encounter.period.start;
-
-            // Add appointment ID from main encounter
-            const primaryEncounter = mainEncounters.find((e) => e.id === observationData.primaryEncounterId);
-            observationData.appointmentId = primaryEncounter?.appointment?.[0]?.reference?.split("/")[1] || null;
-            observationData.appointmentUuid = primaryEncounter?.identifier?.[0].value
-            // Remove unnecessary fields
-            delete observationData.primaryEncounterId;
-            delete observationData.practitionerId;
-
-            // Process observations for the encounter
-            const observationList = observations.filter(
-                (obs) => obs.encounter.reference === `${RESOURCE_TYPES.ENCOUNTER}/${encounter.id}`
-            );
-            observationData = processObservationData(observationList, observationData, "cvd");
-
-            return observationData;
-        });
+        return observationFinalData;
     }
     catch(error) {
         console.error("getCVDObservationList Error: ", error)
@@ -131,14 +168,15 @@ const getCVDData = async (req, res) => {
             _offset: req.query._offset,
             _sort: req.query._sort,
             type: "cvd-encounter",
-            "service-provider": req.decoded.orgId
+            _lastUpdated: req.query._lastUpdated
         }
+        const token = req.accessToken;
         const link = config.baseUrl + RESOURCE_TYPES.ENCOUNTER;
         const resourceUrlData = { link, reqQuery: queryParams, allowNesting: 0, specialOffset: 1 };
         // Fetch resources in parallel
         const [responseData, practitionerData] = await Promise.all([
-            fetchResource(RESOURCE_TYPES.ENCOUNTER, queryParams),
-            fetchResource(RESOURCE_TYPES.PRACTITIONER, { _count: 10000 })
+            fetchResource(RESOURCE_TYPES.ENCOUNTER, queryParams, token),
+            fetchResource(RESOURCE_TYPES.PRACTITIONER, { _count: 100 }, token)
         ]);
         if( !responseData.entry || responseData.total == 0) {
             return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })
@@ -156,17 +194,13 @@ const getCVDData = async (req, res) => {
         .filter(Boolean)
         .join(",");
         
-        const [mainEncounterList, allObservations] = await Promise.all([
-            fetchResource(RESOURCE_TYPES.ENCOUNTER, { _id: mainEncounterIds, _count: 10000 }),
-            fetchResource(RESOURCE_TYPES.OBSERVATION, { encounter: cvdEncounterIds, _count: 100000 })
-        ]);
+        const mainEncounterList = await fetchResource(RESOURCE_TYPES.ENCOUNTER, { _id: mainEncounterIds, _count: 10000 }, token);
             
         const mainEncounters = mainEncounterList.entry.map((e) => e.resource);
-        const observations = allObservations.entry.map((e) => e.resource);
+        
         
         // Process cvd encounters
-        const resourceResult = await getCVDObservationList(cvdEncounterList, practitionerList, mainEncounters, observations);
-                    
+        const resourceResult = await getCVDObservationList(cvdEncounterList, practitionerList, mainEncounters, token);
         const resStatus = bundleStructure.setResponse(resourceUrlData, responseData);
         
         res.status(200).json({
@@ -191,7 +225,6 @@ const patchToBundle = async(type, cvd, observation) => {
             path: "/component", 
             value : observation.component
         }
-        console.log("patch val: ", patchVal)
         const patchData = await bundleStructure.setBundlePatch([patchVal], patchUrl);
         return patchData
     }
@@ -205,14 +238,12 @@ const updateCVDData = async (req, res) => {
     try {
         const validatedBody = validateRequest(req.body, cvdPatchArraySchema, res);
         if (!validatedBody) return;
+        const token = req.accessToken;
         let resourceResult = [];
         await Promise.all(req.body.map(async (cvd) => {
-            let observations = await fetchResource(RESOURCE_TYPES.OBSERVATION, { "encounter": cvd.cvdFhirId, "code:text": cvd.key })
+            let observations = await fetchResource(RESOURCE_TYPES.OBSERVATION, { "encounter": cvd.cvdFhirId, "code:text": cvd.key }, token)
             let observation = getPatchComponent(cvd.key, cvd.component, observations.entry[0].resource);
-            console.log("check patch data: ", observation.component)
-            console.log("check observation here: ", observation)
             const patchData = await patchToBundle(cvd.key, cvd, observation);
-            console.log("check observation patchData: ", patchData)
             let encounterPatchExist = resourceResult.find(e => e.fullUrl == "Encounter"+ "/"+ cvd.cvdFhirId);
                 if(!encounterPatchExist){
                     let patchPractitionerRefInEncounter = await bundleFun.setBundlePatch([{
@@ -240,7 +271,12 @@ const updateCVDData = async (req, res) => {
       let bundleData = await bundleStructure.getBundleJSON(resourceData)  
       console.info(bundleData)
     //   res.status(201).json({ status: 1, message: "CVD data saved.", data: bundleData.bundle })
-      let response = await axios.post(config.baseUrl, bundleData.bundle); 
+      let response = await axios.post(config.baseUrl, bundleData.bundle, {
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/fhir+json'
+        }
+    }); 
       console.log("get bundle json response: ", response.status)  
       if (response.status == 200 || response.status == 201) {
           let resourceResponse = setCVDResponse(bundleData.bundle.entry, response.data.entry, "patch");
@@ -256,22 +292,120 @@ const updateCVDData = async (req, res) => {
     }
 }
 
+async function handleExistingCVDEncounter({ cvd, cvdEncounter, baseEncounterId, practitionerId, resourceResult, token }) {
+    
+    const existingEncounter = cvdEncounter.entry[0].resource;
+    const observations = await fetchResource(RESOURCE_TYPES.OBSERVATION, {
+        encounter: existingEncounter.id,
+    }, token);
+    const encounterBundle = await createEncounterBundle(Encounter, {
+        encounterId: baseEncounterId,
+        fhirId: existingEncounter.id,
+        patientId: cvd.patientId,
+        uuid: existingEncounter.identifier?.[0]?.value || cvd.uuid,
+        reqUuid: cvd.uuid,
+        practitionerId,
+        generatedOn: cvd.createdOn,
+        screeningDate: cvd.screeningDate,
+        chiefComplaint: cvd.chiefComplaint,
+    }, "put");
+
+    resourceResult.push(encounterBundle);
+
+    Object.assign(cvd, {
+        encounterId: existingEncounter.id,
+        practitionerId,
+        categoryCode: "CVD",
+        categoryDisplay: "CVD risk assessment",
+    });
+
+    const observationBundles = await Promise.all(
+        cvdTypes.map((type) => {
+            const matchingObservation = observations.entry?.find(
+                e => fhirTextToCVDType[e.resource.code.text] === type
+            );
+            if (!matchingObservation) return null;
+
+            cvd.fhirId = matchingObservation.resource.id;
+            return createObservationBundle(cvd, type, "put", "CVD");
+        })
+    );
+
+    resourceResult.push(...observationBundles.filter(Boolean));
+}
+
+
+async function handleNewCVDEncounter({ cvd, baseEncounterId, practitionerId, resourceResult }) {
+    const encounterBundle = await createEncounterBundle(Encounter, {
+        encounterId: baseEncounterId,
+        patientId: cvd.patientId,
+        uuid: cvd.uuid,
+        reqUuid: cvd.uuid,
+        practitionerId,
+        generatedOn: cvd.createdOn,
+        screeningDate: cvd.screeningDate,
+        chiefComplaint: cvd.chiefComplaint,
+    }, "post");
+
+    resourceResult.push(encounterBundle);
+
+    Object.assign(cvd, {
+        encounterId: cvd.uuid,
+        practitionerId,
+        categoryCode: "CVD",
+        categoryDisplay: "CVD risk assessment",
+    });
+
+    const observationBundles = await Promise.all(
+        cvdTypes.map((type) => createObservationBundle(cvd, type, "post", "CVD"))
+    );
+
+    resourceResult.push(...observationBundles.filter(Boolean));
+}
+
+
+const checkDuplicateScreening = async (cvd, baseEncounterId, token) => {
+    const resources = await fetchResource("Encounter", {
+        patient: cvd.patientId,
+        type: "cvd-encounter",
+        _total: "accurate",
+        _count: 2000,
+    }, token);
+
+    if (resources.total > 0 && resources.entry) {
+        const matchingEntry = resources.entry.find(e =>
+            e.resource.extension?.some(ext =>
+                new Date(ext.valueDateTime).toISOString().split("T")[0] === cvd.screeningDate
+            ) && e.resource.partOf.reference.split("/")[1] != baseEncounterId
+        );
+
+        if (matchingEntry) {
+            return matchingEntry.resource.id; // ✅ return existing encounter ID
+        }
+    }
+
+    return null;
+};
+
+
 
 
 const setCVDResponse  = (reqBundleData, responseBundleData, type) => {
     let filteredData = [];
     let response = [];
-    const responseData = bundleStructure.mapBundleService(reqBundleData, responseBundleData)
-    if(["post", "POST"].includes(type)){
+    const responseData = bundleStructure.mapAssessmentBundleService(reqBundleData, responseBundleData)
+    if(["post", "POST", "put", "PUT"].includes(type)){
         filteredData = responseData.filter(e => e.resource.resourceType == "Encounter" && e.resource?.type?.[0]?.coding?.[0]?.code == "cvd-encounter");
     }
     else if(["patch", "PATCH"].includes(type)) {
         filteredData = responseData.filter(e => e.fullUrl.split("/")[0] == "Observation");
         
     }  
-    response = responseService.setDefaultResponse("Encounter", type, filteredData)
+    response = responseService.setDefaultAssessmentResponse("Encounter", type, filteredData)
     return response;
 }
+
+
 
 
 

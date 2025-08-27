@@ -1,4 +1,5 @@
 let { checkEmptyData } = require("../services/CheckEmpty");
+const { heartcareUserIdUrl, heartcareUserPkUrl } = require("../utils/heartcareSystemUrl");
 const Person = require("./person");
 
 class Practitioner  extends Person{
@@ -15,6 +16,26 @@ class Practitioner  extends Person{
 
     }
 
+    setIdentifierData() {
+        this.practitionerObj.identifier = []
+
+    }
+    
+    setUserId() {
+        this.practitionerObj.identifier.push({
+            "identifierType": heartcareUserIdUrl,
+            "identifierNumber": this.practitionerObj.userId
+        })
+    }
+
+    setHeartcareId() {
+        this.practitionerObj.identifier.push(
+            {
+                "identifierType": heartcareUserPkUrl,
+                "identifierNumber": this.practitionerObj.heartcareId
+            }
+        )
+    }
 
      setWorkAddress(type) {
         let addressType = "address";
@@ -106,6 +127,23 @@ class Practitioner  extends Person{
         }
     }
 
+    getUserId() {
+        if(this.fhirResource.identifier) {
+            const userIdIndex = this.fhirResource.identifier.findIndex(e => e.system === heartcareUserIdUrl)
+            this.practitionerObj.userId = this.fhirResource?.identifier?.[userIdIndex]?.value || null
+        }
+    }
+
+    getHeartcareId() {
+        if(this.fhirResource.identifier) {
+            const heartcareIdIndex = this.fhirResource.identifier.findIndex(e => e.system === heartcareUserPkUrl)
+            this.practitionerObj.heartcareId = this.fhirResource?.identifier?.[heartcareIdIndex]?.value || null
+        }
+    }
+
+    getActive() {
+            this.practitionerObj.active = this.fhirResource.active;
+    }
 
     getFHIRResource() {
         return this.fhirResource;
@@ -115,50 +153,73 @@ class Practitioner  extends Person{
         return this.practitionerObj;
     }
 
+
+    setPhone() {
+        if (!checkEmptyData(this.practitionerObj.mobileNumber)) {
+            this.fhirResource.telecom.push({
+                system: "phone",
+                value: this.practitionerObj.countryCode? "(" + this.practitionerObj.countryCode + ")" + this.practitionerObj?.mobileNumber || null: this.practitionerObj?.mobileNumber,
+                rank: 1
+            });
+        }
+    }
+
     getJsonToFhirTranslator() {
         this.setBasicStructure();
+        this.setIdentifierData();
+        this.setUserId();
+        this.setHeartcareId();
         this.setIdentifier();
         this.setFirstName();
         this.setMiddleName();
         this.setLastName();
         this.setActive();
-        this.setGender();
-        this.setBirthDate();
+        // this.setGender();
+        // this.setBirthDate();
         this.setPhone();
         this.setEmailAddress();
-        this.setWorkAddress("work");
+        // this.setWorkAddress("work");
 
     }
 
 
     getFHIRToTransformedResult() {
         this.getId();
+        this.getUserId();
+        this.getHeartcareId();
         this.getFirstName();
         this.getMiddleName();
         this.getLastName();
-        this.getIdentifier();
+        // this.getIdentifier();
         this.getActive();
-        this.getGender();
-        this.getBirthDate();
+        // this.getGender();
+        // this.getBirthDate();
         this.getPhone();
         this.getEmailAddress();
-        this.getWorkAddress();
+        this.getHeartcareId();
+        this.getUserId();
+        // this.getWorkAddress();
     }
 
-    setPatchData(fetchedResourceData) {
-        this.patchFirstName(fetchedResourceData);
-        this.patchMiddleName(fetchedResourceData);
-        this.patchLastName(fetchedResourceData);
-        this.patchIdentifier(fetchedResourceData);
-        this.patchActive();
-        this.patchGender();
-        if(this.personObj.mobileNumber || this.personObj.email)
-            this.patchTelecom(fetchedResourceData);
-        if(!fetchedResourceData.address) {
-            this.addWorkAddress();
-        }        
-        if (this.practitionerObj["address"] !== undefined && fetchedResourceData.address)
-            this.patchWorkAddress("work", fetchedResourceData);
+    patchActive(resourceData) {
+        if (!checkEmptyData(this.personObj.active))
+            this.fhirResource.push({ "op": this.personObj.active.operation, "path": "/active", "value": !resourceData.active })
+    }
+
+    setPatchData(resourceData) {
+        // this.patchFirstName(fetchedResourceData);
+        // this.patchMiddleName(fetchedResourceData);
+        // this.patchLastName(fetchedResourceData);
+        // this.patchIdentifier(fetchedResourceData);
+        this.patchActive(resourceData);
+        // this.patchGender();
+        // if(this.personObj.mobileNumber || this.personObj.email)
+        //     this.patchTelecom(fetchedResourceData);
+        // if(!fetchedResourceData.address) {
+        //     this.addWorkAddress();
+        // }        
+        // if (this.practitionerObj["address"] !== undefined && fetchedResourceData.address)
+        //     this.patchWorkAddress("work", fetchedResourceData);
 
     }
 }

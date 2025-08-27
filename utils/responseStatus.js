@@ -11,7 +11,7 @@ let sendSuccess = function(res, message, data) {
 
 let sendError = function(res, message) {
     res.status(500).json({
-        error: 1,
+        err: 1,
         message: message
     })
 }
@@ -19,7 +19,7 @@ let sendError = function(res, message) {
 let sendDBError = function(res, code) {
     if(code === 'ER_BAD_DB_ERROR') {
         res.status(504).json({
-            error: 1,
+            err: 1,
             message: "Unable to connection to the DB."
         })
     }
@@ -34,7 +34,7 @@ let sendDBError = function(res, code) {
 
 let sendInvalidDataError = function(res, data) {
     res.status(422).json({
-        error: 1,
+        err: 1,
         data: data
     })
 }
@@ -55,14 +55,14 @@ let sendAlreadyExists = function(res, message) {
 
 let sendUnauthorizedError = function(res) {
     res.status(401).json({
-        error: 1,
+        err: 1,
         message: "You are unauthorized to perform this operation."
     })
 }
 
 let sendOTPAPIError = function(res, status, message) {
     res.status(status).json({
-        error: status >= 400 ? 1 : 0    ,
+        err: status >= 400 ? 1 : 0    ,
         message: message
     })
 }

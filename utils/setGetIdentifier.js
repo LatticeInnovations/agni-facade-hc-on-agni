@@ -7,7 +7,7 @@ function setIdAsIdentifier(obj, code) {
         jsonObj = setIdentifierJSON({
             "identifierType": "https://www.thelattice.in/",
             "identifierNumber": obj.uuid ? obj.uuid : obj.id,
-            "code": code
+            "code": code || null
         });
     }
     else {
@@ -36,7 +36,6 @@ function setIdentifierJSON(element) {
 }
 
 function getIdentifier(fhirResource, code) {
-    console.log("fhirResource.identifier: ", fhirResource.identifier)
     if (fhirResource.identifier && fhirResource.identifier.length > 0) {
         let identifier = []; let uuid = null;
         fhirResource.identifier.forEach(element => {

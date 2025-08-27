@@ -16,7 +16,6 @@ class RelatedPerson {
         this.fhirResource.relationship = [];
     }
     setPatientReference() {
-        console.log(this.relationObject)
         this.fhirResource.patient = {"reference" : "Patient/" + this.relationObject.patientId.toString()};
     }
 
@@ -30,8 +29,7 @@ class RelatedPerson {
                 "system": config.roleCodeUrl,
                 "code": this.relationObject.relationCode
             }]
-        })
-        console.log("check relation object", this.relationObject)
+        });
     }
 
     getRelationship() {

@@ -1,35 +1,45 @@
 const Joi = require("joi");
 
-// Schema for a single vital entry
+const conditionalField = (unitValues = [], typeValues = []) =>
+  Joi.object({
+    value: Joi.alternatives([
+      Joi.number(),
+      Joi.valid(null)
+    ]),
+    type: typeValues.length > 0
+      ? Joi.alternatives().conditional('value', {
+          is: Joi.exist().not(null),
+          then: Joi.string().valid(...typeValues).required(),
+          otherwise: Joi.string().valid(...typeValues).allow('', null)
+        })
+      : Joi.forbidden(),
+    unit: Joi.alternatives().conditional('value', {
+      is: Joi.exist().not(null),
+      then: Joi.string().valid(...unitValues).required(),
+      otherwise: Joi.string().valid(...unitValues).allow('', null)
+    })
+  }).allow(null);
+
 const vitalSchema = Joi.object({
-  vitalUuid: Joi.string().uuid().required(),
-  appointmentId: Joi.string().required(),
-  patientId: Joi.string().required(),
+    appointmentId: Joi.string().required(),
+    patientId: Joi.string().required(),
+    uuid: Joi.string().guid({ version: ['uuidv4'] }).required(),
+    appUpdatedDate: Joi.date().iso().required(),
 
-  heightFt: Joi.alternatives().try(Joi.number(), Joi.string()).allow("", null).optional(),
-  heightInch: Joi.alternatives().try(Joi.number(), Joi.string()).allow("", null).optional(),
-  heightCm: Joi.alternatives().try(Joi.number(), Joi.string()).allow("", null).optional(),
+    bloodGlucose: conditionalField(["mg/dL", "mmol/L"], ["fasting", "random"]),
+    serumCreatinine: conditionalField(["mg/dL", "µmol/L"]),
+    abdominalCircumference: conditionalField(["in", "cm"]),
+    hipCircumference: conditionalField(["in", "cm"]),
+    serumPotassium: conditionalField(["mEq/L", "µmol/L"]),
 
-  weight: Joi.alternatives().try(Joi.number().allow("", null), Joi.string()).optional(),
-  heartRate: Joi.alternatives().try(Joi.number().allow("", null), Joi.string()).optional(),
-  respRate: Joi.alternatives().try(Joi.number().allow("", null), Joi.string()).optional(),
-  spo2: Joi.alternatives().try(Joi.number().allow("", null), Joi.string()).optional(),
-  temp: Joi.alternatives().try(Joi.number().allow("", null), Joi.string()).optional(),
+    hbA1cPercentage: Joi.alternatives([Joi.number(), Joi.valid(null)]),
+    urineProtein: Joi.string().allow('', null),
+    urineKetones: Joi.string().allow('', null),
+    eyeExamination: Joi.string().allow('', null),
+    footExamination: Joi.string().allow('', null),
+    others: Joi.string().allow('', null)
+  })
 
-  tempUnit: Joi.string().valid("C", "F").optional(),
-
-  bpDiastolic: Joi.alternatives().try(Joi.number(), Joi.string()).allow("", null).optional(),
-  bpSystolic: Joi.alternatives().try(Joi.number(), Joi.string()).allow("", null).optional(),
-
-  bloodGlucose: Joi.alternatives().try(Joi.number(), Joi.string()).allow("", null).optional(),
-  bloodGlucoseType: Joi.string().valid("fasting", "random").allow("", null).optional(),
-  bloodGlucoseUnit: Joi.string().valid("mg/dL", "mmol/L").allow("", null).optional(),
-
-  leftEye: Joi.alternatives().try(Joi.number(), Joi.string()).allow("", null).optional(),
-  rightEye: Joi.alternatives().try(Joi.number(), Joi.string()).allow("", null).optional(),
-  eyeTestType: Joi.string().valid("1", "2").allow("", null).optional(),
-  createdOn: Joi.string().isoDate().required()
-});
 
 // Schema for an array of vital entries
 const vitalSaveSchema = Joi.array().items(vitalSchema);

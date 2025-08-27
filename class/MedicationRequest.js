@@ -63,7 +63,7 @@ getId() {
     }
 
     setEncounter() {
-        this.fhirResource.encounter.reference = "urn:uuid:" +this.medReqObj.encounterId;
+        this.fhirResource.encounter.reference = this.medReqObj.encounterId;
     }
 
     setNote() {
@@ -81,6 +81,19 @@ getId() {
         }
     }
 
+    setBrandName() {
+        this.fhirResource.extension = [
+            {
+                "url": "http://www.heartcare.org/medication-brandNames",
+                "valueString": this.medReqObj?.brandName || null
+            }
+        ]
+    }
+
+    getBrandName() {
+        this.medReqObj.brandName = this.fhirResource.extension?.[0]?.valueString || null
+    }
+
     setEffectiveDosePeriod() {
         let startDate = this.medReqObj.generatedOn;
         let endDate = new Date(startDate);  
@@ -95,10 +108,9 @@ getId() {
         if(this.fhirResource.dosageInstruction) {
             this.medReqObj.qtyPerDose = this.fhirResource.dosageInstruction[0].doseAndRate[0].doseQuantity.value;
             this.medReqObj.frequency = this.fhirResource.dosageInstruction[0].timing.repeat.frequency;
-            this.medReqObj.doseForm = this.fhirResource.dosageInstruction[0].doseAndRate[0].doseQuantity.unit;
+            this.medReqObj.doseForm = this.fhirResource.dosageInstruction?.[0]?.doseAndRate?.[0]?.doseQuantity?.unit || "Tablet";
             this.medReqObj.doseFormCode = doseFormList[this.fhirResource.dosageInstruction[0].doseAndRate[0].doseQuantity.unit];
             this.medReqObj.duration = this.fhirResource.dosageInstruction[0].timing.repeat.period;
-            console.log()
             if(this.fhirResource.dosageInstruction[0].additionalInstruction) {
                 this.medReqObj.timing = this.fhirResource.dosageInstruction[0].additionalInstruction[0].coding[0].code;
             }
@@ -129,7 +141,7 @@ getId() {
                     {
                         "doseQuantity":{
                             "value":this.medReqObj.qtyPerDose,
-                            "unit":this.medReqObj.doseForm,
+                            "unit":this.medReqObj.doseForm || "Tablet",
                             "system":config.sctCodeUr,
                             "code": doseFormList[this.medReqObj.doseForm]
                          }
@@ -172,6 +184,7 @@ getId() {
         this.setIdentifier();
         this.setIntent();
         this.setMedication();
+        this.setBrandName();
         this.setGroupIdentifier();
         this.setPatientReference();
         this.setEncounter();
@@ -193,6 +206,7 @@ getId() {
     getFHIRToTransformedResult() {
         this.getId();
         this.getMedFhirId();
+        this.getBrandName();
         this.getNote();
         this.getDoseInstruction();
     }

@@ -9,7 +9,7 @@ class SymDiagEncounter extends BaseEncounter {
     this.fhirResource.identifier = [
         {
             "system": "https://hl7.org/fhir/sid/sn/diagnosis",
-            "value": this.encounterObj.id
+            "value": this.encounterObj.uuid
         }
     ]
   }
@@ -27,11 +27,28 @@ class SymDiagEncounter extends BaseEncounter {
             ]
         }
     ]
+
+  this.fhirResource.serviceProvider = null
+  this.fhirResource.appointment = {
+    reference: "Appointment/"+ this.encounterObj.appointmentId
   }
+ }
+
+ setNote() {
+  this.fhirResource.extension = [
+    {
+      "url": "http://example.org/fhir/StructureDefinition/encounter-note",
+      "valueAnnotation": {
+        "text": this.encounterObj.progressNote ?? null
+      }
+    }
+  ]
+ }
 
   getJsonToFhirTranslator() {
     super.getJsonToFhirTranslator();
     this.setBasicSymDiagStructure();
+    this.setNote();
 
   }
 
@@ -56,7 +73,7 @@ class SymDiagEncounter extends BaseEncounter {
     super.getFHIRToTransformedResult();
     this.getPrimaryEncounterReference();
     this.encounterObj.vitalFhirId = this.fhirResource.id;
-    this.encounterObj.vitalUuid = this.fhirResource.identifier?.at(-1)?.value || null;
+    this.encounterObj.uuid = this.fhirResource.identifier?.[0].value || null;
   }
 
 

@@ -1,33 +1,20 @@
 const BaseObservation = require("./BaseObservation");
 const {vitalCVDMethodConfig, fhirTextToVitalType, fhirTextToCVDType} = require("../utils/VitalObservationMap");
 
-class VitalObservation extends BaseObservation {
+class CVDObservation extends BaseObservation {
     static requiresVitalType = true;
   constructor(observationObj, fhirResource, vitalType) {
     super(observationObj, fhirResource);
     this.vitalType = vitalType;
   }
 
- 
-getEyeTest() {
-    let eyeTestTypeWithoutGlass = this.fhirResource?.component?.find((element) => {
-        return element.code.text === "Without glasses"
-    });
-    let eyeTestTypeWithGlass = this.fhirResource?.component?.find((element) => {
-        return element.code.text === "With glasses"
-    });
-    this.observationObj.eyeTestType = eyeTestTypeWithoutGlass ? "1" : null;
-    this.observationObj.eyeTestType = eyeTestTypeWithGlass ? "2" : this.observationObj.eyeTestType;
-    this.observationObj.leftEye = this.fhirResource?.component?.[0]?.valueQuantity?.value || null;
-    this.observationObj.rightEye = this.fhirResource?.component?.[1]?.valueQuantity?.value || null;
+  setEncounterReference() {
+    if(this.observationObj?.encounterId) {
+        this.fhirResource.encounter.reference = this.observationObj?.fhirId? "Encounter/" + this.observationObj?.encounterId: 'urn:uuid:' + this.observationObj?.encounterId;
+    }
+   
 }
 
-getBloodGlucose() {
-    this.observationObj.bloodGlucoseType = this.fhirResource?.component?.[0]?.code?.text === "Fasting Blood Glucose" ? "fasting" : null;
-    this.observationObj.bloodGlucoseType = this.fhirResource?.component?.[0]?.code?.text === "Random Blood Glucose" ? "random" : this.observationObj.bloodGlucoseType;
-    this.observationObj.bloodGlucose = this.fhirResource?.component?.[0]?.valueQuantity?.value || null;
-    this.observationObj.bloodGlucoseUnit = this.fhirResource?.component?.[0]?.valueQuantity?.unit || null;
-}
 
 getBloodPressure() {
     let bpDiastolic = this.fhirResource?.component?.find((element) => {
@@ -75,6 +62,8 @@ getWeightData() {
         return element.code.text === "Weight"
     });
     this.observationObj.weight = weight ? weight.valueQuantity.value : null;
+    this.observationObj.weightUnit = weight ? weight.valueQuantity?.unit : null;
+
 }
 
 getHeightData() {
@@ -106,6 +95,13 @@ getSmokerData() {
     this.observationObj.smoker = smoker ? smoker.valueQuantity.value : 0;
 }
 
+getHeartAttackHistoryData() {
+    let heartAttackHistory = this.fhirResource?.component?.find((element) => {
+        return element.code.text === "heartAttackHistory"
+    });
+    this.observationObj.heartAttackHistory = heartAttackHistory ? heartAttackHistory.valueQuantity.value : 0;
+}
+
 getCholesterolData() {
     let cholesterol = this.fhirResource?.component?.find((element) => {
         return element.code.text === "Cholesterol"
@@ -129,99 +125,6 @@ getRiskData() {
 }
 
 
-
-setEyeTestComponent() {
-    if(this.observationObj?.leftEye){
-        this.fhirResource.component.push({
-            "code": {
-                "coding": [
-                    {
-                        "system": "https://loinc.org",
-                        "code": "98498-9",
-                        "display": "Visual acuity left eye"
-                    }
-                ],
-                text: this.observationObj?.eyeTestType == "1" ? "Without glasses" : "With glasses"
-            },
-            "valueQuantity": {
-                "value": this.observationObj?.leftEye,
-                "unit": "feet",
-                "system": "https://unitsofmeasure.org",
-                "code": "[ft_i]"
-            }
-        });
-    }
-
-    if(this.observationObj?.rightEye){
-        this.fhirResource.component.push({
-            "code": {
-                "coding": [
-                    {
-                    "system": "https://loinc.org",
-                    "code": "98499-7",
-                    "display": "Visual acuity right eye"
-                }
-                ],
-                text: this.observationObj?.eyeTestType == "1" ? "Without glasses" : "With glasses"
-            },
-            "valueQuantity": {
-                "value": this.observationObj?.rightEye,
-                "unit": "feet",
-                "system": "https://unitsofmeasure.org",
-                "code": "[ft_i]"
-            }
-        });
-    }
-}
-
-setEyeTestCode() {
-    this.fhirResource.code = {
-        "coding": [
-            {
-                "system": "https://loinc.org",
-                "code": "70937-8",
-                "display": "Visual Acuity"
-            }
-        ],
-        text: "Eye Test"
-    }
-}
-
-setBloodGlucoseComponent() {
-    if(this.observationObj?.bloodGlucose){
-        this.fhirResource.component.push({
-            "code": {
-            "coding": [
-                {
-                "system": "https://loinc.org",
-                "code": "1558-6",
-                "display": this.observationObj?.bloodGlucoseType === "fasting" ? "fasting" : "random"
-                }
-            ],
-            "text": this.observationObj?.bloodGlucoseType === "fasting" ? "Fasting Blood Glucose" : "Random Blood Glucose"
-            },
-            "valueQuantity": {
-            "value": this.observationObj?.bloodGlucose,
-            "unit": this.observationObj?.bloodGlucoseUnit === "mg/dl" ? "mg/dl" : "mmol/L",
-            "system": "https://unitsofmeasure.org",
-            "code": this.observationObj?.bloodGlucoseUnit === "mg/dl" ? "mg/dl" : "mmol/L"
-            }
-        });
-    }
-}
-
-setBloodGlucoseCode() {
-    this.fhirResource.code = {
-        "coding": [
-        {
-            "system": "https://loinc.org",
-            "code": "74774-1",
-            "display": "glucose"
-        }
-        ],
-        "text": "Blood Glucose"
-    }
-}
 
 setBPComponent() {
     if(this.observationObj?.bpDiastolic){
@@ -280,133 +183,7 @@ setBPCode() {
     }
 }
 
-setTempComponent() {
-    if(this.observationObj?.temp){
-        this.fhirResource.component.push({
-            "code": {
-                "coding": [
-                    {
-                        "system": "https://loinc.org",
-                        "code": "8310-5",
-                        "display": "Body temperature"
-                    }
-                ],
-                "text": "Body temperature"
-            },
-            "valueQuantity": {
-                "value": this.observationObj?.temp,
-                "unit": this.observationObj?.tempUnit === "F" ? "F" : "C",
-                "system": "https://unitsofmeasure.org",
-                "code": this.observationObj?.tempUnit === "F" ? "Fahrenheit" : "Celsius"
-            }
-        });
-    }
-}
 
-setTempCode() {
-    this.fhirResource.code = {
-        "coding": [
-        {
-            "system": "https://loinc.org",
-            "code": "8310-5",
-            "display": "Body temperature"
-        }
-        ],
-        "text": "Body temperature"
-    }
-}
-
-setSpo2Component() {
-    if(this.observationObj?.spo2){
-        this.fhirResource.component.push({
-            "code": {
-                "coding": [
-                    {
-                        "system": "https://loinc.org",
-                        "code": "2708-6",
-                        "display": "Oxygen saturation in Arterial blood"
-                    },
-                    {
-                        "system": "https://loinc.org",
-                        "code": "59408-5",
-                        "display": "Oxygen saturation in Arterial blood by Pulse oximetry"
-                    },
-                    {
-                        "system": "urn:iso:std:iso:11073:10101",
-                        "code": "150456",
-                        "display": "MDC_PULS_OXIM_SAT_O2"
-                    }
-                ],
-                "text": "spO2"
-            },
-            "valueQuantity": {
-                "value": this.observationObj?.spo2,
-                "unit": "%",
-                "system": "https://unitsofmeasure.org",
-                "code": "%"
-            }
-        });
-    }
-}
-
-setSpo2Code() {
-    this.fhirResource.code = {
-        "coding": [
-        {
-            "system": "https://loinc.org",
-            "code": "2708-6",
-            "display": "Oxygen saturation in Arterial blood"
-        },
-        {
-            "system": "https://loinc.org",
-            "code": "59408-5",
-            "display": "Oxygen saturation in Arterial blood by Pulse oximetry"
-        },
-        {
-            "system": "urn:iso:std:iso:11073:10101",
-            "code": "150456",
-            "display": "MDC_PULS_OXIM_SAT_O2"
-        }
-        ],
-        "text": "spO2"
-    }
-}
-
-setRespRateComponent() {
-    if(this.observationObj?.respRate){
-        this.fhirResource.component.push({
-        "code": {
-            "coding": [
-                {
-                "system": "https://loinc.org",
-                "code": "9279-1",
-                "display": "Respiratory rate"
-                }
-            ],
-            "text": "Respiratory rate"
-            },
-            "valueQuantity": {
-                "value": this.observationObj?.respRate,
-                "unit": "breaths/minute",
-                "system": "https://unitsofmeasure.org",
-                "code": "/min"
-            }
-        });
-    }
-}
-
-setRespRateCode() {
-    this.fhirResource.code = {
-        "coding": [
-        {
-            "system": "https://loinc.org",
-            "code": "9279-1",
-            "display": "Respiratory rate"
-        }
-        ],
-        "text": "Respiratory rate"
-    }
-}
 
 setWeightComponent() {
     if(this.observationObj?.weight) {
@@ -423,9 +200,9 @@ setWeightComponent() {
             },
             "valueQuantity": {
             "value": this.observationObj?.weight,
-            "unit": "kg",
+            "unit": this.observationObj?.weightUnit || null,
             "system": "https://unitsofmeasure.org",
-            "code": "kg"
+            "code": this.observationObj?.weightUnit || null
             }
         });
     }
@@ -699,6 +476,40 @@ setBMIComponent() {
     }
 }
 
+setHeartAttackHistoryCode() {
+    this.fhirResource.code = {
+        "coding": [
+        {
+            "system": "https://loinc.org",
+            "code": "78941-2",
+            "display": "Previous heart attack or stroke"
+        }
+        ],
+        "text": "Previous heart attack or stroke"
+    }
+}
+
+setHeartAttackHistoryComponent() {
+    if(this.observationObj?.heartAttackHistory){
+        this.fhirResource.component.push({
+            "code": {
+            "coding": [
+                {
+                "system": "https://loinc.org",
+                "code": "72166-2",
+                "display": "Previous heart attack or stroke"
+                }
+            ],
+            "text": "heartAttackHistory"
+            },
+            "valueQuantity": {
+            "value": this.observationObj?.heartAttackHistory,
+            "system": "https://unitsofmeasure.org",
+            }
+        });
+    }
+}
+
 setRiskCode() {
     this.fhirResource.code = {
         "coding": [
@@ -713,7 +524,6 @@ setRiskCode() {
 }
 
 setRiskComponent() {
-    console.log("check if it reaches risk: ", this.observationObj)
     if(this.observationObj?.risk){
         this.fhirResource.component.push({
             "code": {
@@ -738,17 +548,29 @@ setRiskComponent() {
 
 getJsonToFhirTranslator() {
     const config = vitalCVDMethodConfig[this.vitalType]
-    // console.log("config is: ", config, vitalMethodConfig)
     if(!config)
         console.warn(`Unsupported vitalType: ${this.vitalType}`);
     else {
-        this.setCommonVitalsStructure();
+        this.setCommonCVDStructure();
+        this.setEncounterReference();
+        this.setPatientReference();
+        this.setPractitionerReference();
         this[config.code]();
         this[config.component]();
     }
 }
 
+setCommonCVDStructure() {
+    this.fhirResource.resourceType = "Observation";
+    this.fhirResource.status = "final";
+    this.setBasicStructure();
+    if (this.observationObj.appUpdatedDate) {
+      this.fhirResource.effectiveDateTime = this.observationObj.appUpdatedDate;
+    }
+  }
+
 getFHIRToTransformedResult() {
+    this.getFhirId();
     const module_type = this.fhirResource.module_type == "vital"? fhirTextToVitalType : fhirTextToCVDType
     const codeText = this.fhirResource?.code?.text;
     const derivedVitalType = module_type[codeText];
@@ -778,4 +600,4 @@ setPatchData() {
 }
 
 
-module.exports = VitalObservation;
+module.exports = CVDObservation;

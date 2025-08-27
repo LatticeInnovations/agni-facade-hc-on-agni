@@ -6,8 +6,9 @@ let getManufacturer = async function (req, res) {
             type: "bus",
             _count: 1000
         }
+        const token = req.accessToken;
         //  fetch data from fhir server
-        let responseData = await fetchResource("Organization", reqQuery);
+        let responseData = await fetchResource("Organization", reqQuery, token);
         let manufacturersList = []
         if(responseData.entry.length > 0) {
             manufacturersList = responseData.entry.map(res => {
@@ -28,7 +29,7 @@ let getManufacturer = async function (req, res) {
         return res.status(500).json({
             status: 0,
             message: "Unable to process. Please try again.",
-            error: e
+            err: e
         })
     }
 

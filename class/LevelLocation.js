@@ -14,6 +14,10 @@ class LevelLocation {
             {
                 "system": urlList.adminDivisionCodeUrl,
                 "value": this.locationObj.code
+            },
+            {
+                "system": urlList.heartcareAdminUrl,
+                "value": this.locationObj.heartcareId
             }
         ]
     }
@@ -31,7 +35,6 @@ class LevelLocation {
     }
 
     setPopulation() {
-        console.log("urlLis: ", urlList)
             this.fhirResource.extension.push(
             {
             "url": urlList.adminDivisionPopulationUrl,
@@ -75,7 +78,8 @@ class LevelLocation {
        }
     
     getIdentifier() {
-        this.locationObj.code = this.fhirResource.identifier?.[0]?.value
+        this.locationObj.code = this.fhirResource.identifier?.[0]?.value || null
+        this.locationObj.heartcareId = this.fhirResource.identifier?.[1]?.value || null
     }
 
     getLocationName() {

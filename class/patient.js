@@ -1,6 +1,6 @@
 let { checkEmptyData } = require("../services/CheckEmpty");
 const Person = require("./person");
-
+const heartcareUrls = require("../utils/heartcareSystemUrl")
 class Patient extends Person {
   patient_obj;
   fhir_resource;
@@ -67,9 +67,8 @@ class Patient extends Person {
  
   getRelationData(relationCode) {
     const relationData = this.fhirResource.contact?.find(e => e.relationship[0].coding[0].code === relationCode);
-    console.log("check relationData: ", relationData)
     if(relationData)
-      return relationData.name.given[0]
+      return relationData?.name?.given?.[0]
     return relationData
   }
   getMothersName() {
@@ -88,7 +87,7 @@ class Patient extends Person {
 
   setFhirId() {
     if(this.patient_obj?.fhirId) {
-      this.fhir_resource.id = this.patient_obj?.fhirId
+      this.fhir_resource.fhirId = this.patient_obj?.fhirId
     }
   }
 
@@ -101,9 +100,35 @@ class Patient extends Person {
     }
   }
 
-  // getDeceasedBoolean() {
-  // this.patient_obj.deceasedReason  = this.fhirResource.deceasedBoolean 
-  // }
+  setHeartcareId() {
+    this.fhirResource.identifier.push({
+      "system": heartcareUrls.heartCareIdUrl,
+      "value": this.patient_obj?.heartcareId || null
+    })
+  }
+
+  getHeartcareId() {
+    if(this.fhirResource.identifier) {
+      const idData = this.fhirResource.identifier.find(e=> e.system === heartcareUrls.heartCareIdUrl) || {}
+      this.patient_obj.heartcareId = idData?.value || null
+    }
+    else {
+      this.patient_obj.heartcareId =  null
+    }
+   
+  }
+
+  patchHeartcareId() {
+    if(this.patient_obj.heartcareId) {
+      this.fhirResource.push(
+        { "op": this.patient_obj.heartcareId.operation, "path": this.patient_obj.heartcareId.path, "value": {
+          "system": heartcareUrls.heartCareIdUrl,
+          "value": this.patient_obj.heartcareId.value
+        } });
+    }
+   
+}
+  
 
   getActive() {
     this.patient_obj.isDeleted = !this.fhirResource.active
@@ -129,6 +154,7 @@ class Patient extends Person {
     this.setFathersName();
     this.setSpouseName();
     this.setDeceasedBoolean();
+    this.setHeartcareId();
 }
 
 getFHIRToTransformedResult() {
@@ -148,18 +174,20 @@ getFHIRToTransformedResult() {
   this.getMothersName();
   this.getFathersName();
   this.getSpouseName();
+  this.getHeartcareId();
   // this.getDeceasedBoolean();
 }
 getSimplifiedOutput() {
   return this.patient_obj
 }
 
-setPatchData(fetchedResourceData) {
+setPatchData() {
   // this.patchFirstName(fetchedResourceData);
   // this.patchMiddleName(fetchedResourceData);
   // this.patchLastName(fetchedResourceData);
   // this.patchIdentifier(fetchedResourceData);
   this.patchActive();
+  this.patchHeartcareId();
   // this.patchGender();
   // this.patchBirthDate();
   // if(this.personObj.mobileNumber || this.personObj.email)
@@ -171,6 +199,8 @@ setPatchData(fetchedResourceData) {
   // if (this.personObj["tempAddress"] !== undefined && fetchedResourceData.address)
   //     this.patchAddress("temp", fetchedResourceData);
 }
+
+
 
 }
 
