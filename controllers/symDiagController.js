@@ -150,7 +150,11 @@ const saveSymptomDiagnosisData = async function (req, res) {
                 return []
             }
             const mainEncounters = getMainEncounters.entry.map(e => e.resource)
-            for(let symDiagData of req.body) {
+            for(let diagData of req.body) {
+                let symDiagData = {
+                    ...diagData,
+                    diagnosis: [...(diagData.diagnosis || [])]
+                  };
                 let subEncounterBundle = null;
                 let diagnosisResult = null
                 let mainEncounter = mainEncounters.filter(e => e.appointment[0]?.reference?.split('/')[1] == symDiagData.appointmentId)

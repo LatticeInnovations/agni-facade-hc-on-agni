@@ -108,7 +108,7 @@ getId() {
         if(this.fhirResource.dosageInstruction) {
             this.medReqObj.qtyPerDose = this.fhirResource.dosageInstruction[0].doseAndRate[0].doseQuantity.value;
             this.medReqObj.frequency = this.fhirResource.dosageInstruction[0].timing.repeat.frequency;
-            this.medReqObj.doseForm = this.fhirResource.dosageInstruction[0].doseAndRate[0].doseQuantity.unit;
+            this.medReqObj.doseForm = this.fhirResource.dosageInstruction?.[0]?.doseAndRate?.[0]?.doseQuantity?.unit || "Tablet";
             this.medReqObj.doseFormCode = doseFormList[this.fhirResource.dosageInstruction[0].doseAndRate[0].doseQuantity.unit];
             this.medReqObj.duration = this.fhirResource.dosageInstruction[0].timing.repeat.period;
             if(this.fhirResource.dosageInstruction[0].additionalInstruction) {
@@ -141,7 +141,7 @@ getId() {
                     {
                         "doseQuantity":{
                             "value":this.medReqObj.qtyPerDose,
-                            "unit":this.medReqObj.doseForm,
+                            "unit":this.medReqObj.doseForm || "Tablet",
                             "system":config.sctCodeUr,
                             "code": doseFormList[this.medReqObj.doseForm]
                          }

@@ -46,7 +46,8 @@ let saveReferralData = async function (req, res) {
             const practitionerRoleId = practitionerRoleData.entry[0].resource.id;
             if (existingResponse.total > 0 && existingResponse.entry) {
                 console.log("put case")
-                referralData.uuid = existingResponse.entry[0].resource.identifier.value;
+                referralData.uuid = existingResponse.entry[0].resource.identifier[0].value;
+                console.log("referralData: ", referralData, existingResponse.entry[0])
                 const serviceRequestResource = buildFHIRResource(ServiceRequest, {...referralData, encounterId: baseEncounterId, practitionerRoleId: practitionerRoleId})
                 serviceRequestResource.uuid = reqUuid
                 const serviceRequestBundle = await bundleStructure.setBundlePut(serviceRequestResource, null, existingResponse.entry[0].resource.id, "PUT", "identifier")
