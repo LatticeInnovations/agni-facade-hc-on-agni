@@ -231,13 +231,15 @@ const handleUpdateDiagnosisList = async (diagnosisResources, symDiagData, patien
     return conditionResources;
 }
 
-const getSymDiagForEncounter = async(mainEncounterList, subEncounterList, symptoms, diagnosis, practitionerData) => {
+const getSymDiagForEncounter = async(mainEncounterList, subEncounterList, symptoms, practitionerData, token) => {
     try {
         const resourceResult = [];
 
         for(let encounter of subEncounterList){
             let diagnosisList = [];
             const mainEncounter = mainEncounterList.filter(e => e.id == encounter.partOf.reference.split("/")[1])[0]
+            let diagnosis = await fetchResource("Condition", { "encounter": encounter.id, _count: 5000 }, token);
+        diagnosis = diagnosis?.entry || [];
             const diagnosisResources = diagnosis.filter(e => e.resource.resourceType == "Condition" && e.resource.encounter.reference.split("/")[1] == encounter.id).map(e => e.resource)
             if(diagnosisResources.length > 0)
                 diagnosisList = diagnosisResources.map(element => {
@@ -292,17 +294,16 @@ const getSymptomDiagnosisData = async function(req, res) {
         mainEncounterList = mainEncounterList.entry.map(e => e.resource);
         let subEncounterList = FHIRData.filter(e => e.resource.resourceType == "Encounter" && e.resource.type && e.resource.type[0].coding[0].code == "symptom-diagnosis-encounter").map(e => e.resource);
         
-        let subEncounterIds = subEncounterList.map((e) => e.id).join(',');
+        // let subEncounterIds = subEncounterList.map((e) => e.id).join(',');
         let symptoms =  [];
 
-        let diagnosis = await fetchResource("Condition", { "encounter": subEncounterIds, _count: 5000 }, token);
-        diagnosis = diagnosis?.entry || [];
+        
         
         const practitionerIdList = subEncounterList.map(e=> e.participant[0].individual.reference.split("/")[1]).join(",")
         let practitionerData = await fetchResource("Practitioner", { _id: practitionerIdList, _count: 100000 }, token);
         practitionerData = practitionerData.entry;
 
-        const resourceResult = await getSymDiagForEncounter(mainEncounterList, subEncounterList, symptoms, diagnosis, practitionerData);
+        const resourceResult = await getSymDiagForEncounter(mainEncounterList, subEncounterList, symptoms,  practitionerData, token);
   
         resStatus = bundleStructure.setResponse(resourceUrlData, responseData);
         res.status(200).json({ status: resStatus, message: "Data fetched", total: resourceResult.length, data: resourceResult  })
