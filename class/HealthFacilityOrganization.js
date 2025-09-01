@@ -109,8 +109,9 @@ class FacilityOrganization extends Organization {
 
      getLocation() {
         const data = this.fhirResource.extension.find(e => e.url === urlList.locationReferenceUrl)
-      this.orgObj.precedingLevelId = data?.[0]?.valueReference?.reference.split("/")[1] || null
+      this.orgObj.islandId = data?.valueReference?.reference.split("/")[1] || null
      }
+
   
      getAliasName() {
       this.orgObj.secondaryName = this.fhirResource?.alias?.[0] || null
@@ -134,7 +135,7 @@ class FacilityOrganization extends Organization {
           // this.getPopulation();
           // this.getAliasName();
           // this.getStatus();
-          // this.getLocation();
+          this.getLocation();
       }
 
       getSimplifiedOutput() {
