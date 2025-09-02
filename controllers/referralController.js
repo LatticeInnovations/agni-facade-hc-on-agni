@@ -124,14 +124,17 @@ let getReferralData = async function (req, res) {
         const mainEncounterIds = serviceRequestResources.entry.map((e) => e.resource.encounter?.reference?.split("/")[1]).filter(Boolean).join(",");
         const mainEncounterList = await fetchResource("Encounter", { _id: mainEncounterIds, _count: req.query._count }, token);
         const mainEncounters = mainEncounterList.entry.map((e) => e.resource);
+        const practitionerRoleIds = serviceRequestResources.entry.map((e) => e.resource.requester?.reference?.split("/")[1]).filter(Boolean).join(",");
         for (const serviceRequestResponse of serviceRequestResources.entry) {        
             const responseObj = getTransformedResult(ServiceRequest, serviceRequestResponse.resource);
             const primaryEncounter = mainEncounters.find((e) => e.id === serviceRequestResponse.resource.encounter.reference.split("/")[1]);
-            const practitionerRoleId = serviceRequestResources.entry.map((e) => e.resource.requester?.reference?.split("/")[1]).filter(Boolean).join(",");
-            const practitionerResult = await fetchResource("PractitionerRole", { _count: 10000, "_include:0" : "PractitionerRole:practitioner", "_include:1": "PractitionerRole:organization", _id:  practitionerRoleId}, token)
-            const practitioner = practitionerResult.entry.find(e => e.resource.resourceType == "Practitioner")?.resource
+            const practitionerRoles = practitionerRoleIds.split(",")
+            const practitionerRoleId = practitionerRoles.find(e => e == serviceRequestResponse.resource.requester.reference.split("/")[1])
+            const practitionerResult = await fetchResource("PractitionerRole", { _count: 10000, "_include:0" : "PractitionerRole:practitioner", "_include:1": "PractitionerRole:organization", _id:  practitionerRoleId}, token);
+            const practitioner = practitionerResult.entry.find(e => e.resource.resourceType == "Practitioner")?.resource;
+            // console.log("practitionerRoleId: ", practitionerRoleId, "practitionerId: ", practitioner.id)
             responseObj.practitionerId = practitioner.id;
-            responseObj.practitionerName = getPractitionerName(practitioner.id, practitionerResult.entry);
+            responseObj.practitionerName = getPractitionerName(practitioner.id, [{resource: practitioner}]);
             responseObj.appointmentId = primaryEncounter?.appointment?.[0]?.reference?.split("/")[1] || null;
             responseObj.appointmentUuid = primaryEncounter?.identifier?.[0].value
             const sourceOrganization = practitionerResult.entry.find(e => e.resource.resourceType == "Organization")?.resource
