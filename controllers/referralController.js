@@ -128,13 +128,15 @@ let getReferralData = async function (req, res) {
             const responseObj = getTransformedResult(ServiceRequest, serviceRequestResponse.resource);
             const primaryEncounter = mainEncounters.find((e) => e.id === serviceRequestResponse.resource.encounter.reference.split("/")[1]);
             const practitionerRoleId = serviceRequestResources.entry.map((e) => e.resource.requester?.reference?.split("/")[1]).filter(Boolean).join(",");
-            const practitionerResult = await fetchResource("Practitioner", { _count: 10000, "_has:PractitionerRole:practitioner:_id": practitionerRoleId }, token)
-            const practitioner = practitionerResult.entry[0].resource;
-            console.log("practitionerResult: ", practitioner)
+            const practitionerResult = await fetchResource("PractitionerRole", { _count: 10000, "_include:0" : "PractitionerRole:practitioner", "_include:1": "PractitionerRole:organization", _id:  practitionerRoleId}, token)
+            const practitioner = practitionerResult.entry.find(e => e.resource.resourceType == "Practitioner")?.resource
             responseObj.practitionerId = practitioner.id;
             responseObj.practitionerName = getPractitionerName(practitioner.id, practitionerResult.entry);
             responseObj.appointmentId = primaryEncounter?.appointment?.[0]?.reference?.split("/")[1] || null;
             responseObj.appointmentUuid = primaryEncounter?.identifier?.[0].value
+            const sourceOrganization = practitionerResult.entry.find(e => e.resource.resourceType == "Organization")?.resource
+            responseObj.sourceHealthFacilityId = sourceOrganization?.id || null;
+            responseObj.sourceIslandId = sourceOrganization?.extension?.[0]?.valueReference?.reference?.split("/")[1] ?? null
             resourceResult.push(responseObj)
         }
         
