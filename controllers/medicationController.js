@@ -186,7 +186,7 @@ let getMedicationList = async function (req, res) {
     try {
         let queryParams = req.query
         queryParams._total = "accurate";
-        queryParams.status = "active";
+        // queryParams.status = "active";
         const token = req.accessToken;
         const resourceUrlData = { link: config.baseUrl + "Medication", reqQuery: queryParams, allowNesting: 1, specialOffset: 1 }
         let responseData = await fetchResource("Medication", queryParams, token);
