@@ -108,6 +108,34 @@ class Medication {
         }
     }
 
+    setIngredientData() {
+        this.fhirResource.ingredient = [
+            {
+                "itemCodeableConcept": {
+                    "coding": [
+                        {
+                            "system": "http://heartcare.org",
+                            "code": this.medicineObj.code,
+                            "display": `${this.medicineObj.name} ${this.medicineObj.dosage} mg`
+                        }
+                    ]
+                },
+                "strength": {
+                    "numerator": {
+                        "value": this.medicineObj.dosage,
+                        "system": "http://unitsofmeasure.org",
+                        "code": "mg"
+                    },
+                    "denominator": {
+                        "value": 1,
+                        "system": "http://unitsofmeasure.org",
+                        "code": "mg"
+                    }
+                }
+            }
+        ]
+    }
+
     patchStatus() {
         if (!checkEmptyData(this.medicineObj.status))
             this.fhirResource.push({ "op": "replace", "path": "/status", "value": this.medicineObj.status })
@@ -117,6 +145,7 @@ class Medication {
         this.setCode();
         this.setIsOtc();
         this.setDoseForm();
+        this.setIngredientData();
     }
     getFHIRToTransformedResult() {
         this.getCode();
