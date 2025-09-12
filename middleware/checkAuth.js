@@ -5,8 +5,9 @@ router.use(bodyParser.urlencoded({ extended: true }));
 let jwt = require('jsonwebtoken');
 let secretKey = require('../config/nodeConfig').jwtSecretKey;
 const roles = require("../utils/role.json")
+const { fetchResource } = require("../services/helperFunctions");
 //middleware to verify the
-router.use(function (req, res, next) {
+router.use(async function (req, res, next) {
     // check header or url parameters or post parameters for token
     let tokenData = req.headers['x-access-token'];
 
@@ -15,7 +16,7 @@ router.use(function (req, res, next) {
         let token = tokenData.split(" ")[1];
         console.info("token is", token)
         // verifies secret and checks exp
-        jwt.verify(token, secretKey,function (err, decoded) {
+        jwt.verify(token, secretKey, async function (err, decoded) {
             if (err) {
                     console.error("Error:", err, err.name )
                     if(err.name == 'TokenExpiredError')
@@ -24,6 +25,15 @@ router.use(function (req, res, next) {
                         return res.status(401).json({ status: 0, message: 'Unauthorized' });
             } else {
                 // if everything is good, save to request for use in other routes
+                const practitioner = await fetchResource(
+                    `Practitioner/${decoded.fhir_id}`,
+                    {},                               
+                    token                             
+                );
+
+                if (practitioner.active === false) {
+                    return res.status(401).json({ status: 0, message: 'Unauthorized' });
+                }
                 console.log("passed")
                 req.decoded = decoded;
                 req.decoded.orgId = req.decoded?.orgId || "1";
