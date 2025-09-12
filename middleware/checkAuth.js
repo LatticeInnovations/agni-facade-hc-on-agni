@@ -45,6 +45,11 @@ router.use(async function (req, res, next) {
                 next();
             }catch (fetchErr) {
             console.error("FetchResource failed:", fetchErr);
+            if (fetchErr.response && fetchErr.response.status) {
+                return res
+                    .status(fetchErr.response.status)
+                    .json({ status: 0, message: fetchErr.response.data || 'Unauthorized' });
+            }
             return res.status(500).json({ status: 0, message: 'Internal server error' });
         }
     }
