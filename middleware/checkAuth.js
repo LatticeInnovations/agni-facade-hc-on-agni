@@ -24,6 +24,7 @@ router.use(async function (req, res, next) {
                     else
                         return res.status(401).json({ status: 0, message: 'Unauthorized' });
             } else {
+                try{
                 // if everything is good, save to request for use in other routes
                 const practitioner = await fetchResource(
                     `Practitioner/${decoded.fhir_id}`,
@@ -42,7 +43,11 @@ router.use(async function (req, res, next) {
                 req.decoded.userId = req.headers["sync-user-fhir-id"] ? req.headers["sync-user-fhir-id"] : req.decoded?.fhir_id || null;
                 req.token = {"userId": req.decoded.userId, "orgId": req.decoded?.orgId || "1", "type": roles?.[typeIndex]?.display || null || null, "userName": req.decoded.user_id, email: req.decoded.sub, "encodedToken": token || null };
                 next();
-            }
+            }catch (fetchErr) {
+            console.error("FetchResource failed:", fetchErr);
+            return res.status(500).json({ status: 0, message: 'Internal server error' });
+        }
+    }
         });
     } else {
         // if there is no token
