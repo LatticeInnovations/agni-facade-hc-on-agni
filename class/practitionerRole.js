@@ -104,6 +104,7 @@ class PractitionerRole {
     setBasicStructure() {
         this.fhirResource.resourceType = "PractitionerRole"
         this.fhirResource.code = [];
+        this.fhirResource.active = true;
         this.fhirResource.organization = {};
         this.fhirResource.practitioner = {};
     }
