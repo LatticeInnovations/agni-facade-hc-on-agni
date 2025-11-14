@@ -109,20 +109,20 @@ app.use((error, req, res) => {
   })
 })
 
-const { exec } = require('child_process');
+// const { exec } = require('child_process');
 
-(async function () {
-    await new Promise((resolve, reject) => {
-        const migrate = exec(
-            'sequelize db:migrate',
-            { env: process.env, shell: false },
-            err => (err ? reject(err) : resolve())
-        );
+// (async function () {
+//     await new Promise((resolve, reject) => {
+//         const migrate = exec(
+//             'sequelize db:migrate',
+//             { env: process.env, shell: false },
+//             err => (err ? reject(err) : resolve())
+//         );
 
-        // Forward stdout+stderr to this process
-        migrate.stdout.pipe(process.stdout);
-        migrate.stderr.pipe(process.stderr);
-    });
-}());
+//         // Forward stdout+stderr to this process
+//         migrate.stdout.pipe(process.stdout);
+//         migrate.stderr.pipe(process.stderr);
+//     });
+// }());
 
 module.exports = app;
