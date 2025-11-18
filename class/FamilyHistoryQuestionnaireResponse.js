@@ -60,7 +60,7 @@ class FamilyHistoryQuestionnaireResponse {
     }
 
     getFamilyDiseaseDetail() {
-        this.answerObj.familyDiseases = this.fhirResource.item[0]?.answer?.map(e=> e.valueCoding.code) || []
+        this.answerObj.familyDiseases = this.fhirResource?.item?.[0]?.answer?.map(e=> e.valueCoding.code) || []
     }
 
 
@@ -74,7 +74,7 @@ class FamilyHistoryQuestionnaireResponse {
     }
 
     getOccurrenceAgeBoolean() {
-        this.answerObj.occurrenceAgeData = this.fhirResource.item[1]?.answer?.[0]?.valueCoding?.code || null
+        this.answerObj.occurrenceAgeData = this.fhirResource?.item?.[1]?.answer?.[0]?.valueCoding?.code || null
     }
 
     getJsonToFhirTranslator() {
