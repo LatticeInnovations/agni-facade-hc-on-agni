@@ -29,9 +29,7 @@ class SymDiagEncounter extends BaseEncounter {
     ]
 
   this.fhirResource.serviceProvider = null
-  this.fhirResource.appointment = {
-    reference: "Appointment/"+ this.encounterObj.appointmentId
-  }
+  this.fhirResource.appointment = null
  }
 
  setNote() {

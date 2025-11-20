@@ -77,6 +77,7 @@ const createEncounterBundle = async(mainEncounter, symDiagData, patientId, token
             uuid: symDiagData.uuid,  encounterId: mainEncounter.id, patientId: patientId, progressNote: symDiagData.progressNote,
             practitionerId: token.userId, generatedOn: symDiagData.appUpdatedDate, appointmentId: symDiagData.appointmentId
         });
+        console.log("sym diag encounter: ", encounter)
         encounter.uuid = oldUuid
 
         if(type == "POST") {
