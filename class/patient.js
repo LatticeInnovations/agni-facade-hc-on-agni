@@ -148,6 +148,7 @@ class Patient extends Person {
     this.setEmailAddress();
     this.setAddress("home");
     this.setAddress("temp");
+    this.setGpsCoordinates();
     this.setManagingOrg();
     this.setGeneralPractitioner();
     this.setMothersName();
@@ -169,6 +170,7 @@ getFHIRToTransformedResult() {
   this.getPhone();
   this.getEmailAddress();
   this.getAddress();
+  this.getGpsCoordinates();
   this.getManagingOrg();
   this.getGeneralPractitioner();
   this.getMothersName();

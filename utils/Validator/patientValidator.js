@@ -38,6 +38,10 @@ const patientSchema = Joi.object({
   patientDeceasedReasonId: Joi.number().allow(null).optional(),
   patientDeceasedReason: Joi.string().allow(null).optional(),
   email: Joi.string().email().optional(),
+  gpsCoordinates: Joi.object({
+    latitude: Joi.number().min(-90).max(90).required(),
+    longitude: Joi.number().min(-180).max(180).required()
+  }).optional(),
   heartcareId: Joi.string().optional().allow(null, "")
 });
 
@@ -77,27 +81,34 @@ const patientPatchObject = Joi.object({
   // lastName: patchField(Joi.string()).optional(),
 
   // gender: patchField(Joi.string().valid("male", "female", "other", "unknown")).optional(),
-  
+
   active: patchField(Joi.boolean()).optional(),
   // birthDate: patchField(Joi.string().isoDate()).optional(),
 
   // permanentAddress: patchField(addressSchema).optional(),
 
-  // email: patchField(Joi.string().email()).optional(),
+  email: patchField(Joi.string().email()).optional(),
+
+  gpsCoordinates: patchField(
+    Joi.object({
+      latitude: Joi.number().min(-90).max(90).required(),
+      longitude: Joi.number().min(-180).max(180).required()
+    })
+  ).optional(),
   mobileNumber: patchField(Joi.string().pattern(/^[0-9]{10}$/)).optional().allow(null, ""),
   heartcareId: patchField(Joi.string().optional())
 });
 
 // Array of practitioners
 const patientSaveSchema = Joi.array().items(patientSchema)
-.min(1) // 👈 ensures array is not empty
-.required();
+  .min(1) // 👈 ensures array is not empty
+  .required();
 
 const patientPatchSchema = Joi.array().items(patientPatchObject)
-.min(1) // 👈 ensures array is not empty
-.required();
+  .min(1) // 👈 ensures array is not empty
+  .required();
 
 
 
 
-module.exports = {patientSaveSchema, patientPatchSchema}
+module.exports = { patientSaveSchema, patientPatchSchema }
