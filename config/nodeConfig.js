@@ -7,7 +7,6 @@ let config = function () {
             baseUrl: process.env.FHIRServerBaseURL,
             twilioNumber: process.env.twilioNumber,
             sendgridKey: process.env.sendgridKey,
-            mailFrom: "dev@thelattice.in",
             jwtSecretKey: process.env.jwtSecretKey,
             totalLoginAttempts: 5,
             lockTimeInMin: 5,
@@ -25,6 +24,10 @@ let config = function () {
             fhirCodeUrl : process.env.fhirCodeUrl,
             roleCodeUrl : process.env.roleCodeUrl,
             facadeUrl : process.env.facadeUrl,
+            mailgunApiKey: process.env.MAILGUN_API_KEY,
+            mailgunDomain: process.env.MAILGUN_DOMAIN,
+            mailFrom: process.env.MAIL_FROM,
+            token: process.env.token
         };
 };
 module.exports = new config();

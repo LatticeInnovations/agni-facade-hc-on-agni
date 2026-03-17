@@ -9,6 +9,8 @@ const {fetchResource, handleError, getTransformedResult, buildFHIRResource} = re
 const {validateRequest} = require("../utils/validateRequest")
 const {priorDxArraySchema} = require("../utils/Validator/prioDxValidator")
 const { v4: uuidv4 } = require('uuid');
+const { publishReportJob } = require("../middleware/reportPublisher");
+const { saveToken } = require("../services/email/tokenStore");
 
  const RESOURCE_TYPES = {
     ENCOUNTER: "Encounter",
@@ -143,7 +145,12 @@ const savePriorDxData = async (req, res) => {
                 'Content-Type': 'application/fhir+json'
             }
         });
-        if ([200, 201].includes(response.status)) {            
+        if ([200, 201].includes(response.status)) {       
+            const patientIds = [...new Set(req.body.map(cvd => cvd.patientId))];
+            await saveToken(token);
+            for (const patientId of patientIds) {
+                await publishReportJob(patientId);
+            }     
             const resourceResponse = setPriorDxResponse(bundleData.bundle.entry, response.data.entry, "post");
             const responseData = [...resourceResponse, ...errData];   
             return res.status(201).json({
@@ -410,4 +417,4 @@ const setPriorDxResponse  = (reqBundleData, responseBundleData, type) => {
 
 
 
-module.exports = {savePriorDxData, getPriorDxData}
+module.exports = {savePriorDxData, getPriorDxData, reverseCodeMap}

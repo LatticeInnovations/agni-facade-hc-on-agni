@@ -6,6 +6,8 @@ const {fetchResource, handleError, getTransformedResult} = require("../services/
 let { vitalSaveSchema } = require("../utils/Validator/vitalValidator");
 const {validateRequest} = require("../utils/validateRequest");
 const {createObservationBundle, createEncounterBundle, getPractitionerName, processObservationData} = require("../services/commonFunctions");
+const { publishReportJob } = require("../middleware/reportPublisher");
+const { saveToken } = require("../services/email/tokenStore");
 
 let config = require("../config/nodeConfig");
 const resourceType = "Observation";
@@ -110,7 +112,11 @@ let setVitalData = async function (req, res) {
             }
         });
         if ([200, 201].includes(response.status)) {
-            
+            const patientIds = [...new Set(req.body.map(cvd => cvd.patientId))];
+            await saveToken(token);
+            for (const patientId of patientIds) {
+                await publishReportJob(patientId);
+            }
             const resourceResponse =  setVitalResponse(bundleData.bundle.entry, response.data.entry, "post");
             const responseData = [...resourceResponse, ...errData];   
             return res.status(201).json({

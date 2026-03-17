@@ -7,7 +7,8 @@ async function connectRabbitMQ() {
     channel = await connection.createChannel();
 
     const queueNames = [
-      "AGNI_TO_HEARTCARE_MAIN"
+      "AGNI_TO_HEARTCARE_MAIN",
+      "SCREENING_REPORT_QUEUE"
     ];
 
     for (const queue of queueNames) {

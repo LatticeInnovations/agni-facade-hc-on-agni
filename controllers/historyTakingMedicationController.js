@@ -9,6 +9,8 @@ const { fetchResource, buildFHIRResource, getTransformedResult } = require("../s
 const { historyTakingSchema } = require("../utils/Validator/historyTakingValidator");
 const {validateRequest} = require("../utils/validateRequest");
 const { getPractitionerName } = require("../services/commonFunctions");
+const { saveToken } = require("../services/email/tokenStore");
+const { publishReportJob } = require("../middleware/reportPublisher");
 
 const fetchMainEncounter = async (medicationData, token) => {
     const mainEncounter =   await fetchResource("Encounter", {
@@ -84,6 +86,11 @@ let saveHistoryMedicationData = async function (req, res) {
         }); 
         console.info("get bundle json response: ", response.status)  
         if (response.status == 200 || response.status == 201) {
+            const patientIds = [...new Set(req.body.map(cvd => cvd.patientId))];
+            await saveToken(token);
+            for (const patientId of patientIds) {
+                await publishReportJob(patientId);
+            } 
             let responseData = setSaveResponse(bundleData.bundle.entry, response.data.entry, "post");   
             res.status(201).json({ status: 1, message: "Save history medication data saved.", data: responseData })
         }
