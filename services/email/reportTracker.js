@@ -6,7 +6,7 @@ let fhirClient = require("./fhirAxiosClient");
 async function getLastReport(patientId) {
 
   const res = await fhirClient.get(
-    `${base}Communication?subject=Patient/${patientId}&category=screening-report`
+    `${base}Communication?subject=Patient/${patientId}&category:text=screening-report`
   );
 
   if (!res.data.entry) return null;
