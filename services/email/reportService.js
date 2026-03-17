@@ -32,7 +32,7 @@ async function generateReport(patientId) {
     const latestUpdate = Math.max(
         ...entries
             .filter(e =>
-                ["Patient", "Observation", "Condition", "Encounter", "QuestionnaireResponse", "Questionnaire"].includes(
+                ["Patient", "Observation", "Condition", "Encounter", "QuestionnaireResponse", "Questionnaire", "ServiceRequest", "MedicationRequest"].includes(
                     e.resource.resourceType
                 )
             )
