@@ -11,7 +11,8 @@ const diagnosisList = require("../utils/diagnosisList.json").concept;
 const {buildFHIRResource, fetchResource, handleError, getTransformedResult} = require("../services/helperFunctions");
 const { symDiagSaveArraySchema, symDiagPatchArraySchema } = require("../utils/Validator/symDxValidator");
 const {validateRequest} = require("../utils/validateRequest");
-
+const { saveToken } = require("../services/email/tokenStore");
+const { publishReportJob } = require("../middleware/reportPublisher");
 
 
 global.diagnosisMap = new Map();
@@ -192,6 +193,11 @@ const saveSymptomDiagnosisData = async function (req, res) {
             }
         });  
         if (response.status == 200 || response.status == 201) {
+            const patientIds = [...new Set(req.body.map(cvd => cvd.patientId))];
+            await saveToken(token);
+            for (const patientId of patientIds) {
+                await publishReportJob(patientId);
+            }
             let responseData = setSymptomDiagnosisResponse(bundleData.bundle.entry, response.data.entry, "post");
             return res.status(201).json({ status: 1, message: "Symptom and diagnosis data saved.", data: responseData })
         }
