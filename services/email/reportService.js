@@ -1,7 +1,7 @@
 const { fetchEverything } = require("./fhirService");
 const { extractEmail } = require("./emailExtractor");
 const { buildReport } = require("./reportBuilder");
-const { sendEmail } = require("../../utils/sendgrid.util");
+const { sendEmail } = require("../../utils/mailgun.util");
 const { getLastReport, saveReportSent } = require("./reportTracker");
 const { generatePdf } = require("../templates/pdfGenerator");
 const path = require("path");

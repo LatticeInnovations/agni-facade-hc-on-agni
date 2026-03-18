@@ -69,7 +69,7 @@ function formatHeight(entries) {
   if (cm) return `${cm} cm`;
 
   if (ft !== undefined)
-    return inch !== undefined ? `${ft} ft ${inch} in` : `${ft} ft`;
+    return inch === undefined ? `${ft} ft` : `${ft} ft ${inch} in`;
 
   return "--";
 }
@@ -724,25 +724,54 @@ function getMedicationDetails(entries) {
 }
 function buildMedicationHTML(medications) {
 
-  if (!medications || !medications.length) return "--";
+  if (!medications?.length) return "";
 
-  return medications.map(med => `
-    <div style="margin-bottom:10px;">
+  return medications.map(med => {
 
-        <div class="value">${med.name}</div>
+    const dose = med.dose || {};
+    const frequency = med.frequency || {};
+    const duration = med.duration || {};
 
-        <div class="value2">
-            ${med.dose.value} ${med.dose.unit}, ${med.frequency.frequency}/${med.frequency.period}${med.frequency.unit}
-        </div>
+    // ✅ Build line 1 (dose + frequency)
+    const line1Parts = [];
 
-        <div class="value2">
-            ${med.duration.value} ${med.duration.unit}, ${med.instruction}
-        </div>
+    if (dose.value) {
+      line1Parts.push(`${dose.value} ${dose.unit || ""}`.trim());
+    }
 
-        <div class="value3">${med.status}</div>
+    if (frequency.frequency && frequency.period) {
+      line1Parts.push(`${frequency.frequency}/${frequency.period}${frequency.unit || ""}`);
+    }
 
-    </div>
-  `).join("");
+    const line1 = line1Parts.join(", ");
+
+    // ✅ Build line 2 (duration + instruction)
+    const line2Parts = [];
+
+    if (duration.value) {
+      line2Parts.push(`${duration.value} ${duration.unit || ""}`.trim());
+    }
+
+    if (med.instruction) {
+      line2Parts.push(med.instruction);
+    }
+
+    const line2 = line2Parts.join(", ");
+
+    return `
+      <div style="margin-bottom:10px;">
+
+          <div class="value">${med.name || ""}</div>
+
+          ${line1 ? `<div class="value2">${line1}</div>` : ""}
+
+          ${line2 ? `<div class="value2">${line2}</div>` : ""}
+
+          ${med.status ? `<div class="value3">${med.status}</div>` : ""}
+
+      </div>
+    `;
+  }).join("");
 }
 function buildActivityDefinitionMap(entries) {
 
@@ -867,7 +896,7 @@ function getInterventionDetails(entries) {
 
       activities: (s.instantiatesCanonical || []).map(ref => {
         const id = ref.split("/")[1];
-        return activityMap[id] || ref; 
+        return activityMap[id] || ref;
       })
 
     }));
@@ -920,6 +949,7 @@ function buildReport(entries) {
       id.value
   )?.value;
   const bmiObs = getObservation(entries, "9156-5");
+  const bmiValue = bmiObs?.[0]?.value;
   const riskStatusText = buildRiskStatus(entries, patient);
 
   const meds = getMedicationDetails(entries);
@@ -955,9 +985,8 @@ function buildReport(entries) {
 
     cholesterol: formatCholesterol(entries),
 
-    bmi: bmiObs[0]?.value !== "--"
-      ? formatBMI(bmiObs[0].value)
-      : "--",
+    bmi: bmiValue === undefined ? "--"
+      : formatBMI(bmiValue),
 
     chiefComplaint: chiefComplaint?.reasonCode?.[0]?.text || "--",
 

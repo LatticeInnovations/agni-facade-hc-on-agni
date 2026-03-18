@@ -5,9 +5,14 @@ const { generateReport } = require("../email/reportService");
 
 const redisClient = redis.createClient();
 
-async function processPendingReports() {
+async function initRedis() {
+  if (!redisClient.isOpen) {
+    await redisClient.connect();
+    console.log("Redis connected");
+  }
+}
 
-  await redisClient.connect();
+async function processPendingReports() {
 
   const patients = await redisClient.sMembers("pending_reports");
 
@@ -19,6 +24,8 @@ async function processPendingReports() {
 
       await generateReport(patientId);
 
+      await redisClient.sRem("pending_reports", patientId);
+
     } catch (err) {
 
       console.error("Report generation failed", err);
@@ -26,9 +33,6 @@ async function processPendingReports() {
     }
 
   }
-
-  await redisClient.del("pending_reports");
-
 }
 
 function reportTrigger() {
@@ -46,7 +50,10 @@ function reportTrigger() {
   );
 
   console.log("Report scheduler started");
-
 }
+
+initRedis().catch(err => {
+  console.error("Redis connection failed", err);
+});
 
 module.exports = { reportTrigger };
