@@ -1006,7 +1006,7 @@ function buildReport(entries) {
 
     hba1c: getVital(entries, "HbA1c"),
 
-    urineKetone: getVital(entries, "Urine protein"),
+    urineKetone: getVital(entries, "Urine ketones"),
 
     priorDiagnosis: getPriorDiagnosis(entries),
 

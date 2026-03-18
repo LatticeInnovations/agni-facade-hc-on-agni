@@ -194,7 +194,7 @@ Quitting tobacco is the most important step you can take for your health.`;
   if (!pa.weeklyEngagement || pa.weeklyEngagement === "--") {
     s.physicalActivity = `Physical activity not assessed.`;
   } else {
-    const totalMinutes = (pa.moderateDays * pa.moderateTime) + (pa.vigorousDays * pa.vigorousTime);
+    const totalMinutes = (Number(pa.moderateDays) || 0) * (Number(pa.moderateTime) || 0) + (Number(pa.vigorousDays) || 0) * (Number(pa.vigorousTime) || 0);
 
     if (totalMinutes >= 150) {
       s.physicalActivity = `You are physically active. Maintain at least 150 minutes/week.`;
