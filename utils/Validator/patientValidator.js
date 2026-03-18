@@ -39,9 +39,11 @@ const patientSchema = Joi.object({
   patientDeceasedReason: Joi.string().allow(null).optional(),
   email: Joi.string().email().optional(),
   gpsCoordinates: Joi.object({
-    latitude: Joi.number().min(-90).max(90).required(),
-    longitude: Joi.number().min(-180).max(180).required()
-  }).optional(),
+    latitude: Joi.number().min(-90).max(90),
+    longitude: Joi.number().min(-180).max(180)
+  })
+    .optional()
+    .empty({}),
   heartcareId: Joi.string().optional().allow(null, "")
 });
 
@@ -89,12 +91,12 @@ const patientPatchObject = Joi.object({
 
   email: patchField(Joi.string().email()).optional(),
 
-  gpsCoordinates: patchField(
-    Joi.object({
-      latitude: Joi.number().min(-90).max(90).required(),
-      longitude: Joi.number().min(-180).max(180).required()
-    })
-  ).optional(),
+  gpsCoordinates: patchField(Joi.object({
+    latitude: Joi.number().min(-90).max(90),
+    longitude: Joi.number().min(-180).max(180)
+  }))
+    .optional()
+    .empty({}),
   mobileNumber: patchField(Joi.string().pattern(/^[0-9]{10}$/)).optional().allow(null, ""),
   heartcareId: patchField(Joi.string().optional())
 });
