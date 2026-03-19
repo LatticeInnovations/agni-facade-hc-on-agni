@@ -166,7 +166,12 @@ function calculateRisk(entries, patient) {
   const systolic = getSystolic(entries);
   const cholesterol = getObservation(entries, "2093-3")[0]?.value;
   const bmi = getObservation(entries, "9156-5")[0]?.value;
-
+  if (!age || !systolic || !cholesterol || !bmi) {
+    return {
+      riskPrediction: "--",
+      riskStatus: ""
+    };
+  }
   const smoker = getSmoking(entries);
   const diabetes = getDiabetes(entries);
 
@@ -224,7 +229,14 @@ function buildRiskStatus(entries, patient) {
   const smoking = getSmoking(entries);
 
   const heartHistory = getObservation(entries, "78941-2")[0]?.value === 1;
-
+  if (
+    diabetes == null ||
+    smoking == null ||
+    heartHistory == null ||
+    (diabetes === 0 && smoking === 0 && heartHistory === false)
+  ) {
+    return `--`;
+  }
   const diabetesText = diabetes ? "diabetic" : "non-diabetic";
   const smokingText = smoking ? "tobacco user" : "non tobacco user";
 
@@ -920,11 +932,6 @@ function buildInterventionHTML(interventions) {
   `).join("");
 }
 function buildReport(entries) {
-  console.log(
-    entries
-      .filter(e => e.resource?.resourceType === "ServiceRequest")
-      .map(e => e.resource.category)
-  );
   const patient = entries.find(
     e => e.resource?.resourceType === "Patient"
   )?.resource;
@@ -955,10 +962,6 @@ function buildReport(entries) {
   const meds = getMedicationDetails(entries);
   const services = getServiceRequestDetails(entries);
   const interventions = getInterventionDetails(entries);
-  console.log("Medications:", meds);
-  console.log("Services:", services);
-  console.log("Interventions:", interventions);
-  console.log("Health Facility:", getHealthFacility(entries));
   let report = {
 
     heartcareId: val(heartcareId),
