@@ -931,6 +931,18 @@ function buildInterventionHTML(interventions) {
     </div>
   `).join("");
 }
+
+function formatDateDDMMMYYYY(dateStr) {
+  if (!dateStr) return "--";
+
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  }).replace(/ /g, "-");
+}
+
 function buildReport(entries) {
   const patient = entries.find(
     e => e.resource?.resourceType === "Patient"
@@ -1041,8 +1053,18 @@ function buildReport(entries) {
   };
   report.guidance = buildWHOGuidance(report);
   report.personalSummary = buildPersonalSummary(report);
-  return report;
 
+  const encounterDate = observation?.effectiveDateTime;
+  const formattedDate = formatDateDDMMMYYYY(encounterDate);
+  const fileName = [
+      val(patient.id),
+      formattedDate
+    ].filter(Boolean).join("-") + ".pdf";
+
+  return {
+    report,
+    fileName
+  };
 }
 
 module.exports = { buildReport };

@@ -3,7 +3,7 @@ const { extractEmail } = require("./emailExtractor");
 const { buildReport } = require("./reportBuilder");
 const { sendEmail } = require("../../utils/mailgun.util");
 const { getLastReport, saveReportSent } = require("./reportTracker");
-const { generatePdf } = require("../templates/pdfGenerator");
+const { generatePdf, savePdfToUploads } = require("../templates/pdfGenerator");
 const path = require("path");
 const fs = require("fs");
 
@@ -21,11 +21,6 @@ async function generateReport(patientId) {
     console.log("Email extracted:", email);
     console.log("Generating report...");
     console.log("Sending email...");
-
-    if (!email) {
-        console.log("Patient has no email");
-        return;
-    }
 
     const lastSent = await getLastReport(patientId);
 
@@ -48,7 +43,7 @@ async function generateReport(patientId) {
         return;
 
     }
-    const report = buildReport(entries);
+    const { report, fileName }  = buildReport(entries);
     const template = fs.readFileSync(templatePath, "utf8");
 
     const html = template.replace(/\$\{data\.(.*?)\}/g, (match, key) => {
@@ -63,6 +58,14 @@ async function generateReport(patientId) {
         `data:image/png;base64,${logoBase64}`
     );
     const pdfBuffer = await generatePdf(htmlWithLogo);
+
+    await savePdfToUploads(pdfBuffer, fileName);
+
+    if (!email) {
+        console.log("Patient has no email");
+        return;
+    }
+    
     const subject = `HeartCare Screening Report - ${report.name} (${report.visitDate})`;
 
     const content = `
