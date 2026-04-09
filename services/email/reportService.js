@@ -6,6 +6,8 @@ const { getLastReport, saveReportSent } = require("./reportTracker");
 const { generatePdf, savePdfToUploads } = require("../templates/pdfGenerator");
 const path = require("path");
 const fs = require("fs");
+const { ReportToken } = require("../../models");
+const { v4: uuidv4 } = require("uuid");
 
 const templatePath = path.join(
     __dirname,
@@ -43,7 +45,7 @@ async function generateReport(patientId) {
         return;
 
     }
-    const { report, fileName, filePassword }  = buildReport(entries);
+    const { report, fileName, filePassword, appointmentId, dob }  = buildReport(entries);
     const template = fs.readFileSync(templatePath, "utf8");
 
     const html = template.replace(/\$\{data\.(.*?)\}/g, (match, key) => {
@@ -60,6 +62,16 @@ async function generateReport(patientId) {
     const pdfBuffer = await generatePdf(htmlWithLogo);
 
     await savePdfToUploads(pdfBuffer, fileName, filePassword);
+
+    await ReportToken.findOrCreate({
+        where: { appointmentId },
+        defaults: {
+            token: uuidv4(),
+            patientId,
+            dob,
+            fileName
+        }
+    });
 
     if (!email) {
         console.log("Patient has no email");

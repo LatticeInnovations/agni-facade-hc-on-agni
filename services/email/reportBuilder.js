@@ -1078,10 +1078,22 @@ function buildReport(entries) {
     
   const filePassword = generateFilePassword(name, patient?.birthDate);
 
+  const parentEncounterId = chiefComplaint?.partOf?.reference?.split("/")[1];
+  const parentEncounter = entries.find(
+    e =>
+      e.resource?.resourceType === "Encounter" &&
+      e.resource.id === parentEncounterId
+  )?.resource;
+  const appointmentId = parentEncounter?.appointment?.[0]?.reference?.split("/")[1];
+
+  console.log("appointment id", appointmentId)
+
   return {
     report,
     fileName,
-    filePassword
+    filePassword,
+    appointmentId,
+    dob: patient?.birthDate
   };
 }
 
