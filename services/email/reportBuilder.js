@@ -943,6 +943,21 @@ function formatDateDDMMMYYYY(dateStr) {
   }).replace(/ /g, "-");
 }
 
+function generateFilePassword(name, birthDate) {
+  if (!name || !birthDate) return null;
+
+  // Remove spaces & take first 4 characters
+  const cleanName = name.replace(/\s+/g, "").toUpperCase();
+  const first4 = cleanName.substring(0, 4);
+
+  // Extract DDMM from DOB
+  const date = new Date(birthDate);
+  const dd = String(date.getDate()).padStart(2, "0");
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+
+  return `${first4}${dd}${mm}`;
+}
+
 function buildReport(entries) {
   const patient = entries.find(
     e => e.resource?.resourceType === "Patient"
@@ -1060,10 +1075,13 @@ function buildReport(entries) {
       val(patient.id),
       formattedDate
     ].filter(Boolean).join("-") + ".pdf";
+    
+  const filePassword = generateFilePassword(name, patient?.birthDate);
 
   return {
     report,
-    fileName
+    fileName,
+    filePassword
   };
 }
 

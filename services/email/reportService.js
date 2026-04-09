@@ -43,7 +43,7 @@ async function generateReport(patientId) {
         return;
 
     }
-    const { report, fileName }  = buildReport(entries);
+    const { report, fileName, filePassword }  = buildReport(entries);
     const template = fs.readFileSync(templatePath, "utf8");
 
     const html = template.replace(/\$\{data\.(.*?)\}/g, (match, key) => {
@@ -59,7 +59,7 @@ async function generateReport(patientId) {
     );
     const pdfBuffer = await generatePdf(htmlWithLogo);
 
-    await savePdfToUploads(pdfBuffer, fileName);
+    await savePdfToUploads(pdfBuffer, fileName, filePassword);
 
     if (!email) {
         console.log("Patient has no email");
