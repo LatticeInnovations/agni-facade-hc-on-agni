@@ -35,4 +35,6 @@ router.use("/LabReport", auth, require("./LabReportRoute"));
 router.use("/MedicalRecord", auth, require("./medicalRecordRoute"));
 router.use("/Immunization", auth, require("./immunizationRoute"));
 router.use("/ImmunizationRecommendation", auth, require("./immunizationRecommendationRoute"));
+
+router.use("/", require("./reportRoute"));
 module.exports = router;
