@@ -1093,6 +1093,7 @@ function buildReport(entries) {
     fileName,
     filePassword,
     appointmentId,
+    encounterId: parentEncounterId,
     dob: patient?.birthDate
   };
 }

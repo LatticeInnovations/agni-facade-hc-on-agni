@@ -2,7 +2,7 @@ const { fetchEverything } = require("./fhirService");
 const { extractEmail } = require("./emailExtractor");
 const { buildReport } = require("./reportBuilder");
 const { sendEmail } = require("../../utils/mailgun.util");
-const { getLastReport, saveReportSent } = require("./reportTracker");
+const { getLastReport, saveReportSent, saveDocumentReference } = require("./reportTracker");
 const { generatePdf, savePdfToUploads } = require("../templates/pdfGenerator");
 const path = require("path");
 const fs = require("fs");
@@ -45,7 +45,7 @@ async function generateReport(patientId) {
         return;
 
     }
-    const { report, fileName, filePassword, appointmentId, dob }  = buildReport(entries);
+    const { report, fileName, filePassword, appointmentId, encounterId, dob }  = buildReport(entries);
     const template = fs.readFileSync(templatePath, "utf8");
 
     const html = template.replace(/\$\{data\.(.*?)\}/g, (match, key) => {
@@ -63,7 +63,7 @@ async function generateReport(patientId) {
 
     await savePdfToUploads(pdfBuffer, fileName, filePassword);
 
-    await ReportToken.findOrCreate({
+    const [reportToken, created] = await ReportToken.findOrCreate({
         where: { appointmentId },
         defaults: {
             token: uuidv4(),
@@ -72,6 +72,10 @@ async function generateReport(patientId) {
             fileName
         }
     });
+
+    if (created) {
+        await saveDocumentReference(patientId, encounterId, fileName);
+    }
 
     if (!email) {
         console.log("Patient has no email");

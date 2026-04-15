@@ -38,4 +38,41 @@ async function saveReportSent(patientId) {
 
 }
 
-module.exports = { getLastReport, saveReportSent };
+async function saveDocumentReference(patientId, encounterId, fileName) {
+  const res = await fhirClient.post(
+    `${base}DocumentReference`,
+    {
+      resourceType: "DocumentReference",
+
+      status: "current",
+
+      type: {
+        text: "Assessment Summary Report"
+      },
+
+      subject: {
+        reference: `Patient/${patientId}`
+      },
+
+      context: {
+        encounter: [
+          {
+            reference: `Encounter/${encounterId}`
+          }
+        ]
+      },
+
+      content: [
+        {
+          attachment: {
+            url: `/uploads/${fileName}`,
+            title: "Assessment Summary Report",
+            contentType: "application/pdf"
+          }
+        }
+      ]
+    }
+  );
+}
+
+module.exports = { getLastReport, saveReportSent, saveDocumentReference };
