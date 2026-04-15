@@ -65,7 +65,7 @@ async function saveDocumentReference(patientId, encounterId, fileName) {
       content: [
         {
           attachment: {
-            url: `/uploads/${fileName}`,
+            url: `/upload/${fileName}`,
             title: "Assessment Summary Report",
             contentType: "application/pdf"
           }
