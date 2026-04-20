@@ -77,6 +77,8 @@ class ServiceMode {
     getJsonToFhirTranslator() {
         this.setBasicDetails();
         this.setCode();
+        this.setIdentifier();
+        this.setMeta();
         return this.fhirResource;
     }
     getFHIRToTransformedResult() {
