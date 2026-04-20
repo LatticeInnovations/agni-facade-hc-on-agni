@@ -7,6 +7,8 @@ const bundleStructure = require("../services/bundleOperation")
 const responseService = require("../services/responseService");
 let {interventionSchema, interventionUpdateSchema} = require("../utils/Validator/interventionValidator");
 const {validateRequest} = require("../utils/validateRequest");
+const { publishReportJob } = require("../middleware/reportPublisher");
+const { saveToken } = require("../services/email/tokenStore");
 
 const fetchMainEncounter = async (interventionData, token) => {
     const mainEncounter =   await fetchResource("Encounter", {
@@ -56,6 +58,11 @@ let saveInterventionData = async function (req, res) {
                     }); 
                     console.info("get bundle json response: ", response.status)  
             if (response.status == 200 || response.status == 201) {
+                const patientIds = [...new Set(req.body.map(cvd => cvd.patientId))];
+                await saveToken(token);
+                for (const patientId of patientIds) {
+                    await publishReportJob(patientId);
+                }  
                 let responseData = setInterventionSaveResponse(bundleData.bundle.entry, response.data.entry, "post");   
                 res.status(201).json({ status: 1, message: "Intervention data saved.", data: responseData })
             }
@@ -110,6 +117,11 @@ let updateInterventionData = async function (req, res) {
                     }); 
                     console.info("get bundle json response: ", response.status)  
             if (response.status == 200 || response.status == 201) {
+                const patientIds = [...new Set(req.body.map(cvd => cvd.patientId))];
+                await saveToken(token);
+                for (const patientId of patientIds) {
+                    await publishReportJob(patientId);
+                }
                 let responseData = setInterventionSaveResponse(bundleData.bundle.entry, response.data.entry, "put");   
                 res.status(201).json({ status: 1, message: "Intervention data updated.", data: responseData })
             }

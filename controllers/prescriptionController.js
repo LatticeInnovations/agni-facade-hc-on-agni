@@ -10,7 +10,8 @@ const { buildFHIRResource, handleError, fetchResource, getTransformedResult } = 
 const { prescriptionArraySchema, prescriptionUpdateSchema } = require("../utils/Validator/prescriptionValidator");
 const {validateRequest} = require("../utils/validateRequest");
 const configUrls = require("../utils/heartcareSystemUrl")
-
+const { publishReportJob } = require("../middleware/reportPublisher");
+const { saveToken } = require("../services/email/tokenStore");
 
 const HTTP_METHODS = {
     POST: "POST",
@@ -125,6 +126,11 @@ let savePrescriptionData = async function (req, res) {
         console.info("get bundle json response: ", response.status);
 
         if (response.status === 200 || response.status === 201) {
+            const patientIds = [...new Set(req.body.map(cvd => cvd.patientId))];
+            await saveToken(token);
+            for (const patientId of patientIds) {
+                await publishReportJob(patientId);
+            }  
             const responseData = setPrescriptionResponse(bundleData.bundle.entry, response.data.entry, "post");
             return res.status(201).json({ status: 1, message: "Prescription data saved.", data: responseData });
         } else {
@@ -185,6 +191,11 @@ const updateExistingPrescription = async function (req, res) {
         console.info("get bundle json response: ", response.status);
 
         if (response.status === 200 || response.status === 201) {
+            const patientIds = [...new Set(req.body.map(cvd => cvd.patientId))];
+            await saveToken(token);
+            for (const patientId of patientIds) {
+                await publishReportJob(patientId);
+            }  
             const responseData = setPrescriptionResponse(bundleData.bundle.entry, response.data.entry, "put");
             return res.status(201).json({ status: 1, message: "Prescription data updated.", data: responseData });
         } else {
