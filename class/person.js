@@ -30,7 +30,7 @@ class Person {
                 "identifierType": "https://www.thelattice.in/",
                 "identifierNumber": this.personObj.id,
                 "code": "MR",
-                
+
             })
             this.fhirResource.identifier.push(jsonObj)
         }
@@ -123,7 +123,7 @@ class Person {
             }
         }
         else {
-            jsonObj = { value: element.identifierNumber, system: element.identifierType ,  use: element?.use || null}
+            jsonObj = { value: element.identifierNumber, system: element.identifierType, use: element?.use || null }
         }
         return jsonObj;
     }
@@ -132,7 +132,7 @@ class Person {
         if (!checkEmptyData(this.personObj.identifier) && this.personObj.identifier.length > 0) {
             this.personObj.identifier.forEach(element => {
                 let jsonObj = this.setIdentifierJSON(element);
-                if(element.system == "https://crvsd.gov.vu/services/national-id-cards-and-e-id")
+                if (element.system == "https://crvsd.gov.vu/services/national-id-cards-and-e-id")
                     jsonObj
                 this.fhirResource.identifier.push(jsonObj)
             });
@@ -142,12 +142,12 @@ class Person {
     patchIdentifier(fetchedData) {
         if (this.personObj.identifier && this.personObj.identifier.length > 0) {
             // sort by first allowing replace, then remove then add to maintain the index of data to be replaced or removed 
-            let sortedArray = this.personObj.identifier.sort((a, b) =>  (b.operation > a.operation) ? 1 : ((a.operation > b.operation ) ? -1 : 0));
+            let sortedArray = this.personObj.identifier.sort((a, b) => (b.operation > a.operation) ? 1 : ((a.operation > b.operation) ? -1 : 0));
             sortedArray.forEach(element => {
                 let index = 0;
                 index = fetchedData.identifier.findIndex(idCard => idCard.system == element.value.identifierType);
                 index = index == -1 ? 0 : index;
-                let path =  "/identifier/" + index;
+                let path = "/identifier/" + index;
                 let jsonObj = this.setIdentifierJSON(element.value);
                 this.fhirResource.push(
                     { "op": element.operation, "path": path, "value": jsonObj });
@@ -200,15 +200,17 @@ class Person {
     patchActive() {
         if (!checkEmptyData(this.personObj.active))
             this.fhirResource.push({ "op": this.personObj.active.operation, "path": "/active", "value": this.personObj.active.value },
-                {"op": "add", path: "/extension", value: [
-                    {
-                        "url": "http://example.org/fhir/StructureDefinition/patient-deletion-reason",
-                        "valueCodeableConcept": {
-                            "text": this.personObj.active.deletedReason
+                {
+                    "op": "add", path: "/extension", value: [
+                        {
+                            "url": "http://example.org/fhir/StructureDefinition/patient-deletion-reason",
+                            "valueCodeableConcept": {
+                                "text": this.personObj.active.deletedReason
+                            }
+
                         }
-                        
-                    }
-                ]})
+                    ]
+                })
     }
 
     getActive() {
@@ -242,36 +244,114 @@ class Person {
             });
         }
     }
+    setGpsCoordinates() {
+        if (this.patient_obj?.gpsCoordinates) {
+
+            const latitude = this.patient_obj.gpsCoordinates.latitude;
+            const longitude = this.patient_obj.gpsCoordinates.longitude;
+
+            if (!this.fhir_resource.address || this.fhir_resource.address.length === 0) {
+                return;
+            }
+
+            const address = this.fhir_resource.address[0];
+
+            if (!address.extension) {
+                address.extension = [];
+            }
+
+            address.extension.push({
+                url: "http://hl7.org/fhir/StructureDefinition/geolocation",
+                extension: [
+                    {
+                        url: "latitude",
+                        valueDecimal: latitude
+                    },
+                    {
+                        url: "longitude",
+                        valueDecimal: longitude
+                    }
+                ]
+            });
+        }
+    }
+    patchGpsCoordinates() {
+        if (!this.patient_obj?.gpsCoordinates) return;
+
+        const latitude = this.patient_obj.gpsCoordinates.latitude;
+        const longitude = this.patient_obj.gpsCoordinates.longitude;
+
+        this.fhirResource.push({
+            op: "add",
+            path: "/address/0/extension/-",
+            value: {
+                url: "http://hl7.org/fhir/StructureDefinition/geolocation",
+                extension: [
+                    {
+                        url: "latitude",
+                        valueDecimal: latitude
+                    },
+                    {
+                        url: "longitude",
+                        valueDecimal: longitude
+                    }
+                ]
+            }
+        });
+    }
+    getGpsCoordinates() {
+        if (!this.fhirResource?.address || this.fhirResource.address.length === 0) {
+            this.patient_obj.gpsCoordinates = null;
+            return;
+        }
+
+        const geoExtension = this.fhirResource.address[0]?.extension?.find(
+            ext => ext.url === "http://hl7.org/fhir/StructureDefinition/geolocation"
+        );
+
+        if (!geoExtension) {
+            this.patient_obj.gpsCoordinates = null;
+            return;
+        }
+
+        const latitude = geoExtension.extension?.find(e => e.url === "latitude")?.valueDecimal;
+        const longitude = geoExtension.extension?.find(e => e.url === "longitude")?.valueDecimal;
+
+        this.patient_obj.gpsCoordinates = {
+            latitude: latitude || null,
+            longitude: longitude || null
+        };
+    }
 
     patchTelecom(fetchedData) {
         let json = {}
-        if(!fetchedData.telecom){
+        if (!fetchedData.telecom) {
             let telecomValue = [];
-            if(this.personObj.mobileNumber)
-                telecomValue.push({"system": "phone", "value": this.personObj.mobileNumber.value});
-            if(this.personObj.email)
-                telecomValue.push({"system": "email", "value": this.personObj.email.value});
-            this.fhirResource.push({"op": "add", "path": "/telecom", "value": telecomValue});
+            if (this.personObj.mobileNumber)
+                telecomValue.push({ "system": "phone", "value": this.personObj.mobileNumber.value });
+            if (this.personObj.email)
+                telecomValue.push({ "system": "email", "value": this.personObj.email.value });
+            this.fhirResource.push({ "op": "add", "path": "/telecom", "value": telecomValue });
         }
         else {
             let phoneIndex = fetchedData.telecom.findIndex(e => e.system == "phone");
             let emailIndex = fetchedData.telecom.findIndex(e => e.system == "email");
-            if(phoneIndex != -1 && this.personObj.mobileNumber) {  
-                let operation = this.personObj.mobileNumber.operation == "remove" ? "replace": this.personObj.mobileNumber.operation;
-                json = {"op": operation, "path": "/telecom/"+phoneIndex+ "/value", value: this.personObj.mobileNumber.operation == "remove" ? null : this.personObj.mobileNumber.value};   
+            if (phoneIndex != -1 && this.personObj.mobileNumber) {
+                let operation = this.personObj.mobileNumber.operation == "remove" ? "replace" : this.personObj.mobileNumber.operation;
+                json = { "op": operation, "path": "/telecom/" + phoneIndex + "/value", value: this.personObj.mobileNumber.operation == "remove" ? null : this.personObj.mobileNumber.value };
                 this.fhirResource.push(json);
             }
-            else if(phoneIndex == -1 && this.personObj.mobileNumber) {
-                json = {"op": "add", "path": "/telecom/"+fetchedData.telecom.length, value: {"system": "phone", "value": this.personObj.mobileNumber.value}}; 
+            else if (phoneIndex == -1 && this.personObj.mobileNumber) {
+                json = { "op": "add", "path": "/telecom/" + fetchedData.telecom.length, value: { "system": "phone", "value": this.personObj.mobileNumber.value } };
                 this.fhirResource.push(json);
             }
-            if(emailIndex != -1 && this.personObj.email) {
-                let operation = this.personObj.email.operation == "remove" ? "replace": this.personObj.email.operation
-                json = {"op": operation, "path": "/telecom/"+emailIndex+ "/value", value: this.personObj.email.operation == "remove" ? null : this.personObj.email.value};   
+            if (emailIndex != -1 && this.personObj.email) {
+                let operation = this.personObj.email.operation == "remove" ? "replace" : this.personObj.email.operation
+                json = { "op": operation, "path": "/telecom/" + emailIndex + "/value", value: this.personObj.email.operation == "remove" ? null : this.personObj.email.value };
                 this.fhirResource.push(json)
             }
-            else if(emailIndex == -1 && this.personObj.email) {
-                this.fhirResource.push({"op": "add", "path": "/telecom/"+fetchedData.telecom.length, "value": {"system": "email", "value": this.personObj.email.value}});
+            else if (emailIndex == -1 && this.personObj.email) {
+                this.fhirResource.push({ "op": "add", "path": "/telecom/" + fetchedData.telecom.length, "value": { "system": "email", "value": this.personObj.email.value } });
             }
         }
 
@@ -329,16 +409,16 @@ class Person {
 
     addAddress() {
         let address = [];
-        if(this.personObj.permanentAddress)
+        if (this.personObj.permanentAddress)
             address.push({
                 use: "home", line: [this.personObj[permanentAddress].value.addressLine1, this.personObj[permanentAddress].value.addressLine2], city: this.personObj[permanentAddress].value.city, district: this.personObj[permanentAddress].value.district, state: this.personObj[permanentAddress].value.state, postalCode: this.personObj[permanentAddress].value.postalCode, country: this.personObj[permanentAddress].value.country
             })
-        if(this.personObj.tempAddress)
-        address.push({
-            use: "temp", line: [this.personObj[tempAddress].value.addressLine1, this.personObj[tempAddress].value.addressLine2], city: this.personObj[tempAddress].value.city, district: this.personObj[tempAddress].value.district, state: this.personObj[tempAddress].value.state, postalCode: this.personObj[tempAddress].value.postalCode, country: this.personObj[tempAddress].value.country
-        })
+        if (this.personObj.tempAddress)
+            address.push({
+                use: "temp", line: [this.personObj[tempAddress].value.addressLine1, this.personObj[tempAddress].value.addressLine2], city: this.personObj[tempAddress].value.city, district: this.personObj[tempAddress].value.district, state: this.personObj[tempAddress].value.state, postalCode: this.personObj[tempAddress].value.postalCode, country: this.personObj[tempAddress].value.country
+            })
 
-        this.fhirResource.push({"op": "add", "path": "/address", value: address})
+        this.fhirResource.push({ "op": "add", "path": "/address", value: address })
     }
 
     patchAddress(type, fetchedResourceData) {
@@ -360,7 +440,7 @@ class Person {
                 postalCode: this.personObj?.[addressType]?.value?.postalCode || null,
                 country: this.personObj[addressType].value.country
             };
-            if(this.personObj[addressType].operation == "remove") {
+            if (this.personObj[addressType].operation == "remove") {
                 jsonData = {
                     use: type,
                     line: null,
@@ -385,7 +465,7 @@ class Person {
             for (let i = 0; i < length; i++) {
                 let addressType = i == 0 ? "permanentAddress" : "tempAddress";
                 this.personObj[addressType] = {
-                   
+
                     city: this.fhirResource.address[i].city,
                     district: this.fhirResource.address[i].district,
                     state: this.fhirResource.address[i].state,
@@ -417,39 +497,39 @@ class Person {
             });
     }
 
-    getManagingOrg(){
-        if(!this.fhirResource.managingOrganization){
+    getManagingOrg() {
+        if (!this.fhirResource.managingOrganization) {
             this.personObj.managingOrganization = {
-                reference : null
+                reference: null
             }
         }
-        else{
+        else {
             this.personObj.managingOrganization = this.fhirResource.managingOrganization
         }
     }
 
-    getGeneralPractitioner(){
-        if(!this.fhirResource?.generalPractitioner){
+    getGeneralPractitioner() {
+        if (!this.fhirResource?.generalPractitioner) {
             this.personObj.generalPractitioner = [];
         }
-        else{
+        else {
             this.personObj.generalPractitioner = this.fhirResource.generalPractitioner;
         }
     }
 
-    setManagingOrg(){
-        if(this.personObj.orgId) {
+    setManagingOrg() {
+        if (this.personObj.orgId) {
             this.fhirResource.managingOrganization = {
-                reference : "Organization/"+this.personObj.orgId
+                reference: "Organization/" + this.personObj.orgId
             }
         }
 
     }
 
-    setGeneralPractitioner(){
+    setGeneralPractitioner() {
         this.fhirResource.generalPractitioner = [
             {
-                reference: "Practitioner/"+this.personObj.userId
+                reference: "Practitioner/" + this.personObj.userId
             }
         ];
     }
@@ -477,15 +557,17 @@ class Person {
         this.patchActive();
         this.patchGender();
         this.patchBirthDate();
-        if(this.personObj.mobileNumber || this.personObj.email)
+        if (this.personObj.mobileNumber || this.personObj.email.value)
             this.patchTelecom(fetchedResourceData);
-        if(!fetchedResourceData.address) {
+        if (!fetchedResourceData.address) {
             this.addAddress();
-        }        
+        }
         if (this.personObj["permanentAddress"] !== undefined && fetchedResourceData.address)
             this.patchAddress("home", fetchedResourceData);
         if (this.personObj["tempAddress"] !== undefined && fetchedResourceData.address)
             this.patchAddress("temp", fetchedResourceData);
+        if (this.personObj.gpsCoordinates?.value)
+            this.patchGpsCoordinates(fetchedResourceData);
     }
 }
 

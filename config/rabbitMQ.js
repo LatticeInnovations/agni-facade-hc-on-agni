@@ -1,13 +1,16 @@
 const amqp = require("amqplib");
+require("dotenv").config();
 let channel = null;
 
 async function connectRabbitMQ() {
   try {
     const connection = await amqp.connect(process.env.RABBITMQ_URL || "amqp://localhost");
+    console.log("connection: =======================> ", connection)
     channel = await connection.createChannel();
 
     const queueNames = [
-      "AGNI_TO_HEARTCARE_MAIN"
+      "AGNI_TO_HEARTCARE_MAIN",
+      "SCREENING_REPORT_QUEUE"
     ];
 
     for (const queue of queueNames) {
@@ -34,7 +37,7 @@ async function sendToQueue(queueName, message) {
   
     try {
         const success = ch.sendToQueue(
-            queueName, Buffer.from(JSON.stringify(message), {persistent: true})
+            queueName, Buffer.from(JSON.stringify(message)), {persistent: true}
         )
 
         if(success) {

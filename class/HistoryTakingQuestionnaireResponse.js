@@ -72,7 +72,7 @@ class HistoryMedicationQuestionnaireResponse {
     }
 
     getSection1Answer() {
-        this.answerObj.medicinePrescribed = this.fhirResource.item[0]?.answer?.map(e=> e.valueCoding.code) || []
+        this.answerObj.medicinePrescribed = this.fhirResource?.item[0]?.answer?.map(e=> e.valueCoding.code) || []
     }
 
     setMedicinePrescribedOthers() {
@@ -83,7 +83,7 @@ class HistoryMedicationQuestionnaireResponse {
         })
     }
     getMedicinePrescribedOthers() {
-        this.answerObj.medicinePrescribedOthers = this.fhirResource.item[1]?.answer?.[0]?.valueString || null
+        this.answerObj.medicinePrescribedOthers = this.fhirResource?.item[1]?.answer?.[0]?.valueString || null
     }
 
     setSection2Answer() {
@@ -96,7 +96,7 @@ class HistoryMedicationQuestionnaireResponse {
     }
 
     getSection2Answer() {
-        this.answerObj.adherence = this.fhirResource.item[2]?.answer?.[0]?.valueCoding?.code || null
+        this.answerObj.adherence = this.fhirResource?.item[2]?.answer?.[0]?.valueCoding?.code || null
     }
 
     setSection3Answer() {
@@ -107,7 +107,7 @@ class HistoryMedicationQuestionnaireResponse {
     }
     
     getSection3Answer() {
-        this.answerObj.hasSideEffect = this.fhirResource.item[3].answer[0].valueBoolean;
+        this.answerObj.hasSideEffect = this.fhirResource?.item?.[3]?.answer?.[0]?.valueBoolean || null;
     }
 
     setSection4Answer() {
@@ -118,7 +118,7 @@ class HistoryMedicationQuestionnaireResponse {
     }
 
     getSection4Answer() {
-        this.answerObj.sideEffects = this.fhirResource.item[4]?.answer?.[0]?.valueString || null
+        this.answerObj.sideEffects = this.fhirResource?.item[4]?.answer?.[0]?.valueString || null
     }
 
     getJsonToFhirTranslator() {

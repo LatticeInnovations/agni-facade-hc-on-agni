@@ -35,6 +35,19 @@ class Slot {
         this.slotObj.status = this.fhirResource.status;
     }
 
+    setServiceType() {
+        this.fhirResource.serviceType = [
+            {
+              coding: [
+                {
+                  system:  "http://terminology.hl7.org/CodeSystem/service-type",
+                  code:    this.slotObj.serviceType,
+                  display: this.slotObj.serviceType,
+                },
+              ],
+            },
+          ]
+    }
 
     setSchedule() {
         this.fhirResource.schedule= {
@@ -83,6 +96,7 @@ class Slot {
         this.setBasicStructure();
         this.setStatus();
         this.setSchedule();
+        this.setServiceType();
         this.setStartEnd();
     }
 

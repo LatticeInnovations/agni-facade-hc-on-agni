@@ -1,12 +1,12 @@
 module.exports = {
     medReqUuidUrl: "https://lattice.in/sid/medRequest",
-    adminDivisionCodeUrl: "http://uat.adminheartcare.thelattice.org/fhir/location-code",
-    adminDivisionUrl: "http://uat.adminheartcare.thelattice.org/fhir/location-type",
+    adminDivisionCodeUrl: "https://heartcare.gov.vu/fhir/location-code",
+    adminDivisionUrl: "https://heartcare.gov.vu/fhir/location-type",
     adminDivisionPopulationUrl : "http://example.org/fhir/StructureDefinition/population",
     locationReferenceUrl: "http://example.org/fhir/StructureDefinition/location-reference",
-    heartCareIdUrl: "http://uat.heartcare.thelattice.org/dashboard/patient-info",
-    heartcareUserIdUrl: "http://uat.heartcare.thelattice.org/dashboard/profile/view",
-    heartcareUserPkUrl : "http://uat.adminheartcare.thelattice.org/dashboard/users/view",
-    heartcareAdminUrl: "http://uat.adminheartcare.thelattice.org/dashboard/administrative",
+    heartCareIdUrl: "https://heartcare.gov.vu/dashboard/patient-info",
+    heartcareUserIdUrl: "https://heartcare.gov.vu/dashboard/profile/view",
+    heartcareUserPkUrl : "https://heartcare.gov.vu/dashboard/users/view",
+    heartcareAdminUrl: "https://heartcare.gov.vu/dashboard/administrative",
     identifierUrl: "https://www.thelattice.in/"
 }

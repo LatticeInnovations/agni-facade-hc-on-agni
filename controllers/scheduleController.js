@@ -4,47 +4,39 @@ const urlList = require("../utils/heartcareSystemUrl");
 const bundleStructure = require("../services/bundleOperation");
 const responseService = require("../services/responseService");
 let config = require("../config/nodeConfig");
-let {scheduleSaveSchema} = require("../utils/Validator/scheduleAppointment");
+let {scheduleSaveSchema, campaignScheduleValidationSchema} = require("../utils/Validator/scheduleAppointment");
 const {validateRequest} = require("../utils/validateRequest");
-const {buildFHIRResource, fetchResource, handleError, getTransformedResult} = require("../services/helperFunctions");
+const {buildFHIRResource, fetchResource, handleError, getTransformedResult, getAPIPath} = require("../services/helperFunctions");
 
 let setScheduleData = async function (req, res) {
     try {
-        const validatedBody = validateRequest(req.body, scheduleSaveSchema, res);
+        const isCampaignPath = await getAPIPath(req);
+        console.log("check is it campaign path: ", isCampaignPath)
+
+        const validatedBody = validateRequest(req.body, isCampaignPath ? campaignScheduleValidationSchema : scheduleSaveSchema, res);
         if (!validatedBody) return;
-        req.queueMeta = {
-            data: req.data,
-            entity: "appointments",
-            sub_entity: "schedule",
-            requestType: "post",
-            apiName: "save-schedule",
-            tokenData: req.decoded
-          };
+
         const token = req.accessToken;
+        if (!isCampaignPath) applyNonCampaignSideEffects(req);
         let resourceResult = [], errData = [];
-        const practitionerRoleResource = await fetchResource("PractitionerRole", { practitioner: req.decoded.userId, _elements: "_id,organization", _total: "accurate" }, token);
-        const roleId = practitionerRoleResource.entry[0].resource.id
-        const orgId = practitionerRoleResource.entry[0].resource.organization.reference.split("/")[1]
-        for (let scheduleData of req.body) {
-            scheduleData.roleId = roleId;
-            const scheduleResource = buildFHIRResource(Schedule, scheduleData);
-            let noneExistData = [
-                    { "key": "date", "value": encodeURIComponent("ge" + scheduleData.planningHorizon.start) },
-                    { "key": "date", "value": encodeURIComponent("le" + scheduleData.planningHorizon.end) },
-                    { "key": "actor.organization", "value": 'Organization/' + orgId }
-            ];
-            let scheduleBundle = await bundleStructure.setBundlePost(scheduleResource, noneExistData, scheduleData.uuid, "POST", "object");
-            resourceResult.push(scheduleBundle);
-        }
-        console.info("=============>", resourceResult, errData, "<=========================");
+        const practitionerRoleResource = await fetchResource("PractitionerRole", { practitioner: req.decoded.userId, _total: "accurate" }, token);
+        const roleId = practitionerRoleResource.entry[0].resource.id;
+        const orgId = getOrgId(isCampaignPath, practitionerRoleResource);
+        console.log("check orgId: ", orgId)
+        resourceResult = await Promise.all(
+            req.body.map(scheduleData =>
+                buildScheduleBundle(scheduleData, roleId, orgId, isCampaignPath)
+            )
+        );
+        // console.info("=============>", resourceResult, errData, "<=========================");
         let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
-        console.info("main bundle transaction resource: ", bundleData)
         let response = await axios.post(config.baseUrl, bundleData.bundle, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/fhir+json'
             }
         });  
+        // console.log("response: ", response)
         if (response.status == 200 || response.status == 201) {
             let responseData = setScheduleResponse(bundleData.bundle.entry, response.data.entry, "post");
             res.status(201).json({ status: 1, message: "Schedule data saved.", data: responseData })
@@ -58,6 +50,43 @@ let setScheduleData = async function (req, res) {
         return handleError(res, error)
     }
 
+}
+
+
+function applyNonCampaignSideEffects(req) {
+    req.queueMeta = {
+        data: req.data,
+        entity: "appointments",
+        sub_entity: "schedule",
+        requestType: "post",
+        apiName: "save-schedule",
+        tokenData: req.decoded
+    };
+}
+
+function getOrgId(isCampaignPath, practitionerRoleResource) {
+    if (isCampaignPath) return null;
+    return practitionerRoleResource.entry[0].resource.organization.reference.split("/")[1];
+}
+
+function buildNoneExistData(isCampaignPath, scheduleData, roleId, orgId) {
+    return [
+        { key: "date", value: encodeURIComponent("ge" + scheduleData.planningHorizon.start) },
+        { key: "date", value: encodeURIComponent("le" + scheduleData.planningHorizon.end) },
+        isCampaignPath
+            ? { key: "actor", value: "Location/" + scheduleData.campaignId }
+            : { key: "actor.organization", value: "Organization/" + orgId }
+    ];
+}
+
+async function buildScheduleBundle(scheduleData, roleId, orgId, isCampaignPath) {
+    scheduleData.roleId = roleId;
+    scheduleData.serviceType = isCampaignPath ? "screening-site" : "facility";
+
+    const   scheduleResource = buildFHIRResource(Schedule, scheduleData);
+    const noneExistData = buildNoneExistData(isCampaignPath, scheduleData, roleId, orgId);
+
+    return bundleStructure.setBundlePost(scheduleResource, noneExistData, scheduleData.uuid, "POST", "object");
 }
 
 const mapScheduleData = async (FHIRData, token) => {
@@ -81,7 +110,7 @@ const mapScheduleData = async (FHIRData, token) => {
         const scheduleIds = new Set();
         const scheduleResult = FHIRData.map(({ resource }) => {
         const schedule = getTransformedResult(Schedule, resource);
-        const roleId = schedule.roleId;
+        const roleId = schedule?.roleId || null;
         const role = roleMap[roleId];
 
         const orgId = roleMap[roleId]?.organization?.reference?.split("/")[1];
@@ -120,12 +149,13 @@ return { scheduleResult, scheduleIds };
 }
 
 
-const countBookedSlots = async (scheduleIds, token) => {
+const countBookedSlots = async (scheduleIds, token, isCampaignPath) => {
     const slotList = await fetchResource("Slot", {
         _elements: "schedule",
         "_has:Appointment:slot:slot.schedule": [...scheduleIds].join(","),
         _count: 5000,
-        "_has:Appointment:slot:status": "proposed,arrived,noshow"
+        "_has:Appointment:slot:status": "proposed,arrived,noshow",
+        "service-type": isCampaignPath ? "screening-site" : "facility"
     }, token);
     if(slotList.total == 0)
         return []
@@ -142,14 +172,14 @@ const countBookedSlots = async (scheduleIds, token) => {
 
 const getScheduleData = async function(req, res) {
     try {
-      
+        const isCampaignPath = await getAPIPath(req);
             let queryParams = {
                 _total : "accurate",
-                // "actor": "PractitionerRole/" + roleId,
                 _count: req.query._count,
                 _offset: req.query._offset,
                 _sort: req.query._sort,
-                _lastUpdated: req.query._lastUpdated
+                _lastUpdated: req.query._lastUpdated,
+                "service-type": isCampaignPath ? "screening-site" : "facility"
             };
             let resStatus = 1;
             const token = req.accessToken;
@@ -163,7 +193,7 @@ const getScheduleData = async function(req, res) {
             // to get organization id from location of the schedule and join it with schedule data
             // const resourceSlotResult = await joinRoleData(scheduleResult, roleIds);
             // booked slots count
-            const bookedSlots = await countBookedSlots(scheduleIds, token);
+            const bookedSlots = await countBookedSlots(scheduleIds, token, isCampaignPath);
 
             const resourceResult = scheduleResult.map(obj1 => {
                 const obj2 = bookedSlots.find(obj2 => obj2.scheduleId === obj1.scheduleId);

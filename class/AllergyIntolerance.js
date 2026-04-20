@@ -44,7 +44,7 @@ class AllergyIntolerance {
     }
 
     getAllergy() {
-        this.answerObj.allergy = this.fhirResource.note?.[0]?.text || null
+        this.answerObj.allergy = this.fhirResource?.note?.[0]?.text || null
     }
 
 

@@ -33,6 +33,20 @@ class BaseEncounter {
     }
   }
 
+  setType() {
+    this.fhirResource.type = [
+      {
+        "coding": [
+          {
+              "system": "https://your-custom-coding-system",
+              "code": this.encounterObj.encounterType,
+              "display": this.encounterObj.encounterType,
+          }
+      ]
+      }
+    ]
+  }
+
   getId() {
     this.encounterObj.appointmentUuid = this.fhirResource?.identifier[0]?.value;
   }
@@ -57,6 +71,7 @@ setPartOf () {
 
 }
 
+
   getAppointmentReference() {
       this.encounterObj.appointmentId = this?.fhirResource?.appointment?.[0]?.reference?.split("/")[1] || null;
   }
@@ -66,7 +81,56 @@ setPatientReference() {
     this.fhirResource.subject.reference = "Patient/" + this.encounterObj.patientId;
 }
 
+setLocationForFacility() {
+  console.log("this.encounterObj.patientAddress: ", this.encounterObj.patientAddress)
+  // if(!this.encounterObj.isCampaign)
+  //   this.fhirResource.location = [
+  //     {
+  //       location: {
+  //         reference: "Location/" + this.encounterObj.patientAddress.state,
+  //         display: "province"
+  //       }
+  //     },
+  //     {
+  //       location: {
+  //         reference: "Location/" + this.encounterObj.patientAddress.city,
+  //         display: "area-council"
+  //       }
+  //     },
+  //     {
+  //       location: {
+  //         reference: "Location/" + this.encounterObj.patientAddress.district,
+  //         display: "island"
+  //       }
+  //     }
+  //   ];
+  //   if(this.encounterObj.patientAddress.line) {
+  //     this.fhirResource.location.push({
+  //       location: {
+  //         reference: "Location/" + this.encounterObj.patientAddress.line[0],
+  //         display: "village"
+  //       }
+  //     })
+  //   }
+}
+
+setLocationForCampaign() {
+  if(this.encounterObj.isCampaign) {
+    this.fhirResource.location = [
+      {
+        location: {
+          reference: "Location/" + this.encounterObj.campaignId,
+          display: "screening-site-location"
+        }
+      }
+    ]
+  }
+
+}
+
+
 setOrganizationReference(){
+  if(!this.encounterObj.isCampaign)
     this.fhirResource.serviceProvider.reference = "Organization/" + this.encounterObj.orgId;
 }
 
@@ -106,6 +170,9 @@ getPatientReference() {
     this.setAppointmentReference();
     this.setEncounterTime();
     this.setStatus();
+    this.setType();
+    this.setLocationForFacility();
+    this.setLocationForCampaign();
     this.setOrganizationReference();
   }
 

@@ -25,6 +25,20 @@ class Schedule {
         this.scheduleObj.uuid = data.uuid;
         this.scheduleObj.identifier = data.identifier;
     }
+
+    setServiceType() {
+        this.fhirResource.serviceType = [
+            {
+                "coding": [
+                    {
+                        "system": "http://terminology.hl7.org/CodeSystem/service-type",
+                        "code": this.scheduleObj.serviceType,
+                        display: this.scheduleObj.serviceType
+                    }
+                ]
+            }
+        ]
+    }
     
     setStatus() {
         this.fhirResource.active = true;
@@ -34,15 +48,49 @@ class Schedule {
         this.scheduleObj.active = this.fhirResource.active;
     }
 
+    setCampaignId() {
+        if(this.scheduleObj.campaignId) {
+            this.fhirResource.actor.push({
+                "reference": "Location/" + this.scheduleObj.campaignId
+            })
+        }
+    }
+
+    getCampaignId() {
+        if( this.fhirResource.actor) {
+            const index = this.fhirResource.actor.findIndex(e => e.reference.split("/")[0] === "Location")
+            if(index > -1)
+                this.scheduleObj.campaignId = this.fhirResource.actor[index].reference.split("/")[1];
+            else 
+            this.scheduleObj.campaignId = null;
+        }
+        else {
+            this.scheduleObj.campaignId = null;
+        }
+    }
+
     setActor() {
-        this.fhirResource.actor.push({
-            "reference": "PractitionerRole/" + this.scheduleObj.roleId
-        })
+        if(!this.scheduleObj.campaignId) {
+            this.fhirResource.actor.push({
+                "reference": "PractitionerRole/" + this.scheduleObj.roleId
+            })
+        }
+
     }
 
     getActor() {
-        this.scheduleObj.roleId = this.fhirResource.actor[0].reference.split("/")[1];
+        if(this.fhirResource.actor) {
+            const index = this.fhirResource.actor.findIndex(e => e.reference.split("/")[0] === "PractitionerRole")
+            if(index > -1)
+                this.scheduleObj.roleId = this.fhirResource.actor[index].reference.split("/")[1];
+            else
+                this.scheduleObj.roleId = null
+        }
+        else {
+            this.scheduleObj.roleId = null;
+        }
     }
+        
 
     setPlanningHorizon() {
         this.fhirResource.planningHorizon = this.scheduleObj.planningHorizon;
@@ -60,13 +108,16 @@ class Schedule {
     getFHIRToTransformedResult() {
         this.getId();
         this.getPlanningHorizon();
-        this.getActor();     
+        this.getActor();   
+        this.getCampaignId();  
         this.getStatus();  
     }
 
     getJsonToFhirTranslator() {
         this.setBasicStructure()
         this.setIdentifier();
+        this.setServiceType();
+        this.setCampaignId();
         this.setStatus();
         this.setActor();
         this.setPlanningHorizon();

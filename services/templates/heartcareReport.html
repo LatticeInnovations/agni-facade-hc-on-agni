@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Montserrat', sans-serif;
+            padding: 40px;
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .header img {
+            width: 60px;
+            margin-right: 15px;
+        }
+
+        .header h1 {
+            font-size: 48px;
+            color: #008DC9;
+            font-weight: 500;
+            margin: 0;
+        }
+
+        .section-title {
+            display: flex;
+            align-items: center;
+            background: #c9daf8;
+            padding: 16px;
+            margin-top: 40px;
+            font-size: 16px;
+            font-weight: 500;
+            position: relative;
+        }
+
+        .section-title::after {
+            content: "";
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 80px;
+            height: 100%;
+            background: #006098;
+        }
+
+        .box {
+            background: #F7F7F7;
+            padding: 15px;
+            margin-top: 10px;
+            border-radius: 4px;
+        }
+
+        .row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .col {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .label {
+            color: #8f8f8f;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .label2 {
+            color: #8f8f8f;
+            font-weight: 400;
+            font-size: 13px;
+        }
+
+        .value {
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .value2 {
+            font-weight: 400;
+            font-size: 12px;
+        }
+
+        .value3 {
+            font-weight: 500;
+            color: #D86422;
+            font-size: 14px;
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <div class="header">
+        <img src="LOGO_PLACEHOLDER" alt="HeartCare Logo">
+        <h1>HeartCare</h1>
+    </div>
+
+
+    <!-- PERSONAL INFORMATION -->
+
+    <div class="section-title">Personal information</div>
+
+    <div class="box">
+
+        <div class="row">
+            <div class="col">
+                <span class="label">Heartcare ID:</span>
+                <span class="value">${data.heartcareId}</span>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col">
+                <span class="label">Patient name:</span>
+                <span class="value">${data.name}</span>
+            </div>
+        </div>
+
+        <div class="row">
+
+            <div class="col">
+                <span class="label">Date of birth (Age):</span>
+                <span class="value">${data.age}</span>
+            </div>
+
+            <div class="col">
+                <span class="label">Sex:</span>
+                <span class="value">${data.gender}</span>
+            </div>
+
+            <div class="col">
+                <span class="label">Date of visit:</span>
+                <span class="value">${data.visitDate}</span>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- RISK SCORE -->
+
+    <div class="section-title">Risk score</div>
+
+    <div class="box">
+
+        <div class="row">
+            <div class="col">
+                <div class="label">Risk prediction:</div>
+                <div class="value">${data.riskPrediction}</div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col">
+                <div class="label">Risk status:</div>
+                <div class="value">${data.riskStatus}</div>
+            </div>
+        </div>
+
+        <div class="row">
+
+            <div class="col">
+                <div class="label">Weight:</div>
+                <div class="value">${data.weight}</div>
+            </div>
+
+            <div class="col">
+                <div class="label">BMI:</div>
+                <div class="value">${data.bmi}</div>
+            </div>
+
+        </div>
+
+        <div class="row">
+
+            <div class="col">
+                <div class="label">Height:</div>
+                <div class="value">${data.height}</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Blood pressure:</div>
+                <div class="value">${data.bp}</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Total cholesterol:</div>
+                <div class="value">${data.cholesterol}</div>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- CHIEF COMPLAINT -->
+
+    <div class="section-title">Chief complaint</div>
+
+    <div class="box">
+        <div class="row">
+            <div class="col">
+                <div class="value">${data.chiefComplaint} </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- TEST RESULTS -->
+
+    <div class="section-title">Test results</div>
+
+    <div class="box">
+
+        <div class="row">
+
+            <div class="col">
+                <div class="label">Glucose</div>
+                <div class="value">${data.glucose}</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Abdominal circumference</div>
+                <div class="value">${data.abdominal}</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Serum creatinine</div>
+                <div class="value">${data.creatinine}</div>
+            </div>
+
+        </div>
+
+
+        <div class="row">
+
+            <div class="col">
+                <div class="label">Foot examination</div>
+                <div class="value">${data.foot}</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Hip circumference</div>
+                <div class="value">${data.hip}</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Serum potassium</div>
+                <div class="value">${data.potassium}</div>
+            </div>
+
+        </div>
+
+
+        <div class="row">
+
+            <div class="col">
+                <div class="label">Eye examination</div>
+                <div class="value">${data.eye}</div>
+            </div>
+
+            <div class="col">
+                <div class="label">HbA1c</div>
+                <div class="value">${data.hba1c}</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Urine ketone</div>
+                <div class="value">${data.urineKetone}</div>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- HISTORY -->
+
+    <div class="section-title">History</div>
+
+    <div class="box">
+
+        <div class="row">
+
+            <div class="col">
+                <div class="label">Prior diagnosis</div>
+                <div class="value">${data.priorDiagnosis}</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Family history</div>
+                <div class="value">${data.familyHistory}</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Adherence</div>
+                <div class="value">${data.adherence}</div>
+            </div>
+
+        </div>
+        <div class="row">
+
+            <div class="col">
+                <div class="label">Taking prescribed medication for</div>
+                <div class="value">${data.prescribedMedication}</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Allergies</div>
+                <div class="value">${data.allergies}</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Side effects</div>
+                <div class="value">${data.sideEffects}</div>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- RISK FACTORS -->
+
+    <!-- RISK FACTORS -->
+
+    <div class="section-title">Risk factors</div>
+
+    <div class="box">
+
+        <!-- Tobacco -->
+        <div class="row">
+            <div class="col">
+                <div class="label">Tobacco</div>
+                <div class="label2">Current use</div>
+                <div class="value">${data.riskFactors.tobacco.tobaccoUser}</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Products used</div>
+                <div class="value">${data.riskFactors.tobacco.productUsed}</div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col">
+                <div class="label">Age when started</div>
+                <div class="value">${data.riskFactors.tobacco.startAge} years</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Avg daily use</div>
+                <div class="value">
+                    ${data.riskFactors.tobacco.dailyUse}
+                    ${data.riskFactors.tobacco.consumptionUnit}
+                </div>
+            </div>
+
+            <div class="col">
+                <div class="label">Willing to quit</div>
+                <div class="value">${data.riskFactors.tobacco.willingToQuit}</div>
+            </div>
+        </div>
+
+
+        <!-- Alcohol -->
+        <div class="row">
+            <div class="col">
+                <div class="label">Alcohol</div>
+                <div class="label2">Consumed in the last 30 days?</div>
+                <div class="value">${data.riskFactors.alcohol.consumedWithin30Days}</div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col">
+                <div class="label">Had at least one standard drink</div>
+                <div class="value">${data.riskFactors.alcohol.drinkOccasion} times in past 30 days</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Standard drinks per occasion</div>
+                <div>${data.riskFactors.alcohol.drinksPerOccasion}</div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col">
+                <div class="label">≥6 standard drinks in a single occasion</div>
+                <div class="value">${data.riskFactors.alcohol.sixOrMoreDrinks} times in past 30 days</div>
+            </div>
+        </div>
+
+
+        <!-- Fruits & Vegetables -->
+        <div class="row">
+            <div class="col">
+                <div class="label">Fruits & vegetables</div>
+                <div class="label2">Eat weekly?</div>
+                <div class="value">${data.riskFactors.fruitsVegetables.eatWeekly}</div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col">
+                <div class="label">Frequency – fruits</div>
+                <div class="value">${data.riskFactors.fruitsVegetables.fruitsDays} days/week</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Servings of fruits</div>
+                <div class="value">${data.riskFactors.fruitsVegetables.fruitServings}</div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col">
+                <div class="label">Frequency – veg</div>
+                <div class="value">${data.riskFactors.fruitsVegetables.vegDays} days/week</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Servings – veg</div>
+                <div class="value">${data.riskFactors.fruitsVegetables.vegServings}</div>
+            </div>
+        </div>
+
+
+        <!-- Physical Activity -->
+        <div class="row">
+            <div class="col">
+                <div class="label">Physical activity</div>
+                <div class="label2">Weekly activity</div>
+                <div class="value">${data.riskFactors.physicalActivity.weeklyEngagement}</div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col">
+                <div class="label">Vigorous activity</div>
+                <div class="value">${data.riskFactors.physicalActivity.vigorousTime} minutes,
+                    ${data.riskFactors.physicalActivity.vigorousDays} days/week</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Moderate intensity activity</div>
+                <div class="value">${data.riskFactors.physicalActivity.moderateTime} minutes,
+                    ${data.riskFactors.physicalActivity.moderateDays} days/week</div>
+            </div>
+        </div>
+
+
+        <!-- Salt -->
+        <div class="row">
+            <div class="col">
+                <div class="label">Salt or salty sauces</div>
+                <div class="label2">Amount consumed</div>
+                <div class="value">${data.riskFactors.salt.saltAmount}</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Adding salt while eating</div>
+                <div class="value">${data.riskFactors.salt.saltAddMeal}</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Adding salt while cooking</div>
+                <div class="value">${data.riskFactors.salt.saltAddCooking}</div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col">
+                <div class="label">Eating processed food high in salt</div>
+                <div class="value">${data.riskFactors.salt.processedFood}</div>
+            </div>
+        </div>
+
+
+        <!-- Fats & Oils -->
+        <div class="row">
+            <div class="col">
+                <div class="label">Fats & Oils</div>
+                <div class="value">${data.riskFactors.fats.oilUsed}</div>
+            </div>
+        </div>
+
+
+        <!-- Sugar -->
+        <div class="row">
+            <div class="col">
+                <div class="label">Sugars – soft drinks & fruit juice</div>
+                <div class="label2">Soft drinks consumed</div>
+                <div class="value">${data.riskFactors.sugar.softDrink} times per day</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Fruit juice consumed</div>
+                <div class="value">${data.riskFactors.sugar.juice}</div>
+            </div>
+        </div>
+
+
+        <!-- Dining Out -->
+        <div class="row">
+            <div class="col">
+                <div class="label">Dining out</div>
+                <div class="value">${data.riskFactors.mealsOutside.eatsOut}</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Meals per week</div>
+                <div class="value">${data.riskFactors.mealsOutside.mealsPerWeek }</div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Tobacco cessation -->
+
+    <div class="section-title">Tobacco cessation</div>
+
+    <div class="box">
+
+        <div class="row">
+
+            <div class="col">
+                <div class="label">Tobacco use status</div>
+                <div class="label2">Does the patient use tobacco?</div>
+                <div class="value">${data.tobaccoCessation.tobaccoUse}</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Brief advice</div>
+                <div class="label2">Has patient been given personalized advice on quitting tobacco use?</div>
+                <div class="value">${data.tobaccoCessation.briefAdvice}</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Assessed status</div>
+                <div class="label2">Is the patient ready to quit?</div>
+                <div class="value">${data.tobaccoCessation.assessedStatus}</div>
+            </div>
+
+        </div>
+
+
+        <div class="row">
+
+            <div class="col">
+                <div class="label">Assist to quit</div>
+                <div class="label2">Quit plan completed?</div>
+                <div class="value">${data.tobaccoCessation.assistQuit}</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Pharmacotherapy</div>
+                <div class="label2">Pharmacotherapy (PH) provided?</div>
+                <div class="value">${data.tobaccoCessation.pharmacotherapy}</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Start date of plan</div>
+                <div class="value">${data.tobaccoCessation.dateOfPlan}</div>
+            </div>
+
+        </div>
+
+
+        <div class="row">
+
+            <div class="col">
+                <div class="label">Status of plan</div>
+                <div class="value">${data.tobaccoCessation.planStatus}</div>
+            </div>
+
+        </div>
+
+    </div>
+    <!-- GUIDANCE -->
+
+    <div class="section-title">Guidance</div>
+
+    <div class="box">
+
+        <div class="row">
+            <div class="col">
+                <div class="label">Blood pressure</div>
+                <div class="value">${data.guidance.bp}</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Blood glucose</div>
+                <div class="value">${data.guidance.glucose}</div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col">
+                <div class="label">Total cholesterol</div>
+                <div class="value">${data.guidance.cholesterol}</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Body weight</div>
+                <div class="value">${data.guidance.weight}</div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col">
+                <div class="label">Tobacco use</div>
+                <div class="value">${data.guidance.tobacco}</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Alcohol consumption</div>
+                <div class="value">${data.guidance.alcohol}</div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col">
+                <div class="label">Physical activity</div>
+                <div class="value">${data.guidance.activity}</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Cardiovascular risk</div>
+                <div class="value">${data.guidance.cvd}</div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col">
+                <div class="label">Fruits and vegetables</div>
+                <div class="value">${data.guidance.fruits}</div>
+            </div>
+            <div class="col">
+                <div class="label">Salt intake</div>
+                <div class="value">${data.guidance.salt}</div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="section-title">Personal summary</div>
+
+    <div class="box">
+
+        <div class="row">
+
+            <div class="col">
+                <div class="label">Cardiovascular risk</div>
+                <div class="value">${data.personalSummary.cardioVascularRisk}</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Fruits & vegetables</div>
+                <div class="value">${data.personalSummary.fruitsAndVegetables}</div>
+            </div>
+
+        </div>
+
+
+        <div class="row">
+
+            <div class="col">
+                <div class="label">Blood pressure</div>
+                <div class="value">${data.personalSummary.bloodPressure}</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Body weight</div>
+                <div class="value">${data.personalSummary.bodyWeight}</div>
+            </div>
+
+        </div>
+
+
+        <div class="row">
+
+            <div class="col">
+                <div class="label">Alcohol consumption</div>
+                <div class="value">${data.personalSummary.alcaholConsumption}</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Total cholesterol</div>
+                <div class="value">${data.personalSummary.totalCholestrol}</div>
+            </div>
+
+        </div>
+
+
+        <div class="row">
+
+            <div class="col">
+                <div class="label">Salt intake</div>
+                <div class="value">${data.personalSummary.saltIntake}</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Tobacco use</div>
+                <div class="value">${data.personalSummary.tobaccoConsumption}</div>
+            </div>
+
+        </div>
+
+
+        <div class="row">
+
+            <div class="col">
+                <div class="label">Blood glucose</div>
+                <div class="value">${data.personalSummary.bloodGlucose}</div>
+            </div>
+
+            <div class="col">
+                <div class="label">Physical activity</div>
+                <div class="value">${data.personalSummary.physicalActivity}</div>
+            </div>
+
+        </div>
+
+    </div>
+    <!-- DIAGNOSIS -->
+
+    <div class="section-title">Diagnosis & Prescription</div>
+
+    <div class="box">
+
+        <div class="row">
+
+            <div class="col">
+                <div class="label">Notes</div>
+                <div class="value">${data.notes}</div>
+            </div>
+
+        </div>
+
+        <div class="row">
+
+            <div class="col">
+                <div class="label">Diagnosis</div>
+                <div class="value">${data.diagnosis}</div>
+            </div>
+
+        </div>
+
+        <div class="row">
+
+            <div class="col">
+                <div class="label">Medication</div>
+                ${data.medication}
+            </div>
+            <div class="col">
+                <div class="label">Examination</div>
+                ${data.examination}
+            </div>
+            <div class="col">
+                <div class="label">Interventions</div>
+                <div class="value">${data.intervention}</div>
+            </div>
+        </div>
+
+    </div>
+
+
+</body>
+
+</html>
