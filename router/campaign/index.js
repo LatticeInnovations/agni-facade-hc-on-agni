@@ -17,4 +17,7 @@ router.use("/Appointment", auth, require("./appointmentRoute"));
 // router.use("/diagnosis", auth, require("./symDiagRoute"));
 // router.use("/Prescription", auth, require("./prescriptionRoute"));
 // router.use("/referral", auth, require("./referral"));
+
+router.use("/service-mode", auth, require("./serviceRoute"));
+
 module.exports = router;
