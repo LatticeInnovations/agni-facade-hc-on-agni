@@ -13,7 +13,21 @@ const scheduleValidation = Joi.object({
     orgId: Joi.string().optional()
   })
 
+const campaignScheduleValidation = Joi.object({
+  uuid: Joi.string()
+    .min(30)
+    .max(100)
+    .required(),
+  planningHorizon: Joi.object({
+    start: Joi.date().required(),
+    end: Joi.date().greater(Joi.ref("start")).required()
+  }).required(),
+  campaignId: Joi.number().min(1)
+});
+
 let scheduleSaveSchema = Joi.array().items(scheduleValidation).min(1).required()
+
+let campaignScheduleValidationSchema = Joi.array().items(campaignScheduleValidation).min(1).required()
 
 let appointmentSchema = Joi.object({
     uuid: Joi.string()
@@ -67,4 +81,4 @@ let appointmentSchema = Joi.object({
 
 
 
-module.exports = { scheduleSaveSchema, appointmentSaveSchema, appointmentPatchSchema }
+module.exports = { scheduleSaveSchema, appointmentSaveSchema, appointmentPatchSchema, campaignScheduleValidationSchema }
