@@ -149,12 +149,13 @@ return { scheduleResult, scheduleIds };
 }
 
 
-const countBookedSlots = async (scheduleIds, token) => {
+const countBookedSlots = async (scheduleIds, token, isCampaignPath) => {
     const slotList = await fetchResource("Slot", {
         _elements: "schedule",
         "_has:Appointment:slot:slot.schedule": [...scheduleIds].join(","),
         _count: 5000,
-        "_has:Appointment:slot:status": "proposed,arrived,noshow"
+        "_has:Appointment:slot:status": "proposed,arrived,noshow",
+        "service-type": isCampaignPath ? "screening-site" : "facility"
     }, token);
     if(slotList.total == 0)
         return []
@@ -192,7 +193,7 @@ const getScheduleData = async function(req, res) {
             // to get organization id from location of the schedule and join it with schedule data
             // const resourceSlotResult = await joinRoleData(scheduleResult, roleIds);
             // booked slots count
-            const bookedSlots = await countBookedSlots(scheduleIds, token);
+            const bookedSlots = await countBookedSlots(scheduleIds, token, isCampaignPath);
 
             const resourceResult = scheduleResult.map(obj1 => {
                 const obj2 = bookedSlots.find(obj2 => obj2.scheduleId === obj1.scheduleId);
