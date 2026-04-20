@@ -28,9 +28,8 @@ let setScheduleData = async function (req, res) {
                 buildScheduleBundle(scheduleData, roleId, orgId, isCampaignPath)
             )
         );
-        console.info("=============>", resourceResult, errData, "<=========================");
+        // console.info("=============>", resourceResult, errData, "<=========================");
         let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
-        console.info("main bundle transaction resource: ", bundleData)
         let response = await axios.post(config.baseUrl, bundleData.bundle, {
             headers: {
                 'Authorization': `Bearer ${token}`,
