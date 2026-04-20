@@ -30,7 +30,6 @@ class Appointment {
     
     setStatus() {
         let statusData = apptStatus.find(e => e.uiStatus == this.apptObj.status);
-        console.info("statusData", statusData, this.apptObj.status, apptStatus)
         this.fhirResource.status = statusData.fhirStatus;
         this.fhirResource.appointmentType.coding = [
             {
@@ -43,6 +42,20 @@ class Appointment {
     getStatus() {
         this.apptObj.apptType =  this.fhirResource.appointmentType.coding[0].code;
         this.apptObj.apptStatus =  this.fhirResource.status
+    }
+
+    setServiceType() {
+        this.fhirResource.serviceType = [
+            {
+              coding: [
+                {
+                  system:  "http://terminology.hl7.org/CodeSystem/service-type",
+                  code:    this.apptObj.serviceType,
+                  display: this.apptObj.serviceType,
+                },
+              ],
+            },
+          ]
     }
 
     patchStatus() {
@@ -62,15 +75,36 @@ class Appointment {
     this.fhirResource.participant.push({
         actor : { "reference": "Patient/" + this.apptObj.patientId }
     });
-    this.fhirResource.participant.push({
-        actor : { "reference": "PractitionerRole/" + this.apptObj.roleId } 
-    })
+    if(!this.apptObj.isCampaign) {
+        this.fhirResource.participant.push({
+            actor : { "reference": "PractitionerRole/" + this.apptObj.roleId } 
+        })
+    }
+    else {
+        this.fhirResource.participant.push({
+            actor : { "reference": "Location/" + this.apptObj.campaignId } 
+        })
+    }
+
     console.info("", this.fhirResource.participant)
    }
 
    getParticipant() {
     this.apptObj.patientId = this.fhirResource.participant[0].actor.reference.split("/")[1];
-    this.apptObj.roleId = this.fhirResource.participant[1].actor.reference.split("/")[1];
+    const roleIndex = this.fhirResource.participant.findIndex(e => e.actor.reference.split("/")[0] == "PractitionerRole")
+    if(roleIndex > -1) {
+        this.apptObj.roleId = this.fhirResource.participant[roleIndex].actor.reference.split("/")[1];        
+    }
+    else {
+        this.apptObj.roleId = null
+    }
+    const campaignIndex = this.fhirResource.participant.findIndex(e => e.actor.reference.split("/")[0] == "Location")
+    if(campaignIndex > -1) {
+        this.apptObj.campaignId = this.fhirResource.participant[campaignIndex].actor.reference.split("/")[1];        
+    }
+    else {
+        this.apptObj.campaignId = null
+    }
    }
 
     getSlot() {
@@ -127,6 +161,7 @@ class Appointment {
         this.setStatus();
         this.setSlot();
         this.setStart();
+        this.setServiceType();
         this.setParticipant();
         this.setCreated();
     }
