@@ -1,4 +1,5 @@
 const { v4: uuidv4 } = require("uuid");
+const { serviceModeSystemUrl, serviceModeUrl } = require("../utils/heartcareSystemUrl");
 
 class ServiceMode {
     constructor(body, fhirResource = {}) {
@@ -30,7 +31,7 @@ class ServiceMode {
             this.fhirResource.code = {
                 coding: [
                     {
-                        system: "http://example.org/service-mode",
+                        system: serviceModeSystemUrl,
                         code: this.body.code,
                         display: this.body.name || this.body.code
                     }
@@ -44,7 +45,7 @@ class ServiceMode {
     setIdentifier() {
         this.fhirResource.identifier = [
             {
-                system: "http://example.org/service-mode",
+                system: serviceModeSystemUrl,
                 value: this.body.uuid || uuidv4()
             }
         ];
@@ -54,7 +55,7 @@ class ServiceMode {
 
     setMeta() {
         this.fhirResource.meta = {
-            profile: ["http://example.org/fhir/StructureDefinition/service-mode"]
+            profile: [serviceModeUrl]
         };
         return this;
     }
