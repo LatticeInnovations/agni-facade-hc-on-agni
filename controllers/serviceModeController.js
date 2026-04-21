@@ -101,10 +101,7 @@ let saveServiceMode = async function (req, res) {
 
         const token = req.accessToken;
 
-        // duplicate check
-        for (let item of req.body) {
-            await checkDuplicateServiceMode(item.name, token);
-        }
+        await checkDuplicateServiceMode(req.body[0].name, token);
 
         const resourceResult = await buildCreateBundleEntries(req.body);
 
