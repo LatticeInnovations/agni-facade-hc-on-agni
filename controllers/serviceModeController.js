@@ -299,6 +299,12 @@ let getServiceModeDetails = async function (req, res) {
             token
         );
         const resource = response.entry?.[0]?.resource;
+        if (!resource) {
+            return res.status(404).json({
+                status: 0,
+                message: "Service mode not found"
+            });
+        }
         const coding = resource.code?.coding?.find(
             c => c.system === serviceModeSystemUrl
         );
