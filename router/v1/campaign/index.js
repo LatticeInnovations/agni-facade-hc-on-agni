@@ -1,5 +1,5 @@
 let router = require('express').Router();
-let auth = require("../../middleware/checkAuth");
+let auth = require("../../../middleware/checkAuth");
 
 router.use("/Schedule", auth, require("./scheduleRoute"))
 router.use("/Appointment", auth, require("./appointmentRoute"));

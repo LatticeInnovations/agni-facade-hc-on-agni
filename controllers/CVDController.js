@@ -194,12 +194,13 @@ const getCVDData = async (req, res) => {
     try {
         const isCampaignPath = await getAPIPath(req);
         console.log("check is it campaign path: ", isCampaignPath)
+        const encounter_code = isCampaignPath ? CAMPAIGN_CVD_ENCOUNTER_CODE : CVD_ENCOUNTER_CODE;
         const queryParams = {
             _total: "accurate",
             _count: req.query._count,
             _offset: req.query._offset,
             _sort: req.query._sort,
-             type: isCampaignPath ? "screening-site-cvd-encounter": "cvd-encounter",
+             type: encounter_code,
             _lastUpdated: req.query._lastUpdated
         }
         const token = req.accessToken;
@@ -216,7 +217,6 @@ const getCVDData = async (req, res) => {
             return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: [] })
         }
         const practitionerList = practitionerData.entry;
-        const encounter_code = isCampaignPath ? CAMPAIGN_CVD_ENCOUNTER_CODE : CVD_ENCOUNTER_CODE;
         // Extract cvd encounters and main encounters
         const cvdEncounterList = responseData.entry
             .filter((e) => e.resource.type?.[0]?.coding?.[0]?.code === encounter_code)

@@ -1,6 +1,6 @@
 let express = require("express");
 let router = express.Router();
-let appointmentController = require("../../controllers/appointmentController")
+let appointmentController = require("../../../controllers/appointmentController")
 
 
 router.post("/",  appointmentController.setAppointmentData);

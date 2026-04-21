@@ -1,6 +1,6 @@
 let express = require("express");
 let router = express.Router();
-let cvdController = require("../../controllers/CVDController")
+let cvdController = require("../../../controllers/CVDController")
 
 
 router.post("/",  cvdController.saveCVDData);
