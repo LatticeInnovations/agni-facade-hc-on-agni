@@ -104,6 +104,7 @@ const createAppointmentResources= async function(reqData, userId, token, isCampa
             // getPatient
             // Create encounter resource
             apptData.orgId = orgId
+            apptData.practitionerId = userId
             apptData.encounterType = isCampaignPath ? "screening-site-main-encounter" : "facility-main-encounter"  
             const patient = patientResources.filter(e => e.id == apptData.patientId);
             apptData.patientAddress = patient?.[0].address[0];
