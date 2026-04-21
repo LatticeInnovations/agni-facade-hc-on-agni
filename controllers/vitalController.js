@@ -101,6 +101,7 @@ let setVitalData = async function (req, res) {
                 const vitalEncounter = await fetchVitalEncounter(baseEncounterId, token, vital.type)
                 if (vitalEncounter.total > 0 && vitalEncounter.entry) {
                     // Update case (PUT)
+                    console.log("put case")
                     await handleExistingVitalEncounter({vital, vitalEncounter, baseEncounterId, practitionerId, resourceResult}, token, baseEncounter);
                 } else {
                     // Create case (POST)
@@ -137,7 +138,6 @@ let setVitalData = async function (req, res) {
                 data: responseData,
             });
         }
-
         return handleError(res, response);
     }
     catch(error) {
@@ -160,7 +160,8 @@ async function handleExistingVitalEncounter({ vital, vitalEncounter, baseEncount
         uuid: existingEncounter.identifier?.[0]?.value || vital.uuid,
         reqUuid: vital.uuid,
         practitionerId,
-        generatedOn: vital.appUpdatedDate
+        generatedOn: vital.appUpdatedDate,
+        type: vital.type
     }, "put");
     encounterBundle.resource.location = baseEncounter?.location || null;
     encounterBundle.resource.serviceProvider = baseEncounter?.serviceProvider || null;
@@ -221,7 +222,8 @@ async function handleNewVitalEncounter({ vital, baseEncounterId, practitionerId,
         uuid: vital.uuid,
         reqUuid: vital.uuid,
         practitionerId,
-        generatedOn: vital.appUpdatedDate
+        generatedOn: vital.appUpdatedDate,
+        type: vital.type
     }, "post");
 
     encounterBundle.resource.location = baseEncounter?.location || null;
