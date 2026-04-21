@@ -5,7 +5,7 @@ let reportController = require("../../controllers/reportController")
 router.get("/access/:token", reportController.getAccessPage);
 
 router.post(
-  "/verify/:token",
+  "/verify",
   express.urlencoded({ extended: true }),
   reportController.verifyDob
 );

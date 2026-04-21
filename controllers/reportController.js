@@ -1,4 +1,5 @@
 const jwt = require("jsonwebtoken");
+const escapeHtml = require("escape-html");
 const { ReportToken } = require("../models");
 
 const renderPage = ({ title, body }) => `
@@ -69,11 +70,19 @@ const renderPage = ({ title, body }) => `
 exports.getAccessPage = async (req, res) => {
   const { token } = req.params;
 
+  if (!/^[a-zA-Z0-9._-]+$/.test(token)) {
+    return res.send(renderPage({
+        title: "Error",
+        body: `<p class="error">Something went wrong</p>`
+      }));
+  }
+
   const html = renderPage({
     title: "Download Report",
     body: `
       <h4>Enter Your DOB to Download Report</h4>
-      <form method="POST" action="/api/v1/verify/${token}">
+      <form method="POST" action="/api/v1/verify">
+        <input type="hidden" name="token" value="${escapeHtml(token)}" />
         <input name="dob" placeholder="YYYY-MM-DD" required />
         <button type="submit">Submit</button>
       </form>
@@ -84,8 +93,15 @@ exports.getAccessPage = async (req, res) => {
 };
 
 exports.verifyDob = async (req, res) => {
-  const { token } = req.params;
+  const { token } = req.body;
   const { dob } = req.body;
+
+  if (!/^[a-zA-Z0-9._-]+$/.test(token)) {
+    return res.send(renderPage({
+      title: "Error",
+      body: `<p class="error">Something went wrong</p>`
+    }));
+  }
 
   const report = await ReportToken.findOne({
       where: { token: token }
@@ -122,7 +138,7 @@ exports.verifyDob = async (req, res) => {
             <p>Example: <strong>ROHA0803</strong> (Rohan, 8 March)</p>
         </h5>
 
-        <form method="GET" action="${signedUrl}">
+        <form method="GET" action="${escapeHtml(signedUrl)}">
           <button>Download Report</button>
         </form>
       `
