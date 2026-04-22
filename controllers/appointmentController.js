@@ -23,12 +23,17 @@ let setAppointmentData = async function (req, res) {
         if (!validatedBody) return;
 
         if (!isCampaignPath) applyNonCampaignSideEffects(req);
-        const token = req.accessToken
-        let resourceResult = [];
-        resourceResult = await createAppointmentResources(req.body, req.decoded.userId, token, isCampaignPath)
-        console.info("=============>", resourceResult, "<=========================");
-        let bundleData = await bundleStructure.getBundleJSON({resourceResult})  
+        const token = req.accessToken;
+        const { allResourceResults, errData } = isCampaignPath
+        ? await processCampaignAppointments(req.body, req.decoded.userId, token)
+        : await processNonCampaignAppointments(req.body, req.decoded.userId, token);
+       
+        console.info("=============>", allResourceResults, "<=========================");
+        let bundleData = await bundleStructure.getBundleJSON({ resourceResult: allResourceResults, errData })  
         console.info("main bundle transaction resource: ", bundleData)
+
+        // return res.status(201).json({   status: 1,   message: "appointment Data saved.",  data: bundleData });
+
         let response = await axios.post(config.baseUrl, bundleData.bundle, {
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -36,7 +41,8 @@ let setAppointmentData = async function (req, res) {
             }
         }); 
         if (response.status == 200 || response.status == 201) {
-            let responseData = setAppointmentResponse(bundleData.bundle.entry, response.data.entry, "post");
+            const resourceResponse = setAppointmentResponse(bundleData.bundle.entry, response.data.entry, "post");
+            const responseData = [...resourceResponse, ...errData];
             res.status(201).json({ status: 1, message: "Appointment data saved.", data: responseData })
         }
         else {
@@ -50,6 +56,67 @@ let setAppointmentData = async function (req, res) {
     }
 
 }
+
+const getBlockedPatientIds = (appointmentResourceCheck, reqBody) => {
+    const blockedPatientIds = new Set();
+    if (!appointmentResourceCheck?.entry?.length) return blockedPatientIds;
+
+    for (const entry of appointmentResourceCheck.entry) {
+        const resource = entry.resource;
+        const apptCampaignId = resource?.participant
+            ?.find(p => p?.actor?.reference?.startsWith("Location/"))
+            ?.actor?.reference?.split("/")?.[1];
+
+        const apptPatientId = resource?.participant
+            ?.find(p => p?.actor?.reference?.startsWith("Patient/"))
+            ?.actor?.reference?.split("/")?.[1];
+
+        const requestedCampaignIds = reqBody
+            .filter(e => e.patientId == apptPatientId)
+            .map(e => e.campaignId);
+
+        if (apptPatientId && requestedCampaignIds.includes(apptCampaignId)) {
+            blockedPatientIds.add(String(apptPatientId));
+        }
+    }
+    return blockedPatientIds;
+};
+
+const processCampaignAppointments = async (reqBody, userId, token) => {
+    const patientIds = reqBody.map(e => e.patientId);
+    const appointmentResourceCheck = await fetchResource(
+        "Appointment",
+        { "service-type": "screening-site", patient: patientIds.join(","), _total: "accurate" },
+        token
+    );
+    console.log("appointmentResourceCheck: ", appointmentResourceCheck);
+
+    const blockedPatientIds = getBlockedPatientIds(appointmentResourceCheck, reqBody);
+
+    const allResourceResults = [], errData = [];
+    await Promise.all(
+        reqBody.map(async (apptData) => {
+            if (blockedPatientIds.has(String(apptData.patientId))) {
+                errData.push({
+                    status: 0,
+                    id: apptData.uuid,
+                    err: "Another appointment exists for the patient in this campaign",
+                    fhirId: null
+                });
+                return;
+            }
+            const resourceResult = await createAppointmentResources([apptData], userId, token, true);
+            allResourceResults.push(...resourceResult);
+        })
+    );
+
+    return { allResourceResults, errData };
+};
+
+const processNonCampaignAppointments = async (reqBody, userId, token) => {
+    const allResourceResults = await createAppointmentResources(reqBody, userId, token, false);
+    return { allResourceResults, errData: [] };
+};
 
 function applyNonCampaignSideEffects(req) {
     req.queueMeta = {
@@ -104,6 +171,7 @@ const createAppointmentResources= async function(reqData, userId, token, isCampa
             // getPatient
             // Create encounter resource
             apptData.orgId = orgId
+            apptData.practitionerId = userId
             apptData.encounterType = isCampaignPath ? "screening-site-main-encounter" : "facility-main-encounter"  
             const patient = patientResources.filter(e => e.id == apptData.patientId);
             apptData.patientAddress = patient?.[0].address[0];

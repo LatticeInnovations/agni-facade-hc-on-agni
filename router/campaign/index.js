@@ -3,7 +3,7 @@ let auth = require("../../middleware/checkAuth");
 
 router.use("/Schedule", auth, require("./scheduleRoute"))
 router.use("/Appointment", auth, require("./appointmentRoute"));
-// router.use("/CVD", auth, require("./CVDRoute"));
+router.use("/CVD", auth, require("./CVDRoute"));
 // router.use("/priorDx", auth, require("./priorDxRoute"));
 // router.use("/Medication", auth, require("./medicationRoute"));
 // router.use("/intervention", auth, require("./interventionRoute"));

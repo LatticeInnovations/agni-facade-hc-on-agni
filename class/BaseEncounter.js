@@ -63,12 +63,17 @@ setPartOf () {
     "reference": "Encounter/" + this.encounterObj.encounterId,
     "display": "Primary Encounter"
   }
+}
+setParticipant() {
   this.fhirResource.participant = [{
       "individual" : {
           "reference": "Practitioner/" + this.encounterObj.practitionerId
       }
+  }, {
+    "individual" : {
+      "reference": "PractitionerRole/" + this.encounterObj.roleId
+  }
   }];
-
 }
 
 
@@ -163,6 +168,10 @@ getPatientReference() {
       this.encounterObj.primaryEncounterId = this?.fhirResource?.partOf?.reference?.split('/')[1] || null;
   }
 
+  getPractitionerRoleReference() {
+    this.encounterObj.roleId = this?.fhirResource?.participant?.[1]?.individual?.reference?.split('/')[1] || null;
+  }
+
   getJsonToFhirTranslator() {
     this.setBasicStructure();
     this.setUuid();
@@ -171,6 +180,7 @@ getPatientReference() {
     this.setEncounterTime();
     this.setStatus();
     this.setType();
+    this.setParticipant();
     this.setLocationForFacility();
     this.setLocationForCampaign();
     this.setOrganizationReference();
@@ -181,6 +191,7 @@ getPatientReference() {
     this.getAppointmentReference();
     this.getPatientReference();
     this.getEncounterTime();
+    this.getPractitionerRoleReference();
     this.getPractitionerReference();
   }
 
