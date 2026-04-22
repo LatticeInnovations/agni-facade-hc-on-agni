@@ -41,7 +41,19 @@ class ServiceMode {
 
         return this;
     }
+    setTopic() {
+        this.fhirResource.topic = {
+            coding: [
+                {
+                    system: serviceModeSystemUrl,
+                    code: "SERVICE_MODE",
+                    display: "Service Mode"
+                }
+            ]
+        };
 
+        return this;
+    }
     setIdentifier() {
         this.fhirResource.identifier = [
             {
@@ -55,14 +67,7 @@ class ServiceMode {
 
     setMeta() {
         this.fhirResource.meta = {
-            profile: [serviceModeUrl],
-            tag: [
-                {
-                    system: "http://example.org/resource-category",
-                    code: "SERVICE_MODE",
-                    display: "Service Mode Resource"
-                }
-            ]
+            profile: [serviceModeUrl]
         };
         return this;
     }
@@ -73,9 +78,9 @@ class ServiceMode {
             INACTIVE: "retired",
         };
 
-        return statusMap?.[status] || "retired"; 
+        return statusMap?.[status] || "retired";
     }
- 
+
     build() {
         return this.fhirResource;
     }
@@ -85,6 +90,7 @@ class ServiceMode {
     getJsonToFhirTranslator() {
         this.setBasicDetails();
         this.setCode();
+        this.setTopic();
         this.setIdentifier();
         this.setMeta();
         return this.fhirResource;

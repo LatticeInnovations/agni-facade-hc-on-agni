@@ -25,7 +25,7 @@ const normalizeToArray = (body) => {
 const checkDuplicateServiceMode = async (name, token) => {
     const existing = await fetchResource(
         "ActivityDefinition",
-        { name, _count: 1000, _tag: "SERVICE_MODE" },
+        { name, _count: 1000, topic: "SERVICE_MODE" },
         token
     );
 
@@ -193,7 +193,7 @@ const fetchServiceModes = async (token, filters = {}) => {
     let hasNext = true;
 
     const baseParams = {
-        _tag: "SERVICE_MODE",
+       topic: "SERVICE_MODE",
         _count: 200,
         ...filters
     };
