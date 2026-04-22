@@ -3,46 +3,59 @@ let axios = require("axios");
 let config = require("../config/nodeConfig");
 const bundleStructure = require("../services/bundleOperation")
 const responseService = require("../services/responseService");
-const { fetchResource, buildFHIRResource, getTransformedResult } = require("../services/helperFunctions");
+const { fetchResource, buildFHIRResource, getTransformedResult, getAPIPath } = require("../services/helperFunctions");
 const { allergySchema } = require("../utils/Validator//allergyValidator");
 const {validateRequest} = require("../utils/validateRequest");
 const { getPractitionerName } = require("../services/commonFunctions");
 const { publishReportJob } = require("../middleware/reportPublisher");
 const { saveToken } = require("../services/email/tokenStore");
 
-const fetchMainEncounter = async (allergyData, token) => {
+const fetchMainEncounter = async (allergyData, token, mainEncounterType) => {
     const mainEncounter =   await fetchResource("Encounter", {
          appointment: allergyData.appointmentId,
          _count: 5000,
          _include: "Encounter:appointment",
+         type: mainEncounterType
      }, token);
  
      return mainEncounter
  }
  
 
+ function applyNonCampaignSideEffects(req) {
+    req.queueMeta = {
+        data: req.body,
+        entity: "allergy",
+        requestType: "post",
+        apiName: "save-allergy",
+        tokenData: req.decoded
+      };
+}
+ 
+
 //  Save Practitioner data
 let saveAllergyData = async function (req, res) {
     try {
+
+        const isCampaignPath = await getAPIPath(req);
+        console.log("check is it campaign path: ", isCampaignPath)
+
         const validatedBody = validateRequest(req.body, allergySchema, res);
         if (!validatedBody) return;
-        req.queueMeta = {
-            data: req.body,
-            entity: "allergy",
-            requestType: "post",
-            apiName: "save-allergy",
-            tokenData: req.decoded
-          };
+
+        if (!isCampaignPath) applyNonCampaignSideEffects(req);
+
         let resourceResult = [];
           const token = req.accessToken
 
         for (let allergyData of req.body) {
             //  fetch appointment encounter
-            const encounterData = await fetchMainEncounter(allergyData, token)
+            const mainEncounterType = isCampaignPath ? "screening-site-main-encounter" : "facility-main-encounter"
+            const encounterData = await fetchMainEncounter(allergyData, token, mainEncounterType)
             const baseEncounterId = encounterData?.entry?.[0]?.resource?.id;
             let allergyIntoleranceBundle = null;
             if (!baseEncounterId) return;
-
+            allergyData.type = isCampaignPath ? "screening-site-allergy": "facility-allergy" ; 
             const existingResponses = await fetchResource("AllergyIntolerance", {patient: allergyData.patientId, _total: "accurate", _count: 1000}, token);
             if (existingResponses.total > 0 && existingResponses.entry) {
                 const currentAllergyData = existingResponses.entry.filter(e=> e.resource.encounter.reference.split("/")[1] === baseEncounterId);
@@ -121,11 +134,14 @@ const setSaveResponse  = (reqBundleData, responseBundleData, type) => {
 //  Get medication history data
 let getAllergyData = async function (req, res) {
     try {
-    
+        
+        const isCampaignPath = await getAPIPath(req);
+        console.log("check is it campaign path: ", isCampaignPath)
         const link = config.baseUrl + "AllergyIntolerance"
         let specialOffset = null;
         const queryParams = req.query
         queryParams._total = "accurate";
+        queryParams.code = isCampaignPath ? "screening-site-allergy": "facility-allergy" ; 
         const token = req.accessToken;
         let resourceResult = []
         let resourceUrlData = { link: link, reqQuery: queryParams, allowNesting: 0, specialOffset: specialOffset }
@@ -145,8 +161,9 @@ let getAllergyData = async function (req, res) {
         allergyIntoleranceResponses.entry.forEach(allergyIntolerance => {            
             const responseObj = getTransformedResult(AllergyIntolerance, allergyIntolerance.resource);
             const primaryEncounter = mainEncounters.find((e) => e.id === allergyIntolerance.resource.encounter.reference.split("/")[1]);
-            responseObj.practitionerName = getPractitionerName(responseObj.practitionerId, practitionerList.entry);
-    
+            responseObj.practitionerName = isCampaignPath? null : getPractitionerName(responseObj.practitionerId, practitionerList.entry);
+            responseObj.campaignId = isCampaignPath ? primaryEncounter.location[0].location.reference.split("/")[1]: null;
+            responseObj.practitionerId = isCampaignPath ? null : responseObj.practitionerId
             responseObj.appointmentId = primaryEncounter?.appointment?.[0]?.reference?.split("/")[1] || null;
             responseObj.appointmentUuid = primaryEncounter?.identifier?.[0].value
             resourceResult.push(responseObj)

@@ -27,6 +27,19 @@ class AllergyIntolerance {
         }
     }
 
+    setType() {
+        this.fhirResource.code = [
+            {
+                coding: [
+                    {
+                        code: this.answerObj.type,
+                        system: "https://your-custom-coding-system"
+                    }
+                ]
+            }
+        ]
+    }
+
     getFixedData() {
         this.answerObj = {
             fhirId:  this.fhirResource.id,
@@ -51,6 +64,7 @@ class AllergyIntolerance {
     getJsonToFhirTranslator() {
         this.setBasicStructure();
         this.setAllergy();
+        this.setType();
     }
     getFHIRResource() {
         return this.fhirResource;

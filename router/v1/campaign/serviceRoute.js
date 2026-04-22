@@ -4,7 +4,7 @@ const router = express.Router();
 const {
     saveServiceMode,
     updateServiceMode
-} = require("../../controllers/serviceModeController");
+} = require("../../../controllers/serviceModeController");
 
 router.post("/", saveServiceMode);
 router.put("/", updateServiceMode);
