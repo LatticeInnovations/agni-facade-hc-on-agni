@@ -25,7 +25,7 @@ const normalizeToArray = (body) => {
 const checkDuplicateServiceMode = async (name, token) => {
     const existing = await fetchResource(
         "ActivityDefinition",
-        { name, _count: 1000 },
+        { name, _count: 1000, _tag: "SERVICE_MODE" },
         token
     );
 
@@ -187,16 +187,22 @@ const generateCode = (name) => {
         .replaceAll(/\s+/g, "_");
 };
 
-const fetchAllActivityDefinitions = async (token) => {
+const fetchServiceModes = async (token, filters = {}) => {
     let allEntries = [];
     let page = 1;
     let hasNext = true;
+
+    const baseParams = {
+        _tag: "SERVICE_MODE",
+        _count: 200,
+        ...filters
+    };
 
     while (hasNext) {
         const response = await fetchResource(
             "ActivityDefinition",
             {
-                _count: 200,
+                ...baseParams,
                 _page: page
             },
             token
@@ -208,7 +214,6 @@ const fetchAllActivityDefinitions = async (token) => {
             allEntries.push(...response.entry);
         }
 
-        // ✅ check if next exists
         const nextLink = response.link?.find(l => l.relation === "next");
 
         if (nextLink) {
@@ -224,34 +229,19 @@ const fetchAllActivityDefinitions = async (token) => {
 let getServiceModeList = async function (req, res) {
     try {
         const token = req.accessToken;
-
         const { _lastUpdated, status } = req.query;
 
-        let entries = await fetchAllActivityDefinitions(token);
-
-        let result = entries
-            .map(e => e.resource)
-            .filter(resource =>
-                resource?.code?.coding?.some(
-                    c => c.system === serviceModeSystemUrl
-                )
-            );
+        const filters = {};
+        if (_lastUpdated) filters._lastUpdated = _lastUpdated;
         if (status) {
-            let fhirStatus = mapApiStatusToFHIR(status.toLowerCase());
-            result = result.filter(r => r.status === fhirStatus);
+            const fhirStatus = mapApiStatusToFHIR(status.toLowerCase());
+            filters.status = fhirStatus;
         }
 
-        if (_lastUpdated) {
-            const date = _lastUpdated.replace("ge", "");
+        let entries = await fetchServiceModes(token, filters);
 
-            result = result.filter(r => {
-                const updated = r.meta?.lastUpdated;
-                return updated && new Date(updated) >= new Date(date);
-            });
-        }
-
-        result = result.map(resource => {
-            const coding = resource.code.coding.find(
+        let result = entries.map(e => e.resource).map(resource => {
+            const coding = resource.code?.coding?.find(
                 c => c.system === serviceModeSystemUrl
             );
 

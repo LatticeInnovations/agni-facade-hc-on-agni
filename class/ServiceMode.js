@@ -55,7 +55,14 @@ class ServiceMode {
 
     setMeta() {
         this.fhirResource.meta = {
-            profile: [serviceModeUrl]
+            profile: [serviceModeUrl],
+            tag: [
+                {
+                    system: "http://example.org/resource-category",
+                    code: "SERVICE_MODE",
+                    display: "Service Mode Resource"
+                }
+            ]
         };
         return this;
     }

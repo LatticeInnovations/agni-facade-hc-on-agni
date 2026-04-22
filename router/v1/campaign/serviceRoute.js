@@ -6,7 +6,7 @@ const {
     updateServiceMode,
     getServiceModeList,
     getServiceModeDetails
-} = require("../../controllers/serviceModeController");
+} = require("../../../controllers/serviceModeController");
 
 router.post("/", saveServiceMode);
 router.put("/", updateServiceMode);
