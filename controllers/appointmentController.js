@@ -402,21 +402,25 @@ const createAppointmentPatchBundle = async (inputData, resourceSavedData, resour
 const patchAppointmentData = async function(req, res) {
     try {
     const isCampaignPath = await getAPIPath(req);
-    if(isCampaignPath) {
-        return res.status(403).json({ status: 0, message: "Not allowed to update campaign appointment", data: null })
-    }
+    // if(isCampaignPath) {
+    //     return res.status(403).json({ status: 0, message: "Not allowed to update campaign appointment", data: null })
+    // }
       const resourceType = "Appointment";
       const reqInput = req.body;    
       const token = req.accessToken;         
       const validatedBody = validateRequest(req.body, appointmentPatchSchema, res);
       if (!validatedBody) return;
-      req.queueMeta = {
-        data: req.data,
-        entity: "appointments",
-        requestType: "put",
-        apiName: "update-appointment",
-        tokenData: req.decoded
-      };
+      
+      if(isCampaignPath) {
+        req.queueMeta = {
+            data: req.data,
+            entity: "appointments",
+            requestType: "put",
+            apiName: "update-appointment",
+            tokenData: req.decoded
+          };
+      }
+
       let resourceResult = [], errData = [];        
       for (let inputData of reqInput) {
         let resourceSavedData = await fetchResource(resourceType, { "_id": inputData.appointmentId }, token)
