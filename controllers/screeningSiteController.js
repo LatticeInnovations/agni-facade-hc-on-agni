@@ -55,7 +55,8 @@ const buildCreateBundleEntries = async (data, token) => {
         const roleObj = {
             userId: staff.id,
             isHead: staff.isHead,
-            locationId: locationUuid
+            locationId: locationUuid,
+            isScreeningFlow: true
         };
         const roleResource = buildFHIRResource(PractitionerRole, roleObj);
         const roleEntry = await bundleStructure.setBundlePost(

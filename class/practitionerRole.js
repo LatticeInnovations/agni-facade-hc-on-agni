@@ -82,7 +82,7 @@ class PractitionerRole {
     setLocationReference(locationId) {
         this.fhirResource.location = [
             {
-                reference: `urn:uuid:${locationId}` 
+                reference: `urn:uuid:${locationId}`
             }
         ];
     }
@@ -114,17 +114,36 @@ class PractitionerRole {
 
         this.roleObj.isHead = ext?.valueBoolean || false;
     }
+    // getJsonToFhirTranslator() {
+    //     this.setBasicStructure();
+    //     this.setOrganizationReference();
+    //     this.setPractitionerReference();
+    //     this.setRoleId();
+    //     this.setRoleGroupId();
+    // }
+
     getJsonToFhirTranslator() {
         this.setBasicStructure();
         this.setOrganizationReference();
         this.setPractitionerReference();
-        this.setLocationReference(this.roleObj.locationId);
-        this.setScreeningStaffRole();
-        this.setLeaderFlag();
+
+        // Only run for screening flow
+        if (this.roleObj.isScreeningFlow) {
+
+            if (this.roleObj.locationId) {
+                this.setLocationReference(this.roleObj.locationId);
+            }
+
+            this.setScreeningStaffRole();
+
+            if (this.roleObj.isHead !== undefined) {
+                this.setLeaderFlag();
+            }
+        }
+
         this.setRoleId();
         this.setRoleGroupId();
     }
-
     getFHIRToTransformedResult() {
         this.getOrganizationReference();
         this.getRole();

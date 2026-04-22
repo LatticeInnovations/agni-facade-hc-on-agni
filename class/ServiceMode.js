@@ -42,7 +42,7 @@ class ServiceMode {
         return this;
     }
     setTopic() {
-        this.fhirResource.topic = {
+        this.fhirResource.topic = [{
             coding: [
                 {
                     system: serviceModeSystemUrl,
@@ -50,8 +50,7 @@ class ServiceMode {
                     display: "Service Mode"
                 }
             ]
-        };
-
+        }];
         return this;
     }
     setIdentifier() {

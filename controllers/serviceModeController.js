@@ -305,12 +305,11 @@ let getServiceModeDetails = async function (req, res) {
                 message: "Service mode not found"
             });
         }
-        let fhirStatus = mapApiStatusToFHIR(resource.status.toLowerCase()) || null;
         const result = {
             id: resource.id,
             name: coding.display || resource.name || null,
             code: coding.code || null,
-            status: fhirStatus == "active" ? "ACTIVE" : "INACTIVE",
+            status: resource.status == "active" ? "ACTIVE" : "INACTIVE",
             lastUpdated: resource.meta?.lastUpdated,
             description: resource.description || null  
         };
