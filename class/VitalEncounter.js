@@ -11,8 +11,8 @@ class VitalEncounter extends BaseEncounter {
     this.fhirResource.type = [{
       coding: [{
         system: "https://your-custom-coding-system",
-        code: "vital-test-encounter",
-        display: "Vital encounter"
+        code: this.encounterObj.type,
+        display: this.encounterObj.type,
       }]
     }];
     this.fhirResource.identifier.push({

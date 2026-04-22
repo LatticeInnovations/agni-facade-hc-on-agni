@@ -14,8 +14,8 @@ class CVDEncounter extends BaseEncounter {
         coding: [
           {
             system: "https://your-custom-coding-system",
-            code: "cvd-encounter",
-            display: "CVD encounter"
+            code: this.encounterObj.type,
+            display: this.encounterObj.type,
           }
         ]
       }
@@ -34,7 +34,7 @@ class CVDEncounter extends BaseEncounter {
     };
   }
 
-  setOrganizationReference(){
+  setOrganizationReference() {
     this.fhirResource.serviceProvider = null;
   }
 
