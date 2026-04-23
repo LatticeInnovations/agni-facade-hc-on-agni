@@ -6,7 +6,18 @@ const { validateRequest } = require("../utils/validateRequest");
 const bundleStructure = require("../services/bundleOperation")
 const { fetchResource, buildFHIRResource, getTransformedResult } = require("../services/helperFunctions");
 const { v4: uuidv4 } = require("uuid");
+const { serviceModeSystemUrl } = require("../utils/heartcareSystemUrl");
 
+const mapApiStatusToFHIR = (status) => {
+    if (!status) return null;
+
+    const map = {
+        active: "active",
+        inactive: "retired"
+    };
+
+    return map[status.toLowerCase()];
+};
 const normalizeToArray = (body) => {
     return Array.isArray(body) ? body : [body];
 };
@@ -14,7 +25,7 @@ const normalizeToArray = (body) => {
 const checkDuplicateServiceMode = async (name, token) => {
     const existing = await fetchResource(
         "ActivityDefinition",
-        { name, _count: 1000 },
+        { name, _count: 1000, topic: "SERVICE_MODE" },
         token
     );
 
@@ -176,4 +187,155 @@ const generateCode = (name) => {
         .replaceAll(/\s+/g, "_");
 };
 
-module.exports = { saveServiceMode, updateServiceMode };
+const fetchServiceModes = async (token, filters = {}) => {
+    let allEntries = [];
+    let page = 1;
+    let hasNext = true;
+
+    const baseParams = {
+       topic: "SERVICE_MODE",
+        _count: 200,
+        ...filters
+    };
+
+    while (hasNext) {
+        const response = await fetchResource(
+            "ActivityDefinition",
+            {
+                ...baseParams,
+                _page: page
+            },
+            token
+        );
+
+        console.log(`Fetched page ${page}`);
+
+        if (response.entry) {
+            allEntries.push(...response.entry);
+        }
+
+        const nextLink = response.link?.find(l => l.relation === "next");
+
+        if (nextLink) {
+            page++;
+        } else {
+            hasNext = false;
+        }
+    }
+
+    return allEntries;
+};
+
+let getServiceModeList = async function (req, res) {
+    try {
+        const token = req.accessToken;
+        const { _lastUpdated, status } = req.query;
+
+        const filters = {};
+        if (_lastUpdated) filters._lastUpdated = _lastUpdated;
+        if (status) {
+            const fhirStatus = mapApiStatusToFHIR(status.toLowerCase());
+            filters.status = fhirStatus;
+        }
+
+        let entries = await fetchServiceModes(token, filters);
+
+        let result = entries.map(e => e.resource).map(resource => {
+            const coding = resource.code?.coding?.find(
+                c => c.system === serviceModeSystemUrl
+            );
+
+            return {
+                id: resource.id,
+                name: coding?.display || resource.name || null,
+                code: coding?.code || null,
+                status: resource.status == "active" ? "ACTIVE" : "INACTIVE",
+                lastUpdated: resource.meta?.lastUpdated
+            };
+        });
+
+        result.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+
+        return res.status(200).json({
+            status: 1,
+            message: "Service mode list fetched successfully",
+            data: result
+        });
+
+    } catch (e) {
+        console.error("Error fetching service modes:", e.message);
+
+        return res.status(500).json({
+            status: 0,
+            message: "Failed to fetch service mode list"
+        });
+    }
+};
+
+let getServiceModeDetails = async function (req, res) {
+    try {
+        const token = req.accessToken;
+        const { id } = req.params;
+
+        if (!id) {
+            return res.status(400).json({
+                status: 0,
+                message: "Service mode id is required"
+            });
+        }
+        const response = await fetchResource(
+            "ActivityDefinition",
+            { _id: id },
+            token
+        );
+        const resource = response.entry?.[0]?.resource;
+        if (!resource) {
+            return res.status(404).json({
+                status: 0,
+                message: "Service mode not found"
+            });
+        }
+        const coding = resource.code?.coding?.find(
+            c => c.system === serviceModeSystemUrl
+        );
+
+        if (!coding) {
+            return res.status(404).json({
+                status: 0,
+                message: "Service mode not found"
+            });
+        }
+        let fhirStatus = mapApiStatusToFHIR(resource.status.toLowerCase()) || null;
+        const result = {
+            id: resource.id,
+            name: coding.display || resource.name || null,
+            code: coding.code || null,
+            status: fhirStatus == "active" ? "ACTIVE" : "INACTIVE",
+            lastUpdated: resource.meta?.lastUpdated,
+            description: resource.description || null  
+        };
+
+        return res.status(200).json({
+            status: 1,
+            message: "Service mode details fetched successfully",
+            data: result
+        });
+
+    } catch (e) {
+        console.error("Error fetching service mode details:", e.message);
+
+        if (e.response?.status === 404) {
+            return res.status(404).json({
+                status: 0,
+                message: "Service mode not found"
+            });
+        }
+
+        return res.status(500).json({
+            status: 0,
+            message: "Failed to fetch service mode details"
+        });
+    }
+};
+
+module.exports = { saveServiceMode, updateServiceMode, getServiceModeList, getServiceModeDetails };

@@ -1,4 +1,5 @@
 const { v4: uuidv4 } = require("uuid");
+const { serviceModeSystemUrl, serviceModeUrl } = require("../utils/heartcareSystemUrl");
 
 class ServiceMode {
     constructor(body, fhirResource = {}) {
@@ -30,7 +31,7 @@ class ServiceMode {
             this.fhirResource.code = {
                 coding: [
                     {
-                        system: "http://example.org/service-mode",
+                        system: serviceModeSystemUrl,
                         code: this.body.code,
                         display: this.body.name || this.body.code
                     }
@@ -40,11 +41,23 @@ class ServiceMode {
 
         return this;
     }
+    setTopic() {
+        this.fhirResource.topic = {
+            coding: [
+                {
+                    system: serviceModeSystemUrl,
+                    code: "SERVICE_MODE",
+                    display: "Service Mode"
+                }
+            ]
+        };
 
+        return this;
+    }
     setIdentifier() {
         this.fhirResource.identifier = [
             {
-                system: "http://example.org/service-mode",
+                system: serviceModeSystemUrl,
                 value: this.body.uuid || uuidv4()
             }
         ];
@@ -54,7 +67,7 @@ class ServiceMode {
 
     setMeta() {
         this.fhirResource.meta = {
-            profile: ["http://example.org/fhir/StructureDefinition/service-mode"]
+            profile: [serviceModeUrl]
         };
         return this;
     }
@@ -65,9 +78,9 @@ class ServiceMode {
             INACTIVE: "retired",
         };
 
-        return statusMap?.[status] || "retired"; 
+        return statusMap?.[status] || "retired";
     }
- 
+
     build() {
         return this.fhirResource;
     }
@@ -77,6 +90,7 @@ class ServiceMode {
     getJsonToFhirTranslator() {
         this.setBasicDetails();
         this.setCode();
+        this.setTopic();
         this.setIdentifier();
         this.setMeta();
         return this.fhirResource;

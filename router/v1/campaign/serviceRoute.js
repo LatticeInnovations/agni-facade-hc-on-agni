@@ -3,10 +3,14 @@ const router = express.Router();
 
 const {
     saveServiceMode,
-    updateServiceMode
+    updateServiceMode,
+    getServiceModeList,
+    getServiceModeDetails
 } = require("../../../controllers/serviceModeController");
 
 router.post("/", saveServiceMode);
 router.put("/", updateServiceMode);
+router.get("/", getServiceModeList);
+router.get("/:id", getServiceModeDetails);
 
 module.exports = router;
