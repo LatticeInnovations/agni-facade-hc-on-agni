@@ -14,8 +14,8 @@ class RiskFactorQuestionnaire {
           value: this.questionnaireObj.questionnaireId,
         },
       ],
-      "title": "Risk Factor questionnaire",
-      "name": "risk-factor-questionnaire",
+      "title": this.questionnaireObj.questionnaireName,
+      "name": this.questionnaireObj.questionnaireName,
       "status": "active",
       "description": "Questionnaire for patient's risk factors - medication history section",
             
