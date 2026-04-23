@@ -74,12 +74,9 @@ class ScreeningSite {
         }
 
         if (this.body.location?.type === "AREA_COUNCIL") {
-            this.fhirResource.identifier = [
-                {
-                    system: "http://heartcare.vu/area-council",
-                    value: this.body.location.value
-                }
-            ];
+            this.fhirResource.partOf = {
+                reference: `Location/${this.body.location.value}`
+            };
         }
 
         return this;
@@ -167,15 +164,12 @@ class ScreeningSite {
             };
         }
 
-        if (this.fhirResource.identifier?.length) {
-            const council = this.fhirResource.identifier.find(
-                i => i.system === "http://heartcare.vu/area-council"
-            );
-
-            if (council) {
+        if (this.fhirResource.partOf?.reference) {
+            const match = this.fhirResource.partOf.reference.match(/Location\/(.+)/);
+            if (match) {
                 return {
                     type: "AREA_COUNCIL",
-                    value: council.value
+                    value: match[1]
                 };
             }
         }
