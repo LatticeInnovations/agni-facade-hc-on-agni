@@ -52,7 +52,7 @@ let saveTobaccoData = async function (req, res) {
         let resourceResult = [];
         let questionnaireId = null;
         let questionnaireReference = null;
-        const questionnaireName = isCampaignPath ? "screening-site-tobacco-cessation-questionnaire" : "tobacco-cessation-questionnaire-response";
+        const questionnaireName = isCampaignPath ? "screening-site-tobacco-cessation-questionnaire" : "tobacco-cessation-questionnaire";
         //  Get Questionnaire id if it not exists create it and pass as reference for uuid
         const questionnaireResource = await fetchResource("Questionnaire", { name: questionnaireName, _total: "accurate", _count: 1}, token)
         console.log("questionnaireResource: ", questionnaireResource)
@@ -146,7 +146,7 @@ let getTobaccoData = async function (req, res) {
 
         const isCampaignPath = await getAPIPath(req);
         console.log("check is it campaign path: ", isCampaignPath)
-        const questionnaireName = isCampaignPath ? "screening-site-tobacco-cessation-questionnaire" : "tobacco-cessation-questionnaire-response";
+        const questionnaireName = isCampaignPath ? "screening-site-tobacco-cessation-questionnaire" : "tobacco-cessation-questionnaire";
         const token = req.accessToken;
         const questionnaireResource = await fetchResource("Questionnaire", {name: questionnaireName, _total: "accurate", _count: 1}, token)
         if(questionnaireResource.total == 0) {

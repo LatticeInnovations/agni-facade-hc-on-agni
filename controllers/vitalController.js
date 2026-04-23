@@ -164,6 +164,7 @@ async function handleExistingVitalEncounter({ vital, vitalEncounter, baseEncount
         type: vital.type
     }, "put");
     encounterBundle.resource.location = baseEncounter?.location || null;
+    encounterBundle.resource.individual = baseEncounter.individual;
     encounterBundle.resource.serviceProvider = baseEncounter?.serviceProvider || null;
     encounterBundle.resource.participant = baseEncounter?.participant || null;
     resourceResult.push(encounterBundle);
@@ -227,6 +228,7 @@ async function handleNewVitalEncounter({ vital, baseEncounterId, practitionerId,
     }, "post");
 
     encounterBundle.resource.location = baseEncounter?.location || null;
+    encounterBundle.resource.individual = baseEncounter.individual;
     encounterBundle.resource.serviceProvider = baseEncounter?.serviceProvider || null;
     encounterBundle.resource.participant = baseEncounter?.participant || null;
 

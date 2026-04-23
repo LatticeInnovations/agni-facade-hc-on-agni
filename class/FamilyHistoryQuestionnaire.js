@@ -15,8 +15,8 @@ class FamilyHistoryQuestionnaire {
                 value: this.questionnaireObj.questionnaireId
               }
             ],
-            "title": "Family History questionnaire",
-            "name": "family-history-questionnaire",
+            "title": this.questionnaireObj.questionnaireName,
+            "name": this.questionnaireObj.questionnaireName,
             "status": "active",
             "description": "Questionnaire for patient's family history",
             "item": [

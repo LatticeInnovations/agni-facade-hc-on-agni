@@ -8,7 +8,7 @@ const { v4: uuidv4 } = require('uuid');
 let { appointmentSaveSchema, appointmentPatchSchema, campaignAppointmentSaveSchema } = require("../utils/Validator/scheduleAppointment");
 const {validateRequest} = require("../utils/validateRequest")
 let apptStatus = require("../utils/appointmentStatus.json");
-const {buildFHIRResource, fetchResource, handleError, getTransformedResult, getAPIPath} = require("../services/helperFunctions");
+const {buildFHIRResource, fetchResource, handleError, getTransformedResult, getAPIPath, getCampaignPractitionerRole} = require("../services/helperFunctions");
 let config = require("../config/nodeConfig");
 const urlList = require("../utils/heartcareSystemUrl");
 
@@ -154,7 +154,7 @@ const createAppointmentResources= async function(reqData, userId, token, isCampa
         const {roleId, orgId} = await fetchPractitionerRoleResource(userId, token)
         const patientResources = await fetchPatientResources(reqData, token)
         const resourcePromises = reqData.map(async (apptData) => {
-            apptData.roleId = roleId;
+            apptData.roleId = isCampaignPath ? await getCampaignPractitionerRole(userId, apptData.campaignId, token) : roleId;
             apptData.isCampaign = isCampaignPath;
             // Create Slot resource
             const slotData = { ...apptData.slot, scheduleId: apptData.scheduleId, uuid: uuidv4() }; 
