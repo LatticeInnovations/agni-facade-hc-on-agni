@@ -19,5 +19,6 @@ router.use("/Vital", auth, require("./vitalRoute"));
 // router.use("/referral", auth, require("./referral"));
 
 router.use("/service-mode", auth, require("./serviceRoute"));
+router.use("/screening-site", auth, require("./screeningSiteRoute"));
 
 module.exports = router;
