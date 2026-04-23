@@ -345,6 +345,7 @@ async function handleExistingCVDEncounter({ cvd, cvdEncounter, baseEncounterId, 
     }, "put");
     console.log("check the base encounter: ", baseEncounter)
     encounterBundle.resource.location = baseEncounter?.location || null;
+    encounterBundle.resource.individual = baseEncounter.individual;
     encounterBundle.resource.serviceProvider = baseEncounter?.serviceProvider || null;
     encounterBundle.resource.participant = baseEncounter?.participant || null;
     resourceResult.push(encounterBundle);
@@ -386,6 +387,7 @@ async function handleNewCVDEncounter({ cvd, baseEncounterId, practitionerId, res
     }, "post");
     console.log("baseEncounter: ", baseEncounter)
     encounterBundle.resource.location = baseEncounter?.location || null;
+    encounterBundle.resource.individual = baseEncounter.individual;
     encounterBundle.resource.serviceProvider = baseEncounter?.serviceProvider || null;
     encounterBundle.resource.participant = baseEncounter?.participant || null;
     resourceResult.push(encounterBundle);

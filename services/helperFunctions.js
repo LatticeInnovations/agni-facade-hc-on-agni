@@ -141,4 +141,18 @@ const getAPIPath = async (req) => {
     return false;
 }
 
-module.exports = {validateRequest, buildFHIRResource, postFHIRResource, buildAndPost, getTransformedResult, handleError, fetchResource, patchFHIRResource, getAPIPath}
+const getCampaignPractitionerRole = async (practitionerId, campaignId, token) => {
+    try {
+        const practitionerRoleResource = await fetchResource("PractitionerRole", {practitioner: practitionerId, location: campaignId, _total: "accurate"}, token)
+        if(practitionerRoleResource.total > 0) {
+            return practitionerRoleResource.entry[0].resource.id
+        }
+        return null;
+    } catch (error) {
+        console.error(`Error fetching ${resourceType}:`, error);
+        throw error;
+    }
+
+}
+
+module.exports = {validateRequest, buildFHIRResource, postFHIRResource, buildAndPost, getTransformedResult, handleError, fetchResource, patchFHIRResource, getAPIPath, getCampaignPractitionerRole}

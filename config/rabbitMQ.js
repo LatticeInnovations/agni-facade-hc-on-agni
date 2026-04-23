@@ -5,7 +5,6 @@ let channel = null;
 async function connectRabbitMQ() {
   try {
     const connection = await amqp.connect(process.env.RABBITMQ_URL || "amqp://localhost");
-    console.log("connection: =======================> ", connection)
     channel = await connection.createChannel();
 
     const queueNames = [
