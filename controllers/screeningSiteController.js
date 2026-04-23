@@ -38,11 +38,33 @@ const checkDuplicateSiteName = async (name, token, excludeId = null) => {
     }
 };
 
-const buildCreateBundleEntries = async (data, token) => {
+const getParentLocationId = async (data, token) => {
+    const res = await fetchResource(
+        "Location",
+        {
+            type: "area-council",
+            _id: data.location.value
+        },
+        token
+    );
+
+    if (!res.entry || res.entry.length === 0) {
+        throw new Error(`Parent location not found: ${data.location.value}`);
+    }
+
+    return res.entry[0].resource.id;
+};
+
+const buildCreateBundleEntries = async (data, token, parentLocationId) => {
     let entries = [];
     const locationUuid = uuidv4();
 
     const locationResource = buildFHIRResource(ScreeningSite, data);
+    if (parentLocationId) {
+        locationResource.partOf = {
+            reference: `Location/${parentLocationId}`
+        };
+    }
     const locationEntry = await bundleStructure.setBundlePost(
         locationResource,
         null,
@@ -85,8 +107,8 @@ const createScreeningSite = async (req, res) => {
 
         validateBusinessRules(data);
         await checkDuplicateSiteName(data.name, token);
-
-        const resourceResult = await buildCreateBundleEntries(data, token);
+        const parentLocationId = await getParentLocationId(data, token);
+        const resourceResult = await buildCreateBundleEntries(data, token, parentLocationId);
         const bundleData = await bundleStructure.getBundleJSON({ resourceResult });
 
         const response = await axios.post(config.baseUrl, bundleData.bundle, {

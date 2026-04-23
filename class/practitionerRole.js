@@ -124,7 +124,9 @@ class PractitionerRole {
 
     getJsonToFhirTranslator() {
         this.setBasicStructure();
-        this.setOrganizationReference();
+        if (!this.roleObj.isScreeningFlow) {
+            this.setOrganizationReference();
+        }
         this.setPractitionerReference();
 
         // Only run for screening flow
@@ -162,7 +164,9 @@ class PractitionerRole {
         this.fhirResource.resourceType = "PractitionerRole"
         this.fhirResource.code = [];
         this.fhirResource.active = true;
-        this.fhirResource.organization = {};
+        if (!this.roleObj.isScreeningFlow) {
+            this.fhirResource.organization = {};
+        }
         this.fhirResource.practitioner = {};
     }
 
