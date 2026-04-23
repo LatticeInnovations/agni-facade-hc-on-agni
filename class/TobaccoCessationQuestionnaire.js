@@ -15,7 +15,7 @@ class TobaccoCessationQuestionnaire {
         },
       ],
       "title": "Tobacco Cessation questionnaire",
-      "name": "tobacco-cessation-questionnaire",
+      "name": this.questionnaireObj.questionnaireName,
       "status": "active",
       "description": "Questionnaire for patient's Tobacco Cessation - history section",
       item: [
