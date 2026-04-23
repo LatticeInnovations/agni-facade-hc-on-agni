@@ -137,7 +137,9 @@ class ScreeningSite {
             e => e.url.includes("service-mode")
         );
 
-        return ext?.valueCodeableConcept?.coding?.[0]?.code || null;
+        const code = ext?.valueCodeableConcept?.coding?.[0]?.code;
+
+        return code || null;
     }
 
     getStartDate() {
