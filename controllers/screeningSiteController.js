@@ -39,20 +39,28 @@ const checkDuplicateSiteName = async (name, token, excludeId = null) => {
 };
 
 const getParentLocationId = async (data, token) => {
-    const res = await fetchResource(
-        "Location",
-        {
-            type: "area-council",
-            _id: data.location.value
-        },
-        token
-    );
 
-    if (!res.entry || res.entry.length === 0) {
-        throw new Error(`Parent location not found: ${data.location.value}`);
+    if (data.location?.type === "FREE_TEXT") {
+        return null;
     }
 
-    return res.entry[0].resource.id;
+    if (data.location?.type === "AREA_COUNCIL") {
+        const res = await fetchResource(
+            "Location",
+            {
+                type: "area-council",
+                _id: data.location.value
+            },
+            token
+        );
+
+        if (!res.entry || res.entry.length === 0) {
+            throw new Error(`Parent location not found: ${data.location.value}`);
+        }
+
+        return res.entry[0].resource.id;
+    }
+    throw new Error(`Invalid location type: ${data.location?.type}`);
 };
 
 const buildCreateBundleEntries = async (data, token, parentLocationId) => {
@@ -122,14 +130,73 @@ const getAllServiceModes = async (token) => {
     return map;
 };
 
+const getServiceModeId = async (serviceModeCode, token) => {
+    if (!serviceModeCode) return "";
+
+    try {
+        const response = await fetchResource(
+            "ActivityDefinition",
+            { topic: "SERVICE_MODE", _count: 1000 },
+            token
+        );
+
+        for (const entry of response.entry || []) {
+            const resource = entry.resource;
+
+            const coding = resource.code?.coding?.find(
+                c => c.system === "http://heartcare.vu/service-mode"
+            );
+
+            if (coding?.display === serviceModeCode) {
+                return resource.id;
+            }
+        }
+
+        return "";
+    } catch (e) {
+        console.error(e);
+        return "";
+    }
+};
+
 const getStaffDetails = async (staffRoles, token) => {
     const staffDetails = [];
 
+    if (!staffRoles.length) return staffDetails;
+
+    const practitionerIds = new Set();
+
     for (const roleEntry of staffRoles) {
-        const roleResource = roleEntry.resource;
+        const roleResource = roleEntry?.resource || roleEntry;
+
+        const practitionerRef = roleResource?.practitioner?.reference;
+        if (practitionerRef) {
+            const id = practitionerRef.split("/")[1];
+            practitionerIds.add(id);
+        }
+    }
+
+    let practitionerMap = {};
+
+    if (practitionerIds.size > 0) {
+        const practitionerResponse = await fetchResource(
+            "Practitioner",
+            { _id: [...practitionerIds].join(",") },
+            token
+        );
+
+        for (const entry of practitionerResponse.entry || []) {
+            practitionerMap[entry.resource.id] = entry.resource;
+        }
+    }
+
+    for (const roleEntry of staffRoles) {
+        const roleResource = roleEntry?.resource || roleEntry;
+
+        if (!roleResource) continue; 
 
         const isScreeningStaff = roleResource.code?.some(c =>
-            c?.coding?.some(cd => cd.code === "SCREENING_STAFF")
+            c?.coding?.some(cd => cd?.code === "SCREENING_STAFF")
         );
 
         if (!isScreeningStaff) continue;
@@ -144,13 +211,7 @@ const getStaffDetails = async (staffRoles, token) => {
 
         const practitionerId = practitionerRef.split("/")[1];
 
-        const practitionerResponse = await fetchResource(
-            "Practitioner",
-            { _id: practitionerId },
-            token
-        );
-
-        const practitionerResource = practitionerResponse.entry?.[0]?.resource;
+        const practitionerResource = practitionerMap[practitionerId];
         if (!practitionerResource) continue;
 
         let mobile = "";
@@ -166,11 +227,15 @@ const getStaffDetails = async (staffRoles, token) => {
 
         const nameObj = practitionerResource.name?.[0];
         let name = "Unknown";
+
         if (nameObj) {
             if (nameObj.text) {
                 name = nameObj.text;
             } else {
-                const given = Array.isArray(nameObj.given) ? nameObj.given.join(" ") : (nameObj.given || "");
+                const given = Array.isArray(nameObj.given)
+                    ? nameObj.given.join(" ")
+                    : (nameObj.given || "");
+
                 const family = nameObj.family || "";
                 name = `${given} ${family}`.trim() || "Unknown";
             }
@@ -240,13 +305,8 @@ const listScreeningSites = async (req, res) => {
             _count
         };
 
-        if (status) {
-            query.status = status;
-        }
-
-        if (req.query._lastUpdated) {
-            query._lastUpdated = req.query._lastUpdated;
-        }
+        if (status) query.status = status;
+        if (req.query._lastUpdated) query._lastUpdated = req.query._lastUpdated;
 
         const locationResponse = await fetchResource("Location", query, token);
 
@@ -257,14 +317,69 @@ const listScreeningSites = async (req, res) => {
             });
         }
 
+        const entries = locationResponse.entry;
+
         const serviceModeMap = await getAllServiceModes(token);
-        console.log("Service mode map:", JSON.stringify(serviceModeMap));
 
-        const sites = [];
+        const councilIds = new Set();
+        const locationIds = [];
 
-        for (const entry of locationResponse.entry) {
+        const siteMap = {};
+
+        for (const entry of entries) {
             const locationResource = entry.resource;
             const site = new ScreeningSite({}, locationResource);
+
+            siteMap[locationResource.id] = site;
+            locationIds.push(locationResource.id);
+
+            const locationData = site.getLocation();
+
+            if (locationData?.type === "AREA_COUNCIL") {
+                councilIds.add(locationData.value);
+            }
+        }
+        let councilMap = {};
+        if (councilIds.size > 0) {
+            const councilResponse = await fetchResource(
+                "Location",
+                { _id: [...councilIds].join(",") },
+                token
+            );
+
+            for (const entry of councilResponse.entry || []) {
+                const res = entry.resource;
+                councilMap[res.id] = res;
+            }
+        }
+        let rolesByLocation = {};
+
+        const practitionerRoleResponse = await fetchResource(
+            "PractitionerRole",
+            { location: locationIds.join(",") },
+            token
+        );
+
+        for (const entry of practitionerRoleResponse.entry || []) {
+            const role = entry.resource;
+
+            const locRef = role.location?.[0]?.reference;
+            if (!locRef) continue;
+
+            const locId = locRef.split("/")[1];
+
+            if (!rolesByLocation[locId]) {
+                rolesByLocation[locId] = [];
+            }
+
+            rolesByLocation[locId].push(role);
+        }
+        const sites = [];
+
+        for (const entry of entries) {
+            const locationResource = entry.resource;
+            const site = siteMap[locationResource.id];
+
             const locationData = site.getLocation();
 
             let location = "";
@@ -275,33 +390,16 @@ const listScreeningSites = async (req, res) => {
                 location = locationData.value || "";
             } else if (locationData?.type === "AREA_COUNCIL") {
                 const councilRef = locationData.value;
-                try {
-                    const councilResponse = await fetchResource(
-                        "Location",
-                        { _id: councilRef },
-                        token
-                    );
-                    const councilResource = councilResponse.entry?.[0]?.resource;
-                    areaCouncil = councilResource?.name || councilRef;
-                    areaCouncilId = councilResource?.id || councilRef;
-                } catch (e) {
-                    console.error(`Error fetching council ${councilRef}:`, e);
-                    areaCouncil = councilRef;
-                    areaCouncilId = councilRef;
-                }
+                const councilResource = councilMap[councilRef];
+
+                areaCouncil = councilResource?.name || councilRef;
+                areaCouncilId = councilResource?.id || councilRef;
             }
 
-            const staffResponse = await fetchResource(
-                "PractitionerRole",
-                { location: locationResource.id },
-                token
-            );
-
-            const staffRoles = staffResponse?.entry || [];
-            const staff = await getStaffDetails(staffRoles, token);
+            const staffRoles = rolesByLocation[locationResource.id] || [];
+            const staff = await getStaffDetails(staffRoles, token); 
 
             const serviceMode = site.getServiceMode() || "";
-            console.log(`Site ${locationResource.id}: serviceMode="${serviceMode}", serviceModeId="${serviceModeMap[serviceMode] || ""}"`);
 
             sites.push({
                 id: locationResource.id,
@@ -408,7 +506,6 @@ const getScreeningSite = async (req, res) => {
         });
     }
 };
-
 
 module.exports = {
     createScreeningSite,
