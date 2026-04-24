@@ -21,7 +21,7 @@ class SymDiagEncounter extends BaseEncounter {
             "coding": [
                 {
                     "system": "https://your-custom-coding-system",
-                    "code": "symptom-diagnosis-encounter",
+                    "code": this.encounterObj.type,
                     "display": "Symptom Diagnosis encounter"
                 }
             ]

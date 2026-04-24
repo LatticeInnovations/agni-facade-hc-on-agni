@@ -13,7 +13,7 @@ router.use("/allergy", auth, require("./allergyRoute"))
 router.use("/Vital", auth, require("./vitalRoute"));
 router.use("/riskFactor", auth, require("./riskFactorRoute"))
 router.use("/tobaccoCessation", auth, require("./tobaccoRoute"))
-// router.use("/diagnosis", auth, require("./symDiagRoute"));
+router.use("/diagnosis", auth, require("./symDiagRoute"));
 // router.use("/Prescription", auth, require("./prescriptionRoute"));
 
 router.use("/service-mode", auth, require("./serviceRoute"));
