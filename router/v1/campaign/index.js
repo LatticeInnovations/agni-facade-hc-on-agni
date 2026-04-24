@@ -5,8 +5,8 @@ router.use("/Schedule", auth, require("./scheduleRoute"))
 router.use("/Appointment", auth, require("./appointmentRoute"));
 router.use("/CVD", auth, require("./CVDRoute"));
 router.use("/priorDx", auth, require("./priorDxRoute"));
-// router.use("/intervention", auth, require("./interventionRoute"));
-// router.use("/examination", auth, require("./examinationRoute"));
+router.use("/intervention", auth, require("./interventionRoute"));
+router.use("/examination", auth, require("./examinationRoute"));
 router.use("/historyMedicine", auth, require("./medicationHistoryRoute"))
 router.use("/familyHistory", auth, require("./familyHistoryRoute"))
 router.use("/allergy", auth, require("./allergyRoute"))
