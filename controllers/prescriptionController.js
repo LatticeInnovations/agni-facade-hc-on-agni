@@ -6,7 +6,7 @@ let axios = require("axios");
 let config = require("../config/nodeConfig");
 const bundleStructure = require("../services/bundleOperation")
 const responseService = require("../services/responseService");
-const { buildFHIRResource, handleError, fetchResource, getTransformedResult } = require("../services/helperFunctions");
+const { buildFHIRResource, handleError, fetchResource, getTransformedResult, getAPIPath } = require("../services/helperFunctions");
 const { prescriptionArraySchema, prescriptionUpdateSchema } = require("../utils/Validator/prescriptionValidator");
 const {validateRequest} = require("../utils/validateRequest");
 const configUrls = require("../utils/heartcareSystemUrl")
@@ -23,14 +23,18 @@ const BUNDLE_TYPES = {
 };
 
 
-const createEncounterBundle = async (patPres, apptData, token) => {
+const createEncounterBundle = async (patPres, apptData, token, subEncounterType, isCampaignPath) => {
     patPres.uuid = patPres.prescriptionId;
-    patPres.code = "prescription-encounter-form";
+    patPres.code = subEncounterType; 
     patPres.display = "Prescription management";
     patPres.appointmentEncounterId = apptData.id;
     patPres.userId = token.userId;
     const encounterData = buildFHIRResource(Encounter, patPres);
-    encounterData.uuid =  patPres.uuid
+    encounterData.uuid =  patPres.uuid;
+    encounterData.location = apptData?.location || null;
+    encounterData.individual = apptData.individual;
+    encounterData.serviceProvider = apptData?.serviceProvider || null;
+    encounterData.participant = apptData?.participant || null;
     return await bundleStructure.setBundlePost(
         encounterData,
         encounterData.identifier,
@@ -82,73 +86,115 @@ const createMedicationRequestBundle = async (prescription, patPres, encounterDat
  
 };
 
-//  Save prescription data
-let savePrescriptionData = async function (req, res) {
-    try {
-        const validatedBody = validateRequest(req.body, prescriptionArraySchema, res);
-        if (!validatedBody) return;
-        req.queueMeta = {
-            data: req.body,
-            entity: "prescription",
-            requestType: "post",
-            apiName: "save-prescription",
-            tokenData: req.decoded
-          };
-        const token = req.accessToken;
-        const resourceResult = await Promise.all(
-            req.body.map(async (patPres) => {
-                try {
-                    // Fetch appointment encounter
-                    const appointmentEncounter = await fetchResource("Encounter", {  appointment: patPres.appointmentId, _count: 5000, _include: "Encounter:appointment"}, token);
-                    const apptData = appointmentEncounter.entry[0].resource;
-                    // Check if encounter of prescription already exists
-                    // const prescriptionEncounter =  await fetchResource("Encounter", {  "part-of": appointmentEncounter.entry[0].resource.id, type: "prescription-encounter-form", _total: "accurate"}, token);
-                    return await createPrescriptionResources(apptData, patPres, req.decoded);
+const processSinglePrescription = async (patPres, token, mainEncounterType, subEncounterType, decoded, isCampaignPath) => {
+    const appointmentEncounter = await fetchResource("Encounter", {
+        appointment: patPres.appointmentId,
+        _count: 5000,
+        _include: "Encounter:appointment",
+        type: mainEncounterType
+    }, token);
+    console.log("apptData: ", appointmentEncounter)
+    const apptData = appointmentEncounter.entry[0].resource;
 
-                } catch (error) {
-                    console.warn(`Error processing prescription: ${patPres.prescriptionId}`, error);
-                    return []; // Return empty array for skipped prescriptions
-                }
-            })
-        );
+    const prescriptionEncounter = await fetchResource("Encounter", {
+        "part-of": apptData.id,
+        type: subEncounterType,
+        _total: "accurate"
+    }, token);
 
-        const flattenedResourceResult = resourceResult.flat();
-
-        // Create bundle and send request   
-        const bundleData = await bundleStructure.getBundleJSON({ resourceResult: flattenedResourceResult });
-        // return res.status(201).json({ status: 1, message: "Update Prescription stopped", data: bundleData.bundle });
-        const response = await axios.post(config.baseUrl, bundleData.bundle, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/fhir+json'
-            }
-        });
-        console.info("get bundle json response: ", response.status);
-
-        if (response.status === 200 || response.status === 201) {
-            const patientIds = [...new Set(req.body.map(cvd => cvd.patientId))];
-            await saveToken(token);
-            for (const patientId of patientIds) {
-                await publishReportJob(patientId);
-            }  
-            const responseData = setPrescriptionResponse(bundleData.bundle.entry, response.data.entry, "post");
-            return res.status(201).json({ status: 1, message: "Prescription data saved.", data: responseData });
-        } else {
-            return handleError(res, response);
-        }
-    } catch (error) {
-        console.error("savePrescriptionData Error: ", error);
-        return handleError(res, error);
+    const existingCount = prescriptionEncounter?.total ?? prescriptionEncounter?.entry?.length ?? 0;
+    if (isCampaignPath && existingCount > 0) {
+        return {
+            err: { status: 0, id: patPres.prescriptionId, err: "Prescription already exists for this appointment", fhirId: prescriptionEncounter?.entry?.[0]?.resource?.id ?? null }
+        };
     }
+
+    const resources = await createPrescriptionResources(apptData, patPres, decoded, subEncounterType);
+    return { resources };
 };
 
+const collectPrescriptionResults = async (body, token, mainEncounterType, subEncounterType, decoded, isCampaignPath) => {
+    const errData = [], allResources = [];
 
-const updateExistingPrescription = async function (req, res) {
-    try {
-        const validatedBody = validateRequest(req.body, prescriptionUpdateSchema, res);
-        if (!validatedBody) return;
-        console.log(req.body, req.data)
-        req.data = req.body.map(e => e.fhirId = e.prescriptionFhirId)
+    await Promise.all(body.map(async (patPres) => {
+        try {
+            const result = await processSinglePrescription(patPres, token, mainEncounterType, subEncounterType, decoded, isCampaignPath);
+            if (result.err) errData.push(result.err);
+            else allResources.push(...(result.resources ?? []));
+        } catch (error) {
+            console.warn(`Error processing prescription: ${patPres.prescriptionId}`, error);
+            errData.push({ status: 0, id: patPres.uuid, err: error?.message ?? "Unexpected error", fhirId: null });
+        }
+    }));
+
+    return { allResources, errData };
+};
+
+function applyNonCampaignSideEffects(req) {
+
+    req.queueMeta = {
+        data: req.body,
+        entity: "prescription",
+        requestType: "post",
+        apiName: "save-prescription",
+        tokenData: req.decoded
+      };
+}
+
+//  Save prescription data
+    let savePrescriptionData = async function (req, res) {
+        try {
+            const isCampaignPath = await getAPIPath(req);
+            console.log("check is it campaign path: ", isCampaignPath)
+
+            const validatedBody = validateRequest(req.body, prescriptionArraySchema, res);
+            if (!validatedBody) return;
+            if (!isCampaignPath) applyNonCampaignSideEffects(req);
+
+            const token = req.accessToken;
+            const mainEncounterType = isCampaignPath ? "screening-site-main-encounter" : "facility-main-encounter";
+            const subEncounterType = isCampaignPath ? "screening-site-prescription-encounter-form" : "prescription-encounter-form";
+            const { allResources, errData } = await collectPrescriptionResults(req.body, token, mainEncounterType, subEncounterType, req.decoded, isCampaignPath);
+
+            if (allResources.length === 0) {
+                return res.status(200).json({
+                    status: 1,
+                    message: "Prescription data saved.",
+                    data: errData
+                });
+            }
+
+            // Create bundle and send request   
+            const bundleData = await bundleStructure.getBundleJSON({ resourceResult: allResources });
+            // return res.status(201).json({ status: 1, message: "Prescription created", data: bundleData.bundle });
+            const response = await axios.post(config.baseUrl, bundleData.bundle, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/fhir+json'
+                }
+            });
+            console.info("get bundle json response: ", response.status);
+
+            if (response.status === 200 || response.status === 201) {
+                const patientIds = [...new Set(req.body.map(cvd => cvd.patientId))];
+                await saveToken(token);
+                for (const patientId of patientIds) {
+                    await publishReportJob(patientId);
+                }  
+                const resourceResponse = setPrescriptionResponse(bundleData.bundle.entry, response.data.entry, "post");
+                const responseData = [...resourceResponse, ...errData];
+                return res.status(201).json({ status: 1, message: "Prescription data saved.", data: responseData });
+            } else {
+                return handleError(res, response);
+            }
+        } catch (error) {
+            console.error("savePrescriptionData Error: ", error);
+            return handleError(res, error);
+        }
+    };
+
+    function applyNonCampaignSideEffectsOnUpdate(req) {
+        
         req.queueMeta = {
             data: req.body,
             entity: "prescription",
@@ -156,18 +202,38 @@ const updateExistingPrescription = async function (req, res) {
             apiName: "update-prescription",
             tokenData: req.decoded
           };
+    }
+
+const updateExistingPrescription = async function (req, res) {
+    try {
+
+        const isCampaignPath = await getAPIPath(req);
+        console.log("check is it campaign path: ", isCampaignPath)
+
+        const validatedBody = validateRequest(req.body, prescriptionUpdateSchema, res);
+        if (!validatedBody) return;
+
+        if (!isCampaignPath) applyNonCampaignSideEffectsOnUpdate(req);
+
+        const mainEncounterType = isCampaignPath ? "screening-site-main-encounter" : "facility-main-encounter";
+        const subEncounterType = isCampaignPath ? "screening-site-prescription-encounter-form" : "prescription-encounter-form";
+        
+
+        console.log(req.body, req.data)
+        req.data = req.body.map(e => e.fhirId = e.prescriptionFhirId)
+        
         const token = req.accessToken;
         const resourceResult = await Promise.all(
             req.body.map(async (patPres) => {
                 try {
                     // Fetch appointment encounter
-                    const appointmentEncounter = await fetchResource("Encounter", {  appointment: patPres.appointmentId, _count: 5000, _include: "Encounter:appointment"}, token);
+                    const appointmentEncounter = await fetchResource("Encounter", {  appointment: patPres.appointmentId, _count: 5000, _include: "Encounter:appointment", type: mainEncounterType}, token);
                     const apptData = appointmentEncounter.entry[0].resource;
                     // Check if encounter of prescription already exists
-                    const prescriptionEncounter =  await fetchResource("Encounter", {  "part-of": appointmentEncounter.entry[0].resource.id, type: "prescription-encounter-form", _total: "accurate"}, token);
+                    const prescriptionEncounter =  await fetchResource("Encounter", {  "part-of": apptData.id, type: subEncounterType, _total: "accurate"}, token);
 
                     // Create encounter bundle
-                    return await updateMedRequest(prescriptionEncounter.entry[0].resource, patPres, token, req.decoded)
+                    return await updateMedRequest(prescriptionEncounter.entry[0].resource, patPres, token, req.decoded, subEncounterType)
                  
 
                 } catch (error) {
@@ -207,7 +273,7 @@ const updateExistingPrescription = async function (req, res) {
     }
 }
 
-const updateMedRequest = async (prescriptionEncounter, patPres, token, decoded) => {
+const updateMedRequest = async (prescriptionEncounter, patPres, token, decoded, subEncounterType) => {
     // update section 
     prescriptionEncounter.period = {
         "start": patPres.generatedOn,
@@ -224,7 +290,7 @@ const updateMedRequest = async (prescriptionEncounter, patPres, token, decoded) 
     const encounterBundle =  await bundleStructure.setBundlePut(prescriptionEncounter, null, prescriptionEncounter.id, HTTP_METHODS.PUT, BUNDLE_TYPES.IDENTIFIER)
         
     //  fetch existing medicationRequest
-    let existingMedRequest =  await fetchResource("MedicationRequest", {  "encounter": prescriptionEncounter.id, "encounter.type": "prescription-encounter-form", _total: "accurate"}, token);
+    let existingMedRequest =  await fetchResource("MedicationRequest", {  "encounter": prescriptionEncounter.id, "encounter.type": subEncounterType, _total: "accurate"}, token);
     existingMedRequest = existingMedRequest.entry ? existingMedRequest.entry.map(e => e.resource) : [];
 
     // Create sets for quick lookup
@@ -275,8 +341,8 @@ const deleteMedicationRequestResources = async (ids) => {
 }
 
 
-const createPrescriptionResources = async (apptData, patPres, tokenDecoded) => {
-    const encounterBundle = await createEncounterBundle(patPres, apptData, tokenDecoded);
+const createPrescriptionResources = async (apptData, patPres, tokenDecoded, subEncounterType, isCampaignPath) => {
+    const encounterBundle = await createEncounterBundle(patPres, apptData, tokenDecoded, subEncounterType, isCampaignPath);
     const medList = patPres.prescription;
     const encounterData = buildFHIRResource(Encounter, patPres);
     
@@ -295,10 +361,11 @@ const createPrescriptionResources = async (apptData, patPres, tokenDecoded) => {
 /**
  * Fetch appointment encounters based on IDs.
  */
-const fetchAppointmentEncounters = async (appointmentEncounterIds, token) => {
+const fetchAppointmentEncounters = async (appointmentEncounterIds, token, mainEncounterType) => {
     const response = await fetchResource("Encounter", {
         "_id": appointmentEncounterIds.join(","),
-        "_count": 5000
+        "_count": 5000,
+        type: mainEncounterType
     }, token);
     return response.entry.map((e) => e.resource);
 };
@@ -328,11 +395,14 @@ const extractMedicationRequests = (FHIRData, encounterId) => {
 /**
  * Build prescription data object.
  */
-const buildPrescriptionData = (encData, apptEncounter, medReqList) => {
+const buildPrescriptionData = (encData, apptEncounter, medReqList, isCampaignPath) => {
+    console.log("apptEncounter: ", apptEncounter)
+    apptEncounter.practitionerId = isCampaignPath ? null : apptEncounter.practitionerId
+    apptEncounter.roleId = isCampaignPath ? null : apptEncounter.roleId
     const prescriptionData = {
         prescriptionId: encData.identifier[0].value,
-        prescriptionFhirId: encData.id,
-        // practitionerId: encData?.participant?.[0]?.individual?.reference?.split("/")?.[1] || null,
+        prescriptionFhirId: encData.id,        
+        campaignId: isCampaignPath ?  (apptEncounter.campaignId ) : null,
         generatedOn: encData.period.start,
         ...apptEncounter,
         prescription: medReqList ? medReqList.map((medReq) => {
@@ -350,8 +420,13 @@ const buildPrescriptionData = (encData, apptEncounter, medReqList) => {
  */
 const getPrescriptionData = async function (req, res) {
     try {
+
+        const isCampaignPath = await getAPIPath(req);
+            console.log("check is it campaign path: ", isCampaignPath)
+            const mainEncounterType = isCampaignPath ? "screening-site-main-encounter" : "facility-main-encounter";
+            const subEncounterType = isCampaignPath ? "screening-site-prescription-encounter-form" : "prescription-encounter-form";
         const queryParams = {
-            "type": "prescription-encounter-form",
+            "type": subEncounterType,
             "_total": "accurate",
             "_count": req?.query?._count || 3000,
             "subject": req.query.patientId,
@@ -372,13 +447,14 @@ const getPrescriptionData = async function (req, res) {
         //  get appointment encounter ids from prescription encounter
         const appointmentEncounterIds = [...new Set(prescriptionFormEncounters.map((e) => parseInt(e.resource.partOf.reference.split("/")[1])))];
         //  fetch primary encounters from encounter ids
-        const appointmentEncounters = await fetchAppointmentEncounters(appointmentEncounterIds, token);
+        const appointmentEncounters = await fetchAppointmentEncounters(appointmentEncounterIds, token, mainEncounterType);
         //  map the data together according to main encounter
         const resourceResult = prescriptionFormEncounters.map((encData) => {
             const apptEncounter = transformAppointmentEncounter(encData, appointmentEncounters);
             const medReqList = extractMedicationRequests(medicationRequestResources.entry, encData.resource.id);
-            return buildPrescriptionData(encData.resource, apptEncounter, medReqList);
+            return buildPrescriptionData(encData.resource, apptEncounter, medReqList, isCampaignPath);
         })
+        console.log("resourceResult: ", resourceResult)
         // .filter((prescriptionData) => prescriptionData.prescription.length > 0);
         // let resStatus = bundleStructure.setResponse(resourceUrlData, responseData);
         res.status(200).json({
