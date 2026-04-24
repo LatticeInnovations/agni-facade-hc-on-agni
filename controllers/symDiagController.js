@@ -8,7 +8,7 @@ const responseService = require("../services/responseService");
 const { v4: uuidv4 } = require('uuid');
 let config = require("../config/nodeConfig");
 const diagnosisList = require("../utils/diagnosisList.json").concept;
-const {buildFHIRResource, fetchResource, handleError, getTransformedResult} = require("../services/helperFunctions");
+const {buildFHIRResource, fetchResource, handleError, getTransformedResult, getAPIPath} = require("../services/helperFunctions");
 const { symDiagSaveArraySchema, symDiagPatchArraySchema } = require("../utils/Validator/symDxValidator");
 const {validateRequest} = require("../utils/validateRequest");
 const { saveToken } = require("../services/email/tokenStore");
@@ -70,16 +70,22 @@ const getSymptomsDiagnosisList = async function (req, res) {
 
 }
 
-const createEncounterBundle = async(mainEncounter, symDiagData, patientId, token, type) => {
+const createEncounterBundle = async(mainEncounter, symDiagData, patientId, token, type, encounterType) => {
     try {
         // const encounterUuid = uuidv4();
         const oldUuid = symDiagData.oldUuid;
         const encounter = buildFHIRResource(Encounter, { 
             uuid: symDiagData.uuid,  encounterId: mainEncounter.id, patientId: patientId, progressNote: symDiagData.progressNote,
-            practitionerId: token.userId, generatedOn: symDiagData.appUpdatedDate, appointmentId: symDiagData.appointmentId
+            practitionerId: token.userId, generatedOn: symDiagData.appUpdatedDate, appointmentId: symDiagData.appointmentId,
+            type: encounterType
         });
-        console.log("sym diag encounter: ", encounter)
+        console.log("main encounter: ", mainEncounter.serviceProvider, "----")
+        console.log("sub encounter: ", encounter)
         encounter.uuid = oldUuid
+        encounter.location = mainEncounter?.location || null;
+        encounter.individual = mainEncounter.individual;
+        encounter.serviceProvider = mainEncounter?.serviceProvider || null;
+        encounter.participant = mainEncounter?.participant || null;
 
         if(type == "POST") {
             return await bundleStructure.setBundlePost(encounter, null, symDiagData.uuid, "POST", "identifier");
@@ -127,31 +133,44 @@ const createDiagnosisBundle = async (patientId, symDiagData, token, encounterId,
     }
 }
 
-const fetchDiagnosisEncounter = async (baseEncounterId, token) => {
-    const result =  await fetchResource("Encounter", {  "part-of": baseEncounterId, type: "symptom-diagnosis-encounter", _total: "accurate"}, token);
+const fetchDiagnosisEncounter = async (baseEncounterId, token, subEncounterType) => {
+    const result =  await fetchResource("Encounter", {  "part-of": baseEncounterId, type: subEncounterType, _total: "accurate"}, token);
     return result;
  }
 
+ function applyNonCampaignSideEffects(req) {
+    req.queueMeta = {
+        data: req.body,
+        entity: "diagnosis",
+        requestType: "post",
+        apiName: "save-diagnosis",
+        tokenData: req.decoded
+      };
+}
+
+
 const saveSymptomDiagnosisData = async function (req, res) {
     try {
+
+        const isCampaignPath = await getAPIPath(req);
+        console.log("check is it campaign path: ", isCampaignPath)
+
         const validatedBody = validateRequest(req.body, symDiagSaveArraySchema, res);
         if (!validatedBody) return;
+
+        if (!isCampaignPath) applyNonCampaignSideEffects(req);
+
         const token = req.accessToken;
-        req.queueMeta = {
-            data: req.body,
-            entity: "diagnosis",
-            requestType: "post",
-            apiName: "save-diagnosis",
-            tokenData: req.decoded
-          };
+        const mainEncounterType = isCampaignPath ? "screening-site-main-encounter" : "facility-main-encounter";
+        const subEncounterType = isCampaignPath ? "screening-site-symptom-diagnosis-encounter" : "symptom-diagnosis-encounter";
         let resourceResult = [];
         const appointmentIds = req.body.map(e=> e.appointmentId).join(",");
         // fetch main encounter using appointment id
-            const getMainEncounters = await fetchResource("Encounter", { "appointment": appointmentIds, _count: 5000 }, token);
+            const getMainEncounters = await fetchResource("Encounter", { "appointment": appointmentIds, _count: 5000, type:  mainEncounterType}, token);
             if(!getMainEncounters.entry) {
                 return []
             }
-            const mainEncounters = getMainEncounters.entry.map(e => e.resource)
+            const mainEncounters = getMainEncounters.entry.map(e => e.resource);
             for(let diagData of req.body) {
                 let symDiagData = {
                     ...diagData,
@@ -162,7 +181,7 @@ const saveSymptomDiagnosisData = async function (req, res) {
                 let mainEncounter = mainEncounters.filter(e => e.appointment[0]?.reference?.split('/')[1] == symDiagData.appointmentId)
                 console.log("Diagnosis POST");
                 mainEncounter = mainEncounter[0]
-                const diagnosisEncounter = await fetchDiagnosisEncounter(mainEncounter.id, token)
+                const diagnosisEncounter = await fetchDiagnosisEncounter(mainEncounter.id, token, subEncounterType)
                 const patientId = mainEncounter.subject.reference.split("/")[1];
                 symDiagData.oldUuid = symDiagData.uuid
                 if (diagnosisEncounter.total > 0 && diagnosisEncounter.entry) {
@@ -171,11 +190,11 @@ const saveSymptomDiagnosisData = async function (req, res) {
                     diagnosisList = diagnosisList?.entry || [];
                      symDiagData.fhirId = diagnosisEncounter?.entry?.[0]?.resource.id;
                      symDiagData.uuid = diagnosisEncounter?.entry?.[0]?.resource.identifier[0].value
-                     subEncounterBundle = await createEncounterBundle(mainEncounter, symDiagData, patientId, req.token, "PUT")
+                     subEncounterBundle = await createEncounterBundle(mainEncounter, symDiagData, patientId, req.token, "PUT", subEncounterType)
                      diagnosisResult = await handleUpdateDiagnosisList(diagnosisList, symDiagData, patientId, req.token, symDiagData.fhirId)
                 }
                 else {                   
-                    subEncounterBundle = await createEncounterBundle(mainEncounter, symDiagData, patientId, req.token, "POST")
+                    subEncounterBundle = await createEncounterBundle(mainEncounter, symDiagData, patientId, req.token, "POST", subEncounterType)
                 // create condition resources
                     diagnosisResult = await createDiagnosisBundle(patientId, symDiagData, req.token, symDiagData.uuid, "POST");  
                 }
@@ -198,7 +217,7 @@ const saveSymptomDiagnosisData = async function (req, res) {
             for (const patientId of patientIds) {
                 await publishReportJob(patientId);
             }
-            let responseData = setSymptomDiagnosisResponse(bundleData.bundle.entry, response.data.entry, "post");
+            let responseData = setSymptomDiagnosisResponse(bundleData.bundle.entry, response.data.entry, "post", subEncounterType);
             return res.status(201).json({ status: 1, message: "Symptom and diagnosis data saved.", data: responseData })
         }
         else {
@@ -238,7 +257,7 @@ const handleUpdateDiagnosisList = async (diagnosisResources, symDiagData, patien
     return conditionResources;
 }
 
-const getSymDiagForEncounter = async(mainEncounterList, subEncounterList, symptoms, practitionerData, token) => {
+const getSymDiagForEncounter = async(mainEncounterList, subEncounterList, symptoms, practitionerData, token, isCampaignPath) => {
     try {
         const resourceResult = [];
 
@@ -265,7 +284,8 @@ const getSymDiagForEncounter = async(mainEncounterList, subEncounterList, sympto
                 progressNote: encounter?.extension?.[0]?.valueAnnotation?.text || null,
                 createdOn: encounter.period.start,
                 diagnosis: diagnosisList,
-                practitionerName: practitionerName.trim()
+                practitionerName: isCampaignPath? null : practitionerName.trim(),
+                campaignId : isCampaignPath ? (encounter?.location?.[0]?.location?.reference.split("/")[1] ) : null
             }
             resourceResult.push(subEncounter)
         }
@@ -279,12 +299,15 @@ const getSymDiagForEncounter = async(mainEncounterList, subEncounterList, sympto
 
 const getSymptomDiagnosisData = async function(req, res) {
     try {
+        const isCampaignPath = await getAPIPath(req);
+        console.log("check is it campaign path: ", isCampaignPath);
+        const encounter_code = isCampaignPath ? "screening-site-symptom-diagnosis-encounter" : "symptom-diagnosis-encounter";
         const queryParams = {
                 _total : "accurate",
                 _count: req.query._count,
                 _offset: req.query._offset,
                 _sort: req.query._sort,
-                type: "symptom-diagnosis-encounter",
+                type: encounter_code,
                 _lastUpdated: req.query._lastUpdated
         };
         const token = req.accessToken;
@@ -299,7 +322,7 @@ const getSymptomDiagnosisData = async function(req, res) {
         const mainEncounterIds = responseData.entry.map(e=> e.resource.partOf.reference.split("/")[1]).join(",");
         let mainEncounterList = await fetchResource("Encounter", {_count: 1000, "_id": mainEncounterIds}, token)
         mainEncounterList = mainEncounterList.entry.map(e => e.resource);
-        let subEncounterList = FHIRData.filter(e => e.resource.resourceType == "Encounter" && e.resource.type && e.resource.type[0].coding[0].code == "symptom-diagnosis-encounter").map(e => e.resource);
+        let subEncounterList = FHIRData.filter(e => e.resource.resourceType == "Encounter" && e.resource.type && e.resource.type[0].coding[0].code == encounter_code).map(e => e.resource);
         
         // let subEncounterIds = subEncounterList.map((e) => e.id).join(',');
         let symptoms =  [];
@@ -310,7 +333,7 @@ const getSymptomDiagnosisData = async function(req, res) {
         let practitionerData = await fetchResource("Practitioner", { _id: practitionerIdList, _count: 100000 }, token);
         practitionerData = practitionerData.entry;
 
-        const resourceResult = await getSymDiagForEncounter(mainEncounterList, subEncounterList, symptoms,  practitionerData, token);
+        const resourceResult = await getSymDiagForEncounter(mainEncounterList, subEncounterList, symptoms,  practitionerData, token, isCampaignPath);
   
         resStatus = bundleStructure.setResponse(resourceUrlData, responseData);
         res.status(200).json({ status: resStatus, message: "Data fetched", total: resourceResult.length, data: resourceResult  })
@@ -323,12 +346,12 @@ const getSymptomDiagnosisData = async function(req, res) {
 
 
 
-const setSymptomDiagnosisResponse  = (reqBundleData, responseBundleData, type) => {
+const setSymptomDiagnosisResponse  = (reqBundleData, responseBundleData, type, subEncounterType) => {
    let filteredData = [];
        let response = [];
        const responseData = bundleStructure.mapAssessmentBundleService(reqBundleData, responseBundleData)
        if(["post", "POST", "put", "PUT"].includes(type)){
-           filteredData = responseData.filter(e => e.resource && e.resource.resourceType == "Encounter" && e.resource?.type?.[0]?.coding?.[0]?.code == "symptom-diagnosis-encounter");
+           filteredData = responseData.filter(e => e.resource && e.resource.resourceType == "Encounter" && e.resource?.type?.[0]?.coding?.[0]?.code == subEncounterType);
        }
  
        response = responseService.setDefaultAssessmentResponse("Encounter", type, filteredData)
