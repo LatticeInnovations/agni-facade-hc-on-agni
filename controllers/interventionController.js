@@ -67,7 +67,7 @@ let saveInterventionData = async function (req, res) {
                   }
                 const existingServiceResponse = await fetchResource("ServiceRequest", {category: serviceRequestCode, encounter: baseEncounterId, _total: "accurate"}, token);
                 const existingCount =  existingServiceResponse?.total ??  existingServiceResponse?.entry?.length ??  0;
-                if (existingCount > 0) {
+                if (isCampaignPath && existingCount > 0) {
                 console.info(
                     `ServiceRequest already exists for encounter ${baseEncounterId}, skipping...`
                 );
