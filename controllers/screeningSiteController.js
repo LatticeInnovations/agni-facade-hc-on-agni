@@ -2,7 +2,7 @@ const ScreeningSite = require("../class/ScreeningSite");
 const PractitionerRole = require("../class/practitionerRole");
 const axios = require("axios");
 const config = require("../config/nodeConfig");
-const { screeningSiteSchema } = require("../utils/Validator/campaign/screeningSiteValidatior");
+const { screeningSiteSchema, screeningSiteUpdateSchema } = require("../utils/Validator/campaign/screeningSiteValidatior");
 const { validateRequest } = require("../utils/validateRequest");
 const bundleStructure = require("../services/bundleOperation");
 const { fetchResource, buildFHIRResource } = require("../services/helperFunctions");
@@ -193,8 +193,8 @@ const getStaffDetails = async (staffRoles, token) => {
     for (const roleEntry of staffRoles) {
         const roleResource = roleEntry?.resource || roleEntry;
 
-        if (!roleResource) continue; 
-
+        if (!roleResource) continue;
+        if (roleResource.active === false) continue;
         const isScreeningStaff = roleResource.code?.some(c =>
             c?.coding?.some(cd => cd?.code === "SCREENING_STAFF")
         );
@@ -324,7 +324,7 @@ const listScreeningSites = async (req, res) => {
         const councilIds = new Set();
         const locationIds = [];
 
-        const siteMap = {};
+        const siteMap = {}; 
 
         for (const entry of entries) {
             const locationResource = entry.resource;
@@ -339,6 +339,7 @@ const listScreeningSites = async (req, res) => {
                 councilIds.add(locationData.value);
             }
         }
+
         let councilMap = {};
         if (councilIds.size > 0) {
             const councilResponse = await fetchResource(
@@ -374,6 +375,7 @@ const listScreeningSites = async (req, res) => {
 
             rolesByLocation[locId].push(role);
         }
+
         const sites = [];
 
         for (const entry of entries) {
@@ -397,7 +399,7 @@ const listScreeningSites = async (req, res) => {
             }
 
             const staffRoles = rolesByLocation[locationResource.id] || [];
-            const staff = await getStaffDetails(staffRoles, token); 
+            const staff = await getStaffDetails(staffRoles, token);
 
             const serviceMode = site.getServiceMode() || "";
 
@@ -507,8 +509,189 @@ const getScreeningSite = async (req, res) => {
     }
 };
 
+const updateScreeningSite = async (req, res) => {
+    try {
+        let id = req.body.id;
+
+        const validated = validateRequest(req.body, screeningSiteUpdateSchema, res);
+        if (!validated) return;
+
+        const token = req.accessToken;
+        const data = req.body;
+
+        validateBusinessRules(data);
+        await checkDuplicateSiteName(data.name, token, id);
+
+        const existingLocation = await fetchResource("Location", { _id: id }, token);
+        if (!existingLocation.entry?.length) {
+            return res.status(404).json({
+                status: 0,
+                message: "Screening site not found"
+            });
+        }
+
+        const parentLocationId = await getParentLocationId(data, token);
+
+        const locationUuid = uuidv4();
+
+        let locationResource = buildFHIRResource(ScreeningSite, data);
+        locationResource.id = id;
+        delete locationResource.meta;
+
+        if (parentLocationId) {
+            locationResource.partOf = {
+                reference: `Location/${parentLocationId}`
+            };
+        } else {
+            delete locationResource.partOf;
+        }
+
+        const locationEntry = {
+            fullUrl: `urn:uuid:${locationUuid}`,
+            resource: locationResource,
+            request: {
+                method: "PUT",
+                url: `Location/${id}`
+            }
+        };
+
+        const entries = [locationEntry];
+
+        const oldRoles = await fetchResource(
+            "PractitionerRole",
+            { location: id },
+            token
+        );
+
+        const existingRoleMap = {};
+
+        if (oldRoles.entry) {
+            for (const role of oldRoles.entry) {
+                const resource = role.resource;
+
+                const isScreeningStaff = resource.code?.some(c =>
+                    c?.coding?.some(cd => cd.code === "SCREENING_STAFF")
+                );
+
+                if (!isScreeningStaff) continue;
+
+                const practitionerRef = resource.practitioner?.reference;
+                if (!practitionerRef) continue;
+
+                const practitionerId = practitionerRef.split("/")[1];
+                existingRoleMap[practitionerId] = resource;
+            }
+        }
+
+
+        for (const practitionerId in existingRoleMap) {
+            const existsInNew = data.staffIds.some(s => s.id === practitionerId);
+
+            if (!existsInNew) {
+                const roleResource = existingRoleMap[practitionerId];
+
+                roleResource.active = false;
+
+                roleResource.location = [
+                    {
+                        reference: `urn:uuid:${locationUuid}`
+                    }
+                ];
+
+                delete roleResource.meta;
+
+                const updateEntry = await bundleStructure.setBundlePut(
+                    roleResource,
+                    null,
+                    roleResource.id,
+                    "PUT"
+                );
+
+                entries.push(updateEntry);
+            }
+        }
+
+        for (const staff of data.staffIds) {
+            const existingRole = existingRoleMap[staff.id];
+
+            if (existingRole) {
+                existingRole.active = true;
+
+                existingRole.extension = [
+                    {
+                        url: "http://heartcare.vu/StructureDefinition/is-leader",
+                        valueBoolean: staff.isHead
+                    }
+                ];
+
+                existingRole.location = [
+                    {
+                        reference: `urn:uuid:${locationUuid}`
+                    }
+                ];
+
+                delete existingRole.meta;
+
+                const updateEntry = await bundleStructure.setBundlePut(
+                    existingRole,
+                    null,
+                    existingRole.id,
+                    "PUT"
+                );
+
+                entries.push(updateEntry);
+
+            } else {
+                const roleObj = {
+                    userId: staff.id,
+                    isHead: staff.isHead,
+                    locationId: locationUuid,
+                    isScreeningFlow: true,
+                    useUuid: true
+                };
+
+                const roleResource = buildFHIRResource(PractitionerRole, roleObj);
+
+                const roleEntry = await bundleStructure.setBundlePost(
+                    roleResource,
+                    null,
+                    uuidv4(),
+                    "POST"
+                );
+
+                entries.push(roleEntry);
+            }
+        }
+
+        const bundleData = await bundleStructure.getBundleJSON({
+            resourceResult: entries
+        });
+
+        await axios.post(config.baseUrl, bundleData.bundle, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/fhir+json"
+            }
+        });
+
+        return res.status(200).json({
+            status: 1,
+            message: "Screening site updated successfully",
+            data: { locationId: id }
+        });
+
+    } catch (err) {
+        console.error("Error updating screening site:", err);
+        return res.status(400).json({
+            status: 0,
+            message: err.message
+        });
+    }
+};
+
 module.exports = {
     createScreeningSite,
+    updateScreeningSite,
     getScreeningSite,
     listScreeningSites
 };
