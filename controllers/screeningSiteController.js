@@ -164,7 +164,6 @@ const getStaffDetails = async (staffRoles, token) => {
 
     if (!staffRoles.length) return staffDetails;
 
-    // ✅ 1. Collect practitioner IDs
     const practitionerIds = new Set();
 
     for (const roleEntry of staffRoles) {
@@ -177,7 +176,6 @@ const getStaffDetails = async (staffRoles, token) => {
         }
     }
 
-    // ✅ 2. Fetch ALL practitioners at once
     let practitionerMap = {};
 
     if (practitionerIds.size > 0) {
@@ -192,7 +190,6 @@ const getStaffDetails = async (staffRoles, token) => {
         }
     }
 
-    // ✅ 3. SAME LOOP (structure preserved)
     for (const roleEntry of staffRoles) {
         const roleResource = roleEntry?.resource || roleEntry;
 
@@ -311,7 +308,6 @@ const listScreeningSites = async (req, res) => {
         if (status) query.status = status;
         if (req.query._lastUpdated) query._lastUpdated = req.query._lastUpdated;
 
-        // ✅ 1. Fetch all locations
         const locationResponse = await fetchResource("Location", query, token);
 
         if (!locationResponse.entry) {
@@ -323,14 +319,12 @@ const listScreeningSites = async (req, res) => {
 
         const entries = locationResponse.entry;
 
-        // ✅ 2. Fetch service modes (already optimized)
         const serviceModeMap = await getAllServiceModes(token);
 
-        // ✅ 3. Collect all required IDs
         const councilIds = new Set();
         const locationIds = [];
 
-        const siteMap = {}; // cache ScreeningSite instances
+        const siteMap = {}; 
 
         for (const entry of entries) {
             const locationResource = entry.resource;
@@ -346,7 +340,6 @@ const listScreeningSites = async (req, res) => {
             }
         }
 
-        // ✅ 4. Fetch all councils in ONE call
         let councilMap = {};
         if (councilIds.size > 0) {
             const councilResponse = await fetchResource(
@@ -360,8 +353,6 @@ const listScreeningSites = async (req, res) => {
                 councilMap[res.id] = res;
             }
         }
-
-        // ✅ 5. Fetch ALL practitioner roles in ONE call
         let rolesByLocation = {};
 
         const practitionerRoleResponse = await fetchResource(
@@ -385,7 +376,6 @@ const listScreeningSites = async (req, res) => {
             rolesByLocation[locId].push(role);
         }
 
-        // ✅ 6. Build response (NO API calls inside loop)
         const sites = [];
 
         for (const entry of entries) {
@@ -408,7 +398,6 @@ const listScreeningSites = async (req, res) => {
                 areaCouncilId = councilResource?.id || councilRef;
             }
 
-            // ✅ Get staff WITHOUT API call
             const staffRoles = rolesByLocation[locationResource.id] || [];
             const staff = await getStaffDetails(staffRoles, token);
 
@@ -533,7 +522,6 @@ const updateScreeningSite = async (req, res) => {
         validateBusinessRules(data);
         await checkDuplicateSiteName(data.name, token, id);
 
-        // ✅ Check if location exists
         const existingLocation = await fetchResource("Location", { _id: id }, token);
         if (!existingLocation.entry?.length) {
             return res.status(404).json({
@@ -542,16 +530,10 @@ const updateScreeningSite = async (req, res) => {
             });
         }
 
-        // ✅ Parent location
         const parentLocationId = await getParentLocationId(data, token);
-
-        // =========================================================
-        // ✅ UUID MODE START
-        // =========================================================
 
         const locationUuid = uuidv4();
 
-        // ✅ Build fresh location (like create)
         let locationResource = buildFHIRResource(ScreeningSite, data);
         locationResource.id = id;
         delete locationResource.meta;
@@ -574,10 +556,6 @@ const updateScreeningSite = async (req, res) => {
         };
 
         const entries = [locationEntry];
-
-        // =========================================================
-        // ✅ PractitionerRole SYNC
-        // =========================================================
 
         const oldRoles = await fetchResource(
             "PractitionerRole",
@@ -605,9 +583,6 @@ const updateScreeningSite = async (req, res) => {
             }
         }
 
-        // =========================================================
-        // ✅ 1. Deactivate removed staff
-        // =========================================================
 
         for (const practitionerId in existingRoleMap) {
             const existsInNew = data.staffIds.some(s => s.id === practitionerId);
@@ -635,10 +610,6 @@ const updateScreeningSite = async (req, res) => {
                 entries.push(updateEntry);
             }
         }
-
-        // =========================================================
-        // ✅ 2. Add / Update staff
-        // =========================================================
 
         for (const staff of data.staffIds) {
             const existingRole = existingRoleMap[staff.id];
@@ -691,10 +662,6 @@ const updateScreeningSite = async (req, res) => {
                 entries.push(roleEntry);
             }
         }
-
-        // =========================================================
-        // ✅ Execute bundle
-        // =========================================================
 
         const bundleData = await bundleStructure.getBundleJSON({
             resourceResult: entries
