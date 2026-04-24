@@ -69,12 +69,33 @@ const buildUpdateBundleEntries = async (dataArray, token) => {
         const existingResource = existingResponse?.entry?.[0]?.resource;
 
         if (!existingResource) {
-            throw new Error("Service mode not found");
+            throw new Error(`Service mode not found for id: ${item.id}`);
         }
 
-        const updatedResource = {
-            ...existingResource,
-            status: new ServiceMode().mapStatus(item.status)
+        const updatedResource = { ...existingResource };
+        if (item.name && item.name !== existingResource.name) {
+            await checkDuplicateServiceMode(item.name, token);
+        }
+        if (item.name) {
+            updatedResource.name = item.name;
+
+            if (updatedResource.code?.coding?.length) {
+                updatedResource.code.coding[0].display = item.name;
+                updatedResource.code.coding[0].code = generateCode(item.name);
+            }
+        }
+
+        if (item.description !== undefined) {
+            updatedResource.description = item.description;
+        }
+
+        if (item.status) {
+            updatedResource.status = new ServiceMode().mapStatus(item.status);
+        }
+
+        updatedResource.meta = {
+            ...updatedResource.meta,
+            lastUpdated: new Date().toISOString()
         };
 
         const bundleEntry = await bundleStructure.setBundlePut(
@@ -100,7 +121,7 @@ const formatCreateResponse = (entries, requestBody) => {
 const formatUpdateResponse = (entries, requestBody) => {
     return entries.map((entry, i) => ({
         id: getIdFromLocation(entry.response.location),
-        status: requestBody[i].status
+        ...requestBody[i]
     }));
 };
 let saveServiceMode = async function (req, res) {
@@ -168,7 +189,7 @@ let updateServiceMode = async function (req, res) {
 
         return res.status(200).json({
             status: 1,
-            message: "Service mode status updated successfully",
+            message: "Service mode updated successfully",
             data: formatted.length === 1 ? formatted[0] : formatted
         });
 
@@ -193,7 +214,7 @@ const fetchServiceModes = async (token, filters = {}) => {
     let hasNext = true;
 
     const baseParams = {
-       topic: "SERVICE_MODE",
+        topic: "SERVICE_MODE",
         _count: 200,
         ...filters
     };
@@ -311,7 +332,7 @@ let getServiceModeDetails = async function (req, res) {
             code: coding.code || null,
             status: resource.status == "active" ? "ACTIVE" : "INACTIVE",
             lastUpdated: resource.meta?.lastUpdated,
-            description: resource.description || null  
+            description: resource.description || null
         };
 
         return res.status(200).json({

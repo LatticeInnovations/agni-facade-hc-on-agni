@@ -33,9 +33,9 @@ const serviceModeUpdateSchema = Joi.array().items(
             .messages({
                 "any.required": "ID is required for update"
             }),
-
+        name: Joi.string().optional(),
+        description: Joi.string().allow("").optional(),
         status: Joi.string()
-            .valid("ACTIVE", "INACTIVE")
             .required()
     })
 );
