@@ -11,8 +11,8 @@ class PriorDxEncounter extends BaseEncounter {
         coding: [
           {
             system: "https://your-custom-coding-system",
-            code: "priorDx-encounter",
-            display: "PriorDx encounter"
+            code:  this.encounterObj.type,
+            display:  this.encounterObj.type
           }
         ]
       }

@@ -15,8 +15,8 @@ class HistoryMedicationQuestionnaire {
                 value: this.questionnaireObj.questionnaireId
               }
             ],
-            "title": "History Medication questionnaire",
-            "name": "history-medication-questionnaire",
+            "title": this.questionnaireObj.questionnaireName,
+            "name": this.questionnaireObj.questionnaireName,
             "status": "active",
             "description": "Questionnaire for patient's history taking and tests - medication section",
             "item": [

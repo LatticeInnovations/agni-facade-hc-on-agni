@@ -74,7 +74,7 @@ const saveCVDData = async (req, res) => {
                 console.log("check is campaign path: ", isCampaignPath)
                 cvd.type = isCampaignPath ? CAMPAIGN_CVD_ENCOUNTER_CODE : CVD_ENCOUNTER_CODE;
                 console.log("cvd.type: , ", cvd.type)
-                const mainEncounterType = isCampaignPath ? "screening-site-main-encounter" : "facility-main-encounter"
+                const mainEncounterType = isCampaignPath ? "screening-site-main-encounter" : "facility-main-encounter";
                 const encounterData = await fetchMainEncounter(cvd, token, mainEncounterType)
                 const baseEncounterId = encounterData?.entry?.[0]?.resource?.id;
                 const baseEncounter = encounterData?.entry?.[0]?.resource;
