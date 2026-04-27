@@ -2,7 +2,7 @@ let axios = require("axios");
 const Encounter = require("../class/VitalEncounter");
 const bundleStructure = require("../services/bundleOperation");
 const responseService = require("../services/responseService");
-const {fetchResource, handleError, getTransformedResult} = require("../services/helperFunctions");
+const {fetchResource, handleError, getTransformedResult, getAPIPath} = require("../services/helperFunctions");
 let { vitalSaveSchema } = require("../utils/Validator/vitalValidator");
 const {validateRequest} = require("../utils/validateRequest");
 const {createObservationBundle, createEncounterBundle, getPractitionerName, processObservationData} = require("../services/commonFunctions");
@@ -19,6 +19,8 @@ const RESOURCE_TYPES = {
 };
 
 const VITAL_ENCOUNTER_CODE = "vital-test-encounter";
+
+const CAMPAIGN_VITAL_ENCOUNTER_CODE = "screening-site-vital-test-encounter";
 
 
 // Step 1: vital types list
@@ -44,56 +46,67 @@ const vitalTypes = {
 
 
 
-const fetchMainEncounter = async (vital, token) => {
+const fetchMainEncounter = async (vital, token, mainEncounterType) => {
     const mainEncounter =   await fetchResource("Encounter", {
          appointment: vital.appointmentId,
          _count: 5000,
          _include: "Encounter:appointment",
+         type: mainEncounterType
      }, token);
  
  
      return mainEncounter
  }
  
- const fetchVitalEncounter = async (baseEncounterId, token) => {
-    const result =  await fetchResource("Encounter", {  "part-of": baseEncounterId, type: "vital-test-encounter", _total: "accurate"}, token);
+ const fetchVitalEncounter = async (baseEncounterId, token, encounterType) => {
+    const result =  await fetchResource("Encounter", {  "part-of": baseEncounterId, type: encounterType, _total: "accurate"}, token);
     return result;
  }
+
+
+function applyNonCampaignSideEffects(req) {
+    req.queueMeta = {
+        data: req.body,
+        entity: "vital",
+        requestType: "post",
+        apiName: "save-vital",
+        tokenData: req.decoded
+      };
+}
  
 
 let setVitalData = async function (req, res) {
     try {
+        const isCampaignPath = await getAPIPath(req);
+        console.log("check is it campaign path: ", isCampaignPath)
         const validatedBody = validateRequest(req.body, vitalSaveSchema, res);
         if (!validatedBody) return;
-        req.queueMeta = {
-            data: req.body,
-            entity: "vital",
-            requestType: "post",
-            apiName: "save-vital",
-            tokenData: req.decoded
-          };
+
+        if (!isCampaignPath) applyNonCampaignSideEffects(req);
+
         const token = req.accessToken;
         console.log("inside vital")
-        let requestType = "post"
         const allResourceResults = [], errData = [];
         await Promise.all(
             req.body.map(async (vital) => {
                 const resourceResult = [];
                 const practitionerId = req.decoded.userId;
-
-                const encounterData = await fetchMainEncounter(vital, token)
+                vital.type = isCampaignPath ? CAMPAIGN_VITAL_ENCOUNTER_CODE : VITAL_ENCOUNTER_CODE;
+                const mainEncounterType = isCampaignPath ? "screening-site-main-encounter" : "facility-main-encounter"
+                const encounterData = await fetchMainEncounter(vital, token, mainEncounterType)
                 const baseEncounterId = encounterData?.entry?.[0]?.resource?.id;
+                const baseEncounter = encounterData?.entry?.[0]?.resource;
                 if (!baseEncounterId) return;
                 
-                const vitalEncounter = await fetchVitalEncounter(baseEncounterId, token)
+                const vitalEncounter = await fetchVitalEncounter(baseEncounterId, token, vital.type)
                 if (vitalEncounter.total > 0 && vitalEncounter.entry) {
                     // Update case (PUT)
-                    await handleExistingVitalEncounter({vital, vitalEncounter, baseEncounterId, practitionerId, resourceResult}, token);
+                    console.log("put case")
+                    await handleExistingVitalEncounter({vital, vitalEncounter, baseEncounterId, practitionerId, resourceResult}, token, baseEncounter);
                 } else {
                     // Create case (POST)
                     console.log("post case")
-                      requestType = "put"
-                    await handleNewVitalEncounter({vital, baseEncounterId, practitionerId, resourceResult, });
+                    await handleNewVitalEncounter({vital, baseEncounterId, practitionerId, resourceResult, baseEncounter});
                 }
                 allResourceResults.push(...resourceResult);
             })
@@ -125,7 +138,6 @@ let setVitalData = async function (req, res) {
                 data: responseData,
             });
         }
-
         return handleError(res, response);
     }
     catch(error) {
@@ -135,7 +147,7 @@ let setVitalData = async function (req, res) {
 
 }
 
-async function handleExistingVitalEncounter({ vital, vitalEncounter, baseEncounterId, practitionerId, resourceResult }, token) {
+async function handleExistingVitalEncounter({ vital, vitalEncounter, baseEncounterId, practitionerId, resourceResult }, token, baseEncounter) {
     const existingEncounter = vitalEncounter.entry[0].resource;
     const observations = await fetchResource(RESOURCE_TYPES.OBSERVATION, {
         encounter: existingEncounter.id,
@@ -148,9 +160,13 @@ async function handleExistingVitalEncounter({ vital, vitalEncounter, baseEncount
         uuid: existingEncounter.identifier?.[0]?.value || vital.uuid,
         reqUuid: vital.uuid,
         practitionerId,
-        generatedOn: vital.appUpdatedDate
+        generatedOn: vital.appUpdatedDate,
+        type: vital.type
     }, "put");
-
+    encounterBundle.resource.location = baseEncounter?.location || null;
+    encounterBundle.resource.individual = baseEncounter.individual;
+    encounterBundle.resource.serviceProvider = baseEncounter?.serviceProvider || null;
+    encounterBundle.resource.participant = baseEncounter?.participant || null;
     resourceResult.push(encounterBundle);
 
     Object.assign(vital, {
@@ -200,15 +216,21 @@ async function handleExistingVitalEncounter({ vital, vitalEncounter, baseEncount
 }
 
 
-async function handleNewVitalEncounter({ vital, baseEncounterId, practitionerId, resourceResult }) {
+async function handleNewVitalEncounter({ vital, baseEncounterId, practitionerId, resourceResult, baseEncounter }) {
     const encounterBundle = await createEncounterBundle(Encounter, {
         encounterId: baseEncounterId,
         patientId: vital.patientId,
         uuid: vital.uuid,
         reqUuid: vital.uuid,
         practitionerId,
-        generatedOn: vital.appUpdatedDate
+        generatedOn: vital.appUpdatedDate,
+        type: vital.type
     }, "post");
+
+    encounterBundle.resource.location = baseEncounter?.location || null;
+    encounterBundle.resource.individual = baseEncounter.individual;
+    encounterBundle.resource.serviceProvider = baseEncounter?.serviceProvider || null;
+    encounterBundle.resource.participant = baseEncounter?.participant || null;
 
     resourceResult.push(encounterBundle);
     const observationBundles = await Promise.all(
@@ -245,7 +267,7 @@ async function handleNewVitalEncounter({ vital, baseEncounterId, practitionerId,
     resourceResult.push(...observationBundles.filter(Boolean));
 }
 
-const getVitalObservationList = async (vitalEncounterList, practitionerList, mainEncounters, token) => {
+const getVitalObservationList = async (vitalEncounterList, practitionerList, mainEncounters, token, isCampaignPath) => {
     try {
         const result = await Promise.all(
             vitalEncounterList.map(async (encounter) => {
@@ -254,7 +276,7 @@ const getVitalObservationList = async (vitalEncounterList, practitionerList, mai
                     let observationData = getTransformedResult(Encounter, encounter);
     
                 // Add practitioner name
-                observationData.practitionerName = getPractitionerName(observationData.practitionerId, practitionerList);
+                observationData.practitionerName =  isCampaignPath ? null : getPractitionerName(observationData.practitionerId, practitionerList);
     
                 // Add creation date
                 observationData.appUpdatedDate = encounter.period.start;
@@ -262,10 +284,16 @@ const getVitalObservationList = async (vitalEncounterList, practitionerList, mai
                 // Add appointment ID from main encounter
                 const primaryEncounter = mainEncounters.find((e) => e.id === observationData.primaryEncounterId);
                 observationData.appointmentId = primaryEncounter?.appointment?.[0]?.reference?.split("/")[1] || null;
+                observationData.appointmentUuid = primaryEncounter?.identifier?.[0].value
+                observationData.practitionerId = isCampaignPath ? null : observationData.practitionerId;
+                observationData.roleId = isCampaignPath ? null : observationData.roleId;
+                observationData.campaignId = isCampaignPath ? (encounter?.location?.[0]?.location?.reference.split("/")[1] ): null
+
+                observationData.appointmentId = primaryEncounter?.appointment?.[0]?.reference?.split("/")[1] || null;
                 observationData.appointmentUuid = primaryEncounter?.identifier?.[0].value;
                 // Remove unnecessary fields
                 delete observationData.primaryEncounterId;
-                delete observationData.practitionerId;
+                // delete observationData.practitionerId;
     
                 // Process observations for the encounter
                 const observationList = observations.filter(
@@ -286,12 +314,15 @@ const getVitalObservationList = async (vitalEncounterList, practitionerList, mai
 
 const getVitalData = async function(req, res) {
     try {
+            const isCampaignPath = await getAPIPath(req);
+            console.log("check is it campaign path: ", isCampaignPath)
+            const encounter_code = isCampaignPath ? CAMPAIGN_VITAL_ENCOUNTER_CODE : VITAL_ENCOUNTER_CODE;
             const queryParams = {
                 _total : "accurate",
                 _count: req.query._count,
                 _offset: req.query._offset,
                 _sort: req.query._sort,
-                type: "vital-test-encounter",
+                type: encounter_code,
                 _lastUpdated: req.query._lastUpdated
             }
             const link = config.baseUrl + RESOURCE_TYPES.ENCOUNTER;
@@ -307,8 +338,9 @@ const getVitalData = async function(req, res) {
             }
             const practitionerList = practitionerData.entry;
 
+           
             // Extract vital encounters and main encounters
-            const vitalEncounterList = responseData.entry .filter((e) => e.resource.type?.[0]?.coding?.[0]?.code === VITAL_ENCOUNTER_CODE)
+            const vitalEncounterList = responseData.entry .filter((e) => e.resource.type?.[0]?.coding?.[0]?.code === encounter_code)
             .map((e) => e.resource);
 
             const mainEncounterIds = vitalEncounterList.map((e) => e.partOf?.reference?.split("/")[1]).filter(Boolean).join(",");
@@ -318,7 +350,7 @@ const getVitalData = async function(req, res) {
             const mainEncounters = mainEncounterList.entry.map((e) => e.resource);
                    
             // Process vital encounters
-            const resourceResult = await getVitalObservationList(vitalEncounterList, practitionerList, mainEncounters, token);
+            const resourceResult = await getVitalObservationList(vitalEncounterList, practitionerList, mainEncounters, token, isCampaignPath);
             const resStatus = bundleStructure.setResponse(resourceUrlData, responseData);
             return res.status(200).json({ status: resStatus, message: "Data fetched", total: resourceResult.length, data: resourceResult
             });
@@ -334,7 +366,7 @@ const setVitalResponse  = (reqBundleData, responseBundleData, type) => {
        let response = [];
        const responseData = bundleStructure.mapAssessmentBundleService(reqBundleData, responseBundleData)
        if(["post", "POST", "put", "PUT"].includes(type)){
-           filteredData = responseData.filter(e => e.resource.resourceType == "Encounter" && e.resource?.type?.[0]?.coding?.[0]?.code == "vital-test-encounter");
+           filteredData = responseData.filter(e => e.resource.resourceType == "Encounter" && (e.resource?.type?.[0]?.coding?.[0]?.code == VITAL_ENCOUNTER_CODE || e.resource?.type?.[0]?.coding?.[0]?.code == CAMPAIGN_VITAL_ENCOUNTER_CODE));
        }
        else if(["patch", "PATCH"].includes(type)) {
            filteredData = responseData.filter(e => e.fullUrl.split("/")[0] == "Observation");

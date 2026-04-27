@@ -5,7 +5,7 @@ let config = require("../config/nodeConfig");
 const { v4: uuidv4 } = require('uuid');
 const bundleStructure = require("../services/bundleOperation")
 const responseService = require("../services/responseService");
-const { fetchResource, buildFHIRResource, getTransformedResult } = require("../services/helperFunctions");
+const { fetchResource, buildFHIRResource, getTransformedResult, getAPIPath } = require("../services/helperFunctions");
 const { historyTakingSchema } = require("../utils/Validator/historyTakingValidator");
 const {validateRequest} = require("../utils/validateRequest");
 const { getPractitionerName } = require("../services/commonFunctions");
@@ -21,26 +21,37 @@ const fetchMainEncounter = async (medicationData, token) => {
   
      return mainEncounter
  }
+
+ function applyNonCampaignSideEffects(req) {
+    req.queueMeta = {
+        data: req.body,
+        entity: "medicationHistory",
+        requestType: "post",
+        apiName: "save-medical-history",
+        tokenData: req.decoded
+      };
+}
  
 
 //  Save Practitioner data
 let saveHistoryMedicationData = async function (req, res) {
     try {
+
+        const isCampaignPath = await getAPIPath(req);
+        console.log("check is it campaign path: ", isCampaignPath)
+
         const validatedBody = validateRequest(req.body, historyTakingSchema, res);
         if (!validatedBody) return;
-        req.queueMeta = {
-            data: req.body,
-            entity: "medicationHistory",
-            requestType: "post",
-            apiName: "save-medical-history",
-            tokenData: req.decoded
-          };
+
+        if (!isCampaignPath) applyNonCampaignSideEffects(req);
+       
         const token = req.accessToken;
         let resourceResult = [];
         let questionnaireId = null;
         let questionnaireReference = null;
+        const questionnaireName =  isCampaignPath? "screening-site-history-medication-questionnaire" : "history-medication-questionnaire";   
         //  Get Questionnaire id if it not exists create it and pass as reference for uuid
-        const questionnaireResource = await fetchResource("Questionnaire", {name: "history-medication-questionnaire", _total: "accurate", _count: 1}, token)
+        const questionnaireResource = await fetchResource("Questionnaire", {name: questionnaireName, _total: "accurate", _count: 1}, token)
         if(questionnaireResource.total > 0 && questionnaireResource.entry) {
             questionnaireId = questionnaireResource.entry[0].resource.id;
             questionnaireReference = "Questionnaire/" + questionnaireId;        
@@ -48,7 +59,7 @@ let saveHistoryMedicationData = async function (req, res) {
         else {
            questionnaireId = uuidv4(); 
            questionnaireReference = "urn:uuid:" + questionnaireId
-           const questionnaireResourceBuilt = buildFHIRResource(Questionnaire, {questionnaireId});
+           const questionnaireResourceBuilt = buildFHIRResource(Questionnaire, {questionnaireId, questionnaireName});
            const questionnaireBundle = await bundleStructure.setBundlePost(questionnaireResourceBuilt, questionnaireResourceBuilt.identifier, questionnaireId, "POST", "identifier")
            resourceResult.push(questionnaireBundle);
         }
@@ -126,8 +137,11 @@ const setSaveResponse  = (reqBundleData, responseBundleData, type) => {
 //  Get medication history data
 let getMedicationHistoryData = async function (req, res) {
     try {
+        const isCampaignPath = await getAPIPath(req);
+        console.log("check is it campaign path: ", isCampaignPath)
         const token = req.accessToken;
-        const questionnaireResource = await fetchResource("Questionnaire", {name: "history-medication-questionnaire", _total: "accurate", _count: 1}, token)
+        const questionnaireName =  isCampaignPath? "screening-site-history-medication-questionnaire" : "history-medication-questionnaire";   
+        const questionnaireResource = await fetchResource("Questionnaire", {name: questionnaireName, _total: "accurate", _count: 1}, token)
         if(questionnaireResource.total == 0) {
             return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })
         } 
@@ -140,6 +154,7 @@ let getMedicationHistoryData = async function (req, res) {
         let resourceUrlData = { link: link, reqQuery: queryParams, allowNesting: 0, specialOffset: specialOffset }
         let questionnaireResponses = await fetchResource("QuestionnaireResponse", queryParams, token);
         let resStatus = 1;
+        console.log("questionnaireResponses: ", questionnaireResponses)
         if(  questionnaireResponses.total == 0) {
                 return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })
         }
@@ -153,9 +168,12 @@ let getMedicationHistoryData = async function (req, res) {
         questionnaireResponses.entry.forEach(questionnaireResponse => {            
             const responseObj = getTransformedResult(QuestionnaireResponse, questionnaireResponse.resource);
             const primaryEncounter = mainEncounters.find((e) => e.id === questionnaireResponse.resource.encounter.reference.split("/")[1]);
-            responseObj.practitionerName = getPractitionerName(responseObj.practitionerId, practitionerList.entry);
+            responseObj.practitionerId = isCampaignPath? null : responseObj.practitionerId;
+            responseObj.practitionerName = isCampaignPath? null : getPractitionerName(responseObj.practitionerId, practitionerList.entry);
             responseObj.appointmentId = primaryEncounter?.appointment?.[0]?.reference?.split("/")[1] || null;
-            responseObj.appointmentUuid = primaryEncounter?.identifier?.[0].value
+            responseObj.appointmentUuid = primaryEncounter?.identifier?.[0].value;
+            console.log("check primary encounter: ", primaryEncounter)
+            responseObj.campaignId = isCampaignPath ? primaryEncounter.location[0].location.reference.split("/")[1] : null;
             resourceResult.push(responseObj)
         });
         

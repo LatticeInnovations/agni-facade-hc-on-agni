@@ -5,12 +5,17 @@ const Condition = require("../class/PriorDxCondition");
 const Encounter = require("../class/PriorDXEncounter");
 let bundleFun = require("../services/bundleOperation");
 let axios = require("axios");
-const {fetchResource, handleError, getTransformedResult, buildFHIRResource} = require("../services/helperFunctions");
+const {fetchResource, handleError, getTransformedResult, buildFHIRResource, getAPIPath} = require("../services/helperFunctions");
 const {validateRequest} = require("../utils/validateRequest")
 const {priorDxArraySchema} = require("../utils/Validator/prioDxValidator")
 const { v4: uuidv4 } = require('uuid');
 const { publishReportJob } = require("../middleware/reportPublisher");
 const { saveToken } = require("../services/email/tokenStore");
+
+
+const CAMPAIGN_PRIOR_DX_ENCOUNTER_CODE = "screening-site-priorDx-encounter";
+const PRIOR_DX_ENCOUNTER_CODE = "priorDx-encounter";
+
 
  const RESOURCE_TYPES = {
     ENCOUNTER: "Encounter",
@@ -83,52 +88,66 @@ const reverseCodeMap = {
     }
   };
   
-const fetchMainEncounter = async (priorDx, token) => {
+const fetchMainEncounter = async (priorDx, token, mainEncounterType) => {
    const mainEncounter =   await fetchResource(RESOURCE_TYPES.ENCOUNTER, {
         appointment: priorDx.appointmentId,
         _count: 5000,
         _include: "Encounter:appointment",
+        type: mainEncounterType
     }, token );
 
     return mainEncounter
 }
 
-const fetchPriorDxEncounter = async (baseEncounterId, token) => {
-    const result =  await fetchResource("Encounter", {  "part-of": baseEncounterId, type: "priorDx-encounter", _total: "accurate"}, token);
+const fetchPriorDxEncounter = async (baseEncounterId, token, type) => {
+    const result =  await fetchResource("Encounter", {  "part-of": baseEncounterId, type: type, _total: "accurate"}, token);
     return result;
  }
+
+ function applyNonCampaignSideEffects(req) {
+    req.queueMeta = {
+        data: req.body,
+        entity: "priorDx",
+        requestType: "post",
+        apiName: "save-priorDx",
+        tokenData: req.decoded
+      };
+}
 
 
 const savePriorDxData = async (req, res) => {
     try {
+
+        const isCampaignPath = await getAPIPath(req);
+        console.log("check is it campaign path: ", isCampaignPath)
+
         const validatedBody = validateRequest(req.body, priorDxArraySchema, res);
         if (!validatedBody) return;
-        req.queueMeta = {
-            data: req.body,
-            entity: "priorDx",
-            requestType: "post",
-            apiName: "save-priorDx",
-            tokenData: req.decoded
-          };
-        const token = req.accessToken;
+
+        if (!isCampaignPath) applyNonCampaignSideEffects(req);
+        const mainEncounterType = isCampaignPath ? "screening-site-main-encounter" : "facility-main-encounter";
+        const subEncounterType = isCampaignPath ? CAMPAIGN_PRIOR_DX_ENCOUNTER_CODE : PRIOR_DX_ENCOUNTER_CODE;
+       const token = req.accessToken;
         const allResourceResults = [], errData = [];
         await Promise.all(
             req.body.map(async (priorDxData) => {
                 const resourceResult = [];
+                priorDxData.type = subEncounterType
                 const practitionerId = req.decoded.userId;
-                const encounterData = await fetchMainEncounter(priorDxData, token)
+                const encounterData = await fetchMainEncounter(priorDxData, token, mainEncounterType)
                 const baseEncounterId = encounterData?.entry?.[0]?.resource?.id;
+                const baseEncounter = encounterData?.entry?.[0]?.resource;
                 if (!baseEncounterId) return;
 
-                const priorDxEncounter = await fetchPriorDxEncounter(baseEncounterId, token)
+                const priorDxEncounter = await fetchPriorDxEncounter(baseEncounterId, token, priorDxData.type)
                 
                 if (priorDxEncounter.total > 0 && priorDxEncounter.entry) {
                     // Update case (PUT)
-                      await handleExistingPriorDx({priorDxData, priorDxEncounter, baseEncounterId, practitionerId, resourceResult}, token);
+                      await handleExistingPriorDx({priorDxData, priorDxEncounter, baseEncounterId, practitionerId, resourceResult}, token, baseEncounter);
                 } else {
                     // Create case (POST)
                     console.log("post case")
-                    await handleNewPriorDx({priorDxData, priorDxEncounter, baseEncounterId, practitionerId, resourceResult});
+                    await handleNewPriorDx({priorDxData, priorDxEncounter, baseEncounterId, practitionerId, resourceResult, baseEncounter});
                 }
 
                 allResourceResults.push(...resourceResult);
@@ -151,7 +170,7 @@ const savePriorDxData = async (req, res) => {
             for (const patientId of patientIds) {
                 await publishReportJob(patientId);
             }     
-            const resourceResponse = setPriorDxResponse(bundleData.bundle.entry, response.data.entry, "post");
+            const resourceResponse = setPriorDxResponse(bundleData.bundle.entry, response.data.entry, "post", subEncounterType);
             const responseData = [...resourceResponse, ...errData];   
             return res.status(201).json({
                 status: 1,
@@ -159,7 +178,6 @@ const savePriorDxData = async (req, res) => {
                 data: responseData,
             });
         }
-
         return handleError(res, response);
     } catch (error) {
         console.error("setCVDData Error: ", error);
@@ -173,12 +191,15 @@ const savePriorDxData = async (req, res) => {
 
 const getPriorDxData = async (req, res) => {
     try {
+        const isCampaignPath = await getAPIPath(req);
+        console.log("check is it campaign path: ", isCampaignPath)
+        const encounter_code = isCampaignPath ? CAMPAIGN_PRIOR_DX_ENCOUNTER_CODE : PRIOR_DX_ENCOUNTER_CODE;
         const queryParams = {
                     _total : "accurate",
                     _count: req.query._count,
                     _offset: req.query._offset,
                     _sort: req.query._sort,
-                    type: "priorDx-encounter",
+                    type: encounter_code,
                     _lastUpdated: req.query._lastUpdated
                 }
         const link = config.baseUrl + RESOURCE_TYPES.ENCOUNTER;
@@ -196,7 +217,7 @@ const getPriorDxData = async (req, res) => {
                 
                 // Extract cvd encounters and main encounters
                 const priorDxEncounterList = responseData.entry
-                .filter((e) => e.resource.type?.[0]?.coding?.[0]?.code === "priorDx-encounter")
+                .filter((e) => e.resource.type?.[0]?.coding?.[0]?.code === encounter_code)
                 .map((e) => e.resource);
                 
                 const priorDxEncounterIds = priorDxEncounterList.map((e) => e.id).join(",");
@@ -209,7 +230,7 @@ const getPriorDxData = async (req, res) => {
                 const mainEncounters = mainEncounterList.entry.map((e) => e.resource);
                 
                 // Process priorDx encounters
-                const resourceResult = await getConditionList(priorDxEncounterList, practitionerList, mainEncounters, token);
+                const resourceResult = await getConditionList(priorDxEncounterList, practitionerList, mainEncounters, token, isCampaignPath);
                             
                 const resStatus = bundleStructure.setResponse(resourceUrlData, responseData);
         
@@ -236,7 +257,7 @@ const getPractitionerName = (practitionerId, practitionerData) => {
     return `${givenName} ${familyName}`.trim();
 };
 
-const getConditionList = async (priorDxEncounterList, practitionerList, mainEncounters, token) => {
+const getConditionList = async (priorDxEncounterList, practitionerList, mainEncounters, token, isCampaignPath) => {
     try {
         return Promise.all(
             priorDxEncounterList.map(async (encounter) => {
@@ -244,7 +265,7 @@ const getConditionList = async (priorDxEncounterList, practitionerList, mainEnco
                     const allConditions = await fetchResource("Condition", { encounter: encounter.id, _count: 100000 }, token)
                     const conditions = allConditions.entry.map((e) => e.resource);
                 // Add practitioner name
-                conditionData.practitionerName = getPractitionerName(conditionData.practitionerId, practitionerList);
+                conditionData.practitionerName = isCampaignPath ? null : getPractitionerName(conditionData.practitionerId, practitionerList);
     
                 // Add creation date
                 conditionData.createdOn = encounter.period.start;
@@ -255,7 +276,9 @@ const getConditionList = async (priorDxEncounterList, practitionerList, mainEnco
                 conditionData.appointmentUuid = primaryEncounter?.identifier?.[0].value
                 // Remove unnecessary fields
                 delete conditionData.primaryEncounterId;
-                conditionData.practitionerId;
+                conditionData.practitionerId = isCampaignPath ? null : conditionData.practitionerId;
+                conditionData.roleId = isCampaignPath ? null : conditionData.roleId;
+                conditionData.campaignId = isCampaignPath ? (encounter?.location?.[0]?.location?.reference.split("/")[1] ): null
     
                 // Process observations for the encounter
                 const conditionList = conditions.filter(
@@ -308,7 +331,7 @@ const createEncounterBundle = async(EncounterClass, encounterData, requestType) 
     }
 }
 
-async function handleExistingPriorDx({ priorDxData, priorDxEncounter, baseEncounterId, practitionerId, resourceResult}, token) {
+async function handleExistingPriorDx({ priorDxData, priorDxEncounter, baseEncounterId, practitionerId, resourceResult}, token, baseEncounter) {
 
     const existingEncounter = priorDxEncounter.entry[0].resource;
     const conditions = await fetchResource(RESOURCE_TYPES.CONDITION, {
@@ -322,8 +345,14 @@ async function handleExistingPriorDx({ priorDxData, priorDxEncounter, baseEncoun
         uuid: existingEncounter.identifier?.[0]?.value || priorDxData.uuid,
         reqUuid: priorDxData.uuid,
         practitionerId,
-        generatedOn: priorDxData.appUpdatedDate
+        generatedOn: priorDxData.appUpdatedDate,
+        type: priorDxData.type
     }, "put");
+
+    encounterBundle.resource.location = baseEncounter?.location || null;
+    encounterBundle.resource.individual = baseEncounter.individual;
+    encounterBundle.resource.serviceProvider = baseEncounter?.serviceProvider || null;
+    encounterBundle.resource.participant = baseEncounter?.participant || null;
 
     resourceResult.push(encounterBundle);
 
@@ -347,7 +376,7 @@ async function handleExistingPriorDx({ priorDxData, priorDxEncounter, baseEncoun
 }
 
 
-async function handleNewPriorDx({ priorDxData, baseEncounterId, practitionerId, resourceResult }) {
+async function handleNewPriorDx({ priorDxData, baseEncounterId, practitionerId, resourceResult, baseEncounter }) {
     try {
         const encounterBundle = await createEncounterBundle(Encounter, {
             encounterId: baseEncounterId,
@@ -355,8 +384,14 @@ async function handleNewPriorDx({ priorDxData, baseEncounterId, practitionerId, 
             uuid: priorDxData.uuid,
             reqUuid: priorDxData.uuid,
             practitionerId: practitionerId,
-            generatedOn: priorDxData.appUpdatedDate
+            generatedOn: priorDxData.appUpdatedDate,
+            type: priorDxData.type
         }, "post");
+
+        encounterBundle.resource.location = baseEncounter?.location || null;
+        encounterBundle.resource.individual = baseEncounter.individual;
+        encounterBundle.resource.serviceProvider = baseEncounter?.serviceProvider || null;
+        encounterBundle.resource.participant = baseEncounter?.participant || null;
     
         resourceResult.push(encounterBundle);
     
@@ -400,12 +435,12 @@ const createConditionResource = async(resourceData, requestType) => {
 
 
 
-const setPriorDxResponse  = (reqBundleData, responseBundleData, type) => {
+const setPriorDxResponse  = (reqBundleData, responseBundleData, type, subEncounterType) => {
     let filteredData = [];
     let response = [];
     const responseData = bundleStructure.mapAssessmentBundleService(reqBundleData, responseBundleData)
     if(["post", "POST", "put", "PUT"].includes(type)){
-        filteredData = responseData.filter(e => e.resource.resourceType == "Encounter" && e.resource?.type?.[0]?.coding?.[0]?.code == "priorDx-encounter");
+        filteredData = responseData.filter(e => e.resource.resourceType == "Encounter" && e.resource?.type?.[0]?.coding?.[0]?.code == subEncounterType);
     }
     else if(["patch", "PATCH"].includes(type)) {
         filteredData = responseData.filter(e => e.fullUrl.split("/")[0] == "Condition");

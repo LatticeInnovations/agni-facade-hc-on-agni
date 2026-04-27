@@ -13,7 +13,21 @@ const scheduleValidation = Joi.object({
     orgId: Joi.string().optional()
   })
 
+const campaignScheduleValidation = Joi.object({
+  uuid: Joi.string()
+    .min(30)
+    .max(100)
+    .required(),
+  planningHorizon: Joi.object({
+    start: Joi.date().required(),
+    end: Joi.date().greater(Joi.ref("start")).required()
+  }).required(),
+  campaignId: Joi.number().min(1)
+});
+
 let scheduleSaveSchema = Joi.array().items(scheduleValidation).min(1).required()
+
+let campaignScheduleValidationSchema = Joi.array().items(campaignScheduleValidation).min(1).required()
 
 let appointmentSchema = Joi.object({
     uuid: Joi.string()
@@ -37,6 +51,26 @@ let appointmentSchema = Joi.object({
   const appointmentSaveSchema = Joi.array().items(appointmentSchema).min(1).required()
 
 
+  let campaignAppointmentSchema = Joi.object({
+    uuid: Joi.string()
+      .min(30)
+      .max(100)
+      .required(),
+    slot: Joi.object({
+      start: Joi.date().required(),
+      end: Joi.date().greater(Joi.ref("start")).required()
+    }).required(),
+    createdOn: Joi.date().required(),
+    status: Joi.string().valid('arrived', 'walkin', 'scheduled', 'noshow', 'cancelled', 'in-progress', 'completed').required(),
+    patientId: Joi.string().required(),
+    scheduleId: Joi.string().required(),
+    appointmentType: Joi.string().valid('walkin').required(),
+    generatedOn: Joi.date(),
+    appUpdatedDate: Joi.date().optional(),
+    campaignId: Joi.number().min(1).required()
+  });
+
+  const campaignAppointmentSaveSchema = Joi.array().items(campaignAppointmentSchema).min(1).required()
 
   let apptPatchSchema = Joi.object({
     "patientId": Joi.string().required(),
@@ -67,4 +101,4 @@ let appointmentSchema = Joi.object({
 
 
 
-module.exports = { scheduleSaveSchema, appointmentSaveSchema, appointmentPatchSchema }
+module.exports = { scheduleSaveSchema, appointmentSaveSchema, appointmentPatchSchema, campaignScheduleValidationSchema, campaignAppointmentSaveSchema }

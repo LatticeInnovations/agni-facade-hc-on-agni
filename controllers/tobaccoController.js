@@ -6,7 +6,7 @@ let config = require("../config/nodeConfig");
 const { v4: uuidv4 } = require('uuid');
 const bundleStructure = require("../services/bundleOperation")
 const responseService = require("../services/responseService");
-const { fetchResource, buildFHIRResource, getTransformedResult } = require("../services/helperFunctions");
+const { fetchResource, buildFHIRResource, getTransformedResult, getAPIPath } = require("../services/helperFunctions");
 const { tobaccoSchema } = require("../utils/Validator/tobaccoValidator");
 const {validateRequest} = require("../utils/validateRequest");
 const { getPractitionerName } = require("../services/commonFunctions");
@@ -23,26 +23,39 @@ const fetchMainEncounter = async (tobaccoData, token) => {
  
      return mainEncounter
  }
+
+ function applyNonCampaignSideEffects(req) {
+    req.queueMeta = {
+        data: req.body,
+        entity: "tobaccoCessation",
+        requestType: "post",
+        apiName: "save-tobacco-cessation",
+        tokenData: req.decoded
+      };
+}
+ 
  
 
 //  Save tobacco cessation data
 let saveTobaccoData = async function (req, res) {
     try {
+
+        const isCampaignPath = await getAPIPath(req);
+        console.log("check is it campaign path: ", isCampaignPath)
+
         const validatedBody = validateRequest(req.body, tobaccoSchema, res);
         if (!validatedBody) return;
-        req.queueMeta = {
-            data: req.body,
-            entity: "tobaccoCessation",
-            requestType: "post",
-            apiName: "save-tobacco-cessation",
-            tokenData: req.decoded
-          };
+
+        if (!isCampaignPath) applyNonCampaignSideEffects(req);
+
         const token = req.accessToken;
         let resourceResult = [];
         let questionnaireId = null;
         let questionnaireReference = null;
+        const questionnaireName = isCampaignPath ? "screening-site-tobacco-cessation-questionnaire" : "tobacco-cessation-questionnaire";
         //  Get Questionnaire id if it not exists create it and pass as reference for uuid
-        const questionnaireResource = await fetchResource("Questionnaire", {name: "tobacco-cessation-questionnaire", _total: "accurate", _count: 1}, token)
+        const questionnaireResource = await fetchResource("Questionnaire", { name: questionnaireName, _total: "accurate", _count: 1}, token)
+        console.log("questionnaireResource: ", questionnaireResource)
         if(questionnaireResource.total > 0 && questionnaireResource.entry) {
             questionnaireId = questionnaireResource.entry[0].resource.id;
             questionnaireReference = "Questionnaire/" + questionnaireId;        
@@ -50,7 +63,7 @@ let saveTobaccoData = async function (req, res) {
         else {
            questionnaireId = uuidv4(); 
            questionnaireReference = "urn:uuid:" + questionnaireId
-           const questionnaireResourceBuilt = buildFHIRResource(Questionnaire, {questionnaireId});
+           const questionnaireResourceBuilt = buildFHIRResource(Questionnaire, {questionnaireId, questionnaireName});
            const questionnaireBundle = await bundleStructure.setBundlePost(questionnaireResourceBuilt, questionnaireResourceBuilt.identifier, questionnaireId, "POST", "identifier")
            resourceResult.push(questionnaireBundle);
         }
@@ -60,8 +73,9 @@ let saveTobaccoData = async function (req, res) {
             const reqUuid = tobaccoData.uuid;
             const baseEncounterId = encounterData?.entry?.[0]?.resource?.id;
             if (!baseEncounterId) return;
-
+            console.log("questionnaireId: ", questionnaireId, "patient id: ", tobaccoData.patientId, " baseEncounterId: ", baseEncounterId)
             const existingResponse = await fetchResource("QuestionnaireResponse", {source: tobaccoData.patientId, encounter: baseEncounterId, questionnaire: questionnaireId, _total: "accurate"}, token);
+            console.log("questionnaireId: ", questionnaireId, "patient id: ", tobaccoData.patientId, " baseEncounterId: ", baseEncounterId, " existing response: ", existingResponse.total, existingResponse.entry)
             if (existingResponse.total > 0 && existingResponse.entry) {
                 console.log("put case")
                 tobaccoData.uuid = existingResponse.entry[0].resource.identifier.value;
@@ -71,6 +85,7 @@ let saveTobaccoData = async function (req, res) {
                 resourceResult.push(questionnaireResponseBundle)
                 }
             else {
+                console.log("Check the post case", questionnaireReference)
                 const questionnaireResponseResource = buildFHIRResource(QuestionnaireResponse, {...tobaccoData, questionnaireId: questionnaireReference, encounterId: baseEncounterId, practitionerId: req.decoded.userId})
                 questionnaireResponseResource.uuid = reqUuid
                 const questionnaireResponseBundle =await  bundleStructure.setBundlePost(questionnaireResponseResource,[questionnaireResponseResource.identifier], tobaccoData.uuid, "POST", "identifier")
@@ -100,7 +115,7 @@ let saveTobaccoData = async function (req, res) {
                 return res.status(500).json({
                 status: 0, message: "Unable to process. Please try again.", err: response
                 })
-        }
+         }
     }
     catch (e) {
         console.error(e);
@@ -119,7 +134,7 @@ const setSaveResponse  = (reqBundleData, responseBundleData, type) => {
     const responseData = bundleStructure.mapAssessmentBundleService(reqBundleData, responseBundleData)
     filteredData = responseData.filter(e => e.resource.resourceType == "QuestionnaireResponse");
     response = responseService.setDefaultAssessmentResponse("QuestionnaireResponse", type, filteredData)
-    console.info("responses: ============================>", filteredData)
+    // console.info("responses: ============================>", filteredData)
     return response;
 }
 
@@ -128,8 +143,12 @@ const setSaveResponse  = (reqBundleData, responseBundleData, type) => {
 //  Get tobacco cessation data
 let getTobaccoData = async function (req, res) {
     try {
+
+        const isCampaignPath = await getAPIPath(req);
+        console.log("check is it campaign path: ", isCampaignPath)
+        const questionnaireName = isCampaignPath ? "screening-site-tobacco-cessation-questionnaire" : "tobacco-cessation-questionnaire";
         const token = req.accessToken;
-        const questionnaireResource = await fetchResource("Questionnaire", {name: "tobacco-cessation-questionnaire", _total: "accurate", _count: 1}, token)
+        const questionnaireResource = await fetchResource("Questionnaire", {name: questionnaireName, _total: "accurate", _count: 1}, token)
         if(questionnaireResource.total == 0) {
             return res.status(200).json({ status: 2, message: "Data fetched", total: 0, data: []  })
         } 
@@ -155,9 +174,11 @@ let getTobaccoData = async function (req, res) {
         questionnaireResponses.entry.forEach(questionnaireResponse => {            
             const responseObj = getTransformedResult(QuestionnaireResponse, questionnaireResponse.resource);
             const primaryEncounter = mainEncounters.find((e) => e.id === questionnaireResponse.resource.encounter.reference.split("/")[1]);
-            responseObj.practitionerName = getPractitionerName(responseObj.practitionerId, practitionerList.entry);
+            responseObj.practitionerId = isCampaignPath? null : responseObj.practitionerId;
+            responseObj.practitionerName = isCampaignPath? null : getPractitionerName(responseObj.practitionerId, practitionerList.entry);
             responseObj.appointmentId = primaryEncounter?.appointment?.[0]?.reference?.split("/")[1] || null;
-            responseObj.appointmentUuid = primaryEncounter?.identifier?.[0].value
+            responseObj.appointmentUuid = primaryEncounter?.identifier?.[0].value;
+            responseObj.campaignId = isCampaignPath ? primaryEncounter.location[0].location.reference.split("/")[1] : null;
             resourceResult.push(responseObj)
         });
         resStatus = bundleStructure.setResponse(resourceUrlData, questionnaireResponses);

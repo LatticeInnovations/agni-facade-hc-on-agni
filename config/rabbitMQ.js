@@ -36,7 +36,7 @@ async function sendToQueue(queueName, message) {
   
     try {
         const success = ch.sendToQueue(
-            queueName, Buffer.from(JSON.stringify(message), {persistent: true})
+            queueName, Buffer.from(JSON.stringify(message)), {persistent: true}
         )
 
         if(success) {

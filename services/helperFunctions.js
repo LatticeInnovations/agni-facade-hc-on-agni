@@ -3,6 +3,8 @@ let {sendInvalidDataError} = require("../utils/responseStatus");
 const config = require("../config/nodeConfig");
 let { validationResult } = require('express-validator');
 const bundleStructure = require("../services/bundleOperation");
+const http = require("http");
+const {URL} = require("url")
 const schemaList = config.schemaList;
 const domainsList = config.domainsList;
 
@@ -132,4 +134,25 @@ const fetchResource = async (resourceType, queryParams, token) => {
     }
 }
 
-module.exports = {validateRequest, buildFHIRResource, postFHIRResource, buildAndPost, getTransformedResult, handleError, fetchResource, patchFHIRResource}
+const getAPIPath = async (req) => {
+    console.log("checking req path: ", req.path, req.originalUrl, req.baseUrl)
+    if(req.baseUrl.includes("/campaign/"))
+        return true;
+    return false;
+}
+
+const getCampaignPractitionerRole = async (practitionerId, campaignId, token) => {
+    try {
+        const practitionerRoleResource = await fetchResource("PractitionerRole", {practitioner: practitionerId, location: campaignId, _total: "accurate"}, token)
+        if(practitionerRoleResource.total > 0) {
+            return practitionerRoleResource.entry[0].resource.id
+        }
+        return null;
+    } catch (error) {
+        console.error(`Error fetching ${resourceType}:`, error);
+        throw error;
+    }
+
+}
+
+module.exports = {validateRequest, buildFHIRResource, postFHIRResource, buildAndPost, getTransformedResult, handleError, fetchResource, patchFHIRResource, getAPIPath, getCampaignPractitionerRole}
