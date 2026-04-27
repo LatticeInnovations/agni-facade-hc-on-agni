@@ -40,7 +40,7 @@ let saveInterventionData = async function (req, res) {
                 const reqUuid = interventionData.uuid;
                 const baseEncounterId = encounterData?.entry?.[0]?.resource?.id;
                 if (!baseEncounterId) return;    
-                const existingResponse = await fetchResource("ServiceRequest", {category: "409073007", encounter: baseEncounterId, _total: "accurate"}, token);
+                // const existingResponse = await fetchResource("ServiceRequest", {category: "409073007", encounter: baseEncounterId, _total: "accurate"}, token);
                 interventionData.activityList = interventionData.interventions.map(e => "ActivityDefinition/" + e)
                 const interventionResponseResource = buildFHIRResource(ServiceRequest, {...interventionData, categoryCode: "409073007", categoryDisplay: "Interventions" ,encounterId: baseEncounterId, practitionerId: req.decoded.userId})
                 interventionResponseResource.uuid = reqUuid

@@ -70,14 +70,14 @@ let saveExaminationData = async function (req, res) {
             );
             const existingCount =  existingServiceResponse?.total ??  existingServiceResponse?.entry?.length ??  0;
 
-            if (existingCount > 0) {
+            if (isCampaignPath && existingCount > 0) {
               console.info(
-                `ServiceRequest already exists for encounter ${baseEncounterId}, skipping...`
+                `ServiceRequest already exists for appointment encounter ${baseEncounterId}, skipping...`
               );
               errData.push({
                 status: 0,
                 id: reqUuid,
-                err: "Examination already exists for this encounter",
+                err: "Examination already exists for this appointment",
                 fhirId:
                   existingServiceResponse?.entry?.[0]?.resource?.id ?? null,
               });

@@ -133,6 +133,10 @@ setLocationForCampaign() {
 
 }
 
+getCampaignId() {
+  this.encounterObj.campaignId = this.fhirResource?.location?.[0]?.location?.reference?.split("/")[1] || null
+}
+
 
 setOrganizationReference(){
   if(!this.encounterObj.isCampaign)
@@ -193,6 +197,7 @@ getPatientReference() {
     this.getEncounterTime();
     this.getPractitionerRoleReference();
     this.getPractitionerReference();
+    this.getCampaignId();
   }
 
   getSimplifiedOutput() {
