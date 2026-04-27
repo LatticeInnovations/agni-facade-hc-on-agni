@@ -1,0 +1,154 @@
+[
+ {
+   "medication_brand_id": 1,
+   "name": "Durapin 20",
+   "created_at": "2021-10-27 15:58:43.49799",
+   "created_by": 1,
+   "updated_at": "2021-10-27 15:58:43.49799",
+   "updated_by": 1
+ },
+ {
+   "medication_brand_id": 2,
+   "name": "Eupril 10",
+   "created_at": "2021-10-27 15:58:43.49878",
+   "created_by": 1,
+   "updated_at": "2021-10-27 15:58:43.49878",
+   "updated_by": 1
+ },
+ {
+   "medication_brand_id": 3,
+   "name": "Esidrex",
+   "created_at": "2021-10-27 15:58:43.49927",
+   "created_by": 1,
+   "updated_at": "2021-10-27 15:58:43.49927",
+   "updated_by": 1
+ },
+ {
+   "medication_brand_id": 4,
+   "name": "Tenoren",
+   "created_at": "2021-10-27 15:58:43.49974",
+   "created_by": 1,
+   "updated_at": "2021-10-27 15:58:43.49974",
+   "updated_by": 1
+ },
+ {
+   "medication_brand_id": 5,
+   "name": "Glucend 500",
+   "created_at": "2021-10-27 15:58:43.50017",
+   "created_by": 1,
+   "updated_at": "2021-10-27 15:58:43.50017",
+   "updated_by": 1
+ },
+ {
+   "medication_brand_id": 6,
+   "name": "Daonil",
+   "created_at": "2021-10-27 15:58:43.50064",
+   "created_by": 1,
+   "updated_at": "2021-10-27 15:58:43.50064",
+   "updated_by": 1
+ },
+ {
+   "medication_brand_id": 7,
+   "name": "Metagliben",
+   "created_at": "2021-10-27 15:58:43.50107",
+   "created_by": 1,
+   "updated_at": "2021-10-27 15:58:43.50107",
+   "updated_by": 1
+ },
+ {
+   "medication_brand_id": 8,
+   "name": "Melizide",
+   "created_at": "2021-10-27 15:58:43.50152",
+   "created_by": 1,
+   "updated_at": "2021-10-27 15:58:43.50152",
+   "updated_by": 1
+ },
+ {
+   "medication_brand_id": 9,
+   "name": "Simvastatin Mylan",
+   "created_at": "2021-10-27 15:58:43.50189",
+   "created_by": 1,
+   "updated_at": "2021-10-27 15:58:43.50189",
+   "updated_by": 1
+ },
+ {
+   "medication_brand_id": 10,
+   "name": "Acetylsalicylic acid",
+   "created_at": "2021-10-27 15:58:43.50227",
+   "created_by": 1,
+   "updated_at": "2021-10-27 15:58:43.50227",
+   "updated_by": 1
+ },
+ {
+   "medication_brand_id": 11,
+   "name": "Uractonum",
+   "created_at": "2021-10-27 15:58:43.50263",
+   "created_by": 1,
+   "updated_at": "2021-10-27 15:58:43.50263",
+   "updated_by": 1
+ },
+ {
+   "medication_brand_id": 12,
+   "name": "Clopidrogel Apotex",
+   "created_at": "2021-10-27 15:58:43.50300",
+   "created_by": 1,
+   "updated_at": "2021-10-27 15:58:43.50300",
+   "updated_by": 1
+ },
+ {
+   "medication_brand_id": 13,
+   "name": "Ventolin",
+   "created_at": "2021-10-27 15:58:43.50338",
+   "created_by": 1,
+   "updated_at": "2021-10-27 15:58:43.50338",
+   "updated_by": 1
+ },
+ {
+   "medication_brand_id": 14,
+   "name": "Steradin HFA",
+   "created_at": "2021-10-27 15:58:43.50378",
+   "created_by": 1,
+   "updated_at": "2021-10-27 15:58:43.50378",
+   "updated_by": 1
+ },
+ {
+   "medication_brand_id": 15,
+   "name": "Genox 20",
+   "created_at": "2021-10-27 15:58:43.50415",
+   "created_by": 1,
+   "updated_at": "2021-10-27 15:58:43.50415",
+   "updated_by": 1
+ },
+ {
+   "medication_brand_id": 16,
+   "name": "Augmentin",
+   "created_at": "2021-10-27 15:58:43.50455",
+   "created_by": 1,
+   "updated_at": "2021-10-27 15:58:43.50455",
+   "updated_by": 1
+ },
+ {
+   "medication_brand_id": 17,
+   "name": "Flagyl",
+   "created_at": "2021-10-27 15:58:43.50492",
+   "created_by": 1,
+   "updated_at": "2021-10-27 15:58:43.50492",
+   "updated_by": 1
+ },
+ {
+   "medication_brand_id": 18,
+   "name": "Valium",
+   "created_at": "2022-08-02 12:46:59.94324",
+   "created_by": 1,
+   "updated_at": "2022-08-02 12:46:59.94015",
+   "updated_by": 1
+ },
+ {
+   "medication_brand_id": 19,
+   "name": "Antenex",
+   "created_at": "2021-10-27 15:58:43.50569",
+   "created_by": 1,
+   "updated_at": "2021-10-27 15:58:43.50569",
+   "updated_by": 1
+ }
+]

@@ -1,0 +1,28 @@
+[
+ {
+   "level_5_id": -1,
+   "code": "VGE0",
+   "primary_name": "Others",
+   "secondary_name": null,
+   "health_facility_id": -1,
+   "culture_id": null,
+   "population": null,
+   "created_at": "2021-10-27 15:58:35.86327",
+   "created_by": 1,
+   "updated_at": "2021-10-27 15:58:35.86327",
+   "updated_by": 1
+ },
+ {
+   "level_5_id": 1,
+   "code": "eww",
+   "primary_name": "Sample",
+   "secondary_name": "gdgd",
+   "health_facility_id": 7,
+   "culture_id": null,
+   "population": "23",
+   "created_at": "2023-10-12 06:11:33.61166",
+   "created_by": 1,
+   "updated_at": "2023-10-12 06:11:33.61064",
+   "updated_by": 1
+ }
+]

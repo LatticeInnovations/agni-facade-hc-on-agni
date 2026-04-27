@@ -1,0 +1,173 @@
+[
+ {
+   "id": 1,
+   "brand_name_id": 1,
+   "medication_id": 1,
+   "created_at": "2021-10-27 15:58:43.53391",
+   "created_by": 8,
+   "updated_at": "2021-10-27 15:58:43.53391",
+   "updated_by": 8
+ },
+ {
+   "id": 2,
+   "brand_name_id": 2,
+   "medication_id": 3,
+   "created_at": "2021-10-27 15:58:43.53479",
+   "created_by": 8,
+   "updated_at": "2021-10-27 15:58:43.53479",
+   "updated_by": 8
+ },
+ {
+   "id": 3,
+   "brand_name_id": 3,
+   "medication_id": 5,
+   "created_at": "2021-10-27 15:58:43.53534",
+   "created_by": 8,
+   "updated_at": "2021-10-27 15:58:43.53534",
+   "updated_by": 8
+ },
+ {
+   "id": 4,
+   "brand_name_id": 4,
+   "medication_id": 6,
+   "created_at": "2021-10-27 15:58:43.54434",
+   "created_by": 8,
+   "updated_at": "2021-10-27 15:58:43.54434",
+   "updated_by": 8
+ },
+ {
+   "id": 5,
+   "brand_name_id": 5,
+   "medication_id": 10,
+   "created_at": "2021-10-27 15:58:43.54482",
+   "created_by": 8,
+   "updated_at": "2021-10-27 15:58:43.54482",
+   "updated_by": 8
+ },
+ {
+   "id": 6,
+   "brand_name_id": 6,
+   "medication_id": 11,
+   "created_at": "2021-10-27 15:58:43.54529",
+   "created_by": 8,
+   "updated_at": "2021-10-27 15:58:43.54529",
+   "updated_by": 8
+ },
+ {
+   "id": 7,
+   "brand_name_id": 7,
+   "medication_id": 12,
+   "created_at": "2021-10-27 15:58:43.54573",
+   "created_by": 8,
+   "updated_at": "2021-10-27 15:58:43.54573",
+   "updated_by": 8
+ },
+ {
+   "id": 8,
+   "brand_name_id": 8,
+   "medication_id": 16,
+   "created_at": "2021-10-27 15:58:43.54617",
+   "created_by": 8,
+   "updated_at": "2021-10-27 15:58:43.54617",
+   "updated_by": 8
+ },
+ {
+   "id": 9,
+   "brand_name_id": 9,
+   "medication_id": 18,
+   "created_at": "2021-10-27 15:58:43.54662",
+   "created_by": 8,
+   "updated_at": "2021-10-27 15:58:43.54662",
+   "updated_by": 8
+ },
+ {
+   "id": 10,
+   "brand_name_id": 10,
+   "medication_id": 21,
+   "created_at": "2021-10-27 15:58:43.54705",
+   "created_by": 8,
+   "updated_at": "2021-10-27 15:58:43.54705",
+   "updated_by": 8
+ },
+ {
+   "id": 11,
+   "brand_name_id": 11,
+   "medication_id": 29,
+   "created_at": "2021-10-27 15:58:43.54751",
+   "created_by": 8,
+   "updated_at": "2021-10-27 15:58:43.54751",
+   "updated_by": 8
+ },
+ {
+   "id": 12,
+   "brand_name_id": 12,
+   "medication_id": 34,
+   "created_at": "2021-10-27 15:58:43.54795",
+   "created_by": 8,
+   "updated_at": "2021-10-27 15:58:43.54795",
+   "updated_by": 8
+ },
+ {
+   "id": 13,
+   "brand_name_id": 13,
+   "medication_id": 37,
+   "created_at": "2021-10-27 15:58:43.54841",
+   "created_by": 8,
+   "updated_at": "2021-10-27 15:58:43.54841",
+   "updated_by": 8
+ },
+ {
+   "id": 14,
+   "brand_name_id": 14,
+   "medication_id": 38,
+   "created_at": "2021-10-27 15:58:43.54884",
+   "created_by": 8,
+   "updated_at": "2021-10-27 15:58:43.54884",
+   "updated_by": 8
+ },
+ {
+   "id": 15,
+   "brand_name_id": 15,
+   "medication_id": 42,
+   "created_at": "2021-10-27 15:58:43.54930",
+   "created_by": 8,
+   "updated_at": "2021-10-27 15:58:43.54930",
+   "updated_by": 8
+ },
+ {
+   "id": 16,
+   "brand_name_id": 16,
+   "medication_id": 57,
+   "created_at": "2021-10-27 15:58:43.54976",
+   "created_by": 8,
+   "updated_at": "2021-10-27 15:58:43.54976",
+   "updated_by": 8
+ },
+ {
+   "id": 17,
+   "brand_name_id": 17,
+   "medication_id": 62,
+   "created_at": "2021-10-27 15:58:43.55025",
+   "created_by": 8,
+   "updated_at": "2021-10-27 15:58:43.55025",
+   "updated_by": 8
+ },
+ {
+   "id": 18,
+   "brand_name_id": 18,
+   "medication_id": 86,
+   "created_at": "2021-10-27 15:58:43.55072",
+   "created_by": 8,
+   "updated_at": "2021-10-27 15:58:43.55072",
+   "updated_by": 8
+ },
+ {
+   "id": 19,
+   "brand_name_id": 19,
+   "medication_id": 86,
+   "created_at": "2021-10-27 15:58:43.55118",
+   "created_by": 8,
+   "updated_at": "2021-10-27 15:58:43.55118",
+   "updated_by": 8
+ }
+]

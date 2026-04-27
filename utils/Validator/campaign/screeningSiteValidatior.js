@@ -83,11 +83,7 @@ const screeningSiteUpdateSchema = Joi.object({
         }),
 
     startDate: Joi.date()
-        .min("now")
-        .optional()
-        .messages({
-            "date.min": "Start date must be today or future"
-        }),
+        .optional(),
 
     endDate: Joi.date()
         .min(Joi.ref("startDate"))

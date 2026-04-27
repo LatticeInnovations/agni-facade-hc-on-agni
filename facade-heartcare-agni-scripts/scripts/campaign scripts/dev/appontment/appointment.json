@@ -1,0 +1,15 @@
+{
+    "resourceType": "Bundle",
+    "id": "4905d709-3cbf-4ffe-9531-630f19964841",
+    "meta": {
+        "lastUpdated": "2026-04-20T05:42:02.682+00:00"
+    },
+    "type": "searchset",
+    "total": 0,
+    "link": [
+        {
+            "relation": "self",
+            "url": "http://127.0.0.1:8080/fhir/Appointment?_count=100"
+        }
+    ]
+}

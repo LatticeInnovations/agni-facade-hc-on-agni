@@ -1,0 +1,26 @@
+[
+    {
+        "data": {
+          "fhirId": "2",
+          "userId": 1
+        },
+        "entity": "user",
+        "apiName": "create-user",
+        "requestType": "post",
+        "reqUrl": "/user",
+        "decodedToken": {
+          "userTypeId": 2,
+          "userPrimaryId": 6,
+          "userId": "Cont02",
+          "fhirId": "5"
+        },
+        "result": {
+          "message": "User created and FHIR synced",
+          "fhirId": "5",
+          "userId": 6
+        },
+        "source_backend": "HEARTCARE_ADMIN",
+        "target_backend": "AGNI"
+    }
+      
+]

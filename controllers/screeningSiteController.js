@@ -689,9 +689,129 @@ const updateScreeningSite = async (req, res) => {
     }
 };
 
+const deleteScreeningSite = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const token = req.accessToken;
+
+        // Check if screening site exists
+        const existingLocation = await fetchResource("Location", { _id: id }, token);
+        if (!existingLocation.entry?.length) {
+            return res.status(404).json({
+                status: 0,
+                message: "Screening site not found"
+            });
+        }
+
+        const locationResource = existingLocation.entry[0].resource;
+
+        // Verify it's a screening site
+        const isScreeningSite = locationResource.type?.some(t =>
+            t.coding?.some(c => c.code === "SCREENING_SITE")
+        );
+
+        if (!isScreeningSite) {
+            return res.status(400).json({
+                status: 0,
+                message: "Cannot delete: Not a screening site"
+            });
+        }
+
+        const site = new ScreeningSite({}, locationResource);
+        const toDate = site.getEndDate();
+
+        // Rule 1: Check if campaign To Date has passed
+        if (!toDate || new Date(toDate) > new Date()) {
+            return res.status(400).json({
+                status: 0,
+                message: "Cannot delete: Campaign end date has not passed yet"
+            });
+        }
+
+        // Rule 2: Check if any patient screening data (Encounter) is attached to this site
+        const encounterResponse = await fetchResource(
+            "Encounter",
+            { location: id, _count: 1 },
+            token
+        );
+
+        if (encounterResponse.entry && encounterResponse.entry.length > 0) {
+            return res.status(400).json({
+                status: 0,
+                message: "Cannot delete: Screening site has patient screening data attached"
+            });
+        }
+
+        // Build bundle entries for hard delete
+        const entries = [];
+
+        // Delete location resource using DELETE method
+        const locationEntry = {
+            fullUrl: `urn:uuid:${uuidv4()}`,
+            request: {
+                method: "DELETE",
+                url: `Location/${id}`
+            }
+        };
+        entries.push(locationEntry);
+
+        // Get and delete all PractitionerRole resources for this location
+        const practitionerRoleResponse = await fetchResource(
+            "PractitionerRole",
+            { location: id },
+            token
+        );
+
+        if (practitionerRoleResponse.entry) {
+            for (const roleEntry of practitionerRoleResponse.entry) {
+                const roleResource = roleEntry.resource;
+
+                // Only delete screening staff roles
+                const isScreeningStaff = roleResource.code?.some(c =>
+                    c.coding?.some(cd => cd.code === "SCREENING_STAFF")
+                );
+
+                if (isScreeningStaff) {
+                    const roleDeleteEntry = {
+                        fullUrl: `urn:uuid:${uuidv4()}`,
+                        request: {
+                            method: "DELETE",
+                            url: `PractitionerRole/${roleResource.id}`
+                        }
+                    };
+                    entries.push(roleDeleteEntry);
+                }
+            }
+        }
+
+        const bundleData = await bundleStructure.getBundleJSON({ resourceResult: entries });
+
+        await axios.post(config.baseUrl, bundleData.bundle, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/fhir+json"
+            }
+        });
+
+        return res.status(200).json({
+            status: 1,
+            message: "Screening site deleted successfully",
+            data: { locationId: id }
+        });
+
+    } catch (err) {
+        console.error("Error deleting screening site:", err);
+        return res.status(400).json({
+            status: 0,
+            message: err.message
+        });
+    }
+};
+
 module.exports = {
     createScreeningSite,
     updateScreeningSite,
     getScreeningSite,
-    listScreeningSites
+    listScreeningSites,
+    deleteScreeningSite
 };
