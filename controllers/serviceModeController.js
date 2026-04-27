@@ -270,6 +270,7 @@ let getServiceModeList = async function (req, res) {
                 id: resource.id,
                 name: coding?.display || resource.name || null,
                 code: coding?.code || null,
+                description: resource.description || null,
                 status: resource.status == "active" ? "ACTIVE" : "INACTIVE",
                 lastUpdated: resource.meta?.lastUpdated
             };
