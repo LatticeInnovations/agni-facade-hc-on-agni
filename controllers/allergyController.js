@@ -163,7 +163,7 @@ let getAllergyData = async function (req, res) {
             const primaryEncounter = mainEncounters.find((e) => e.id === allergyIntolerance.resource.encounter.reference.split("/")[1]);
             responseObj.practitionerName = getPractitionerName(responseObj.practitionerId, practitionerList.entry);
             responseObj.campaignId = isCampaignPath ? primaryEncounter.location[0].location.reference.split("/")[1]: null;
-            responseObj.practitionerId = isCampaignPath ? null : responseObj.practitionerId
+            responseObj.practitionerId = responseObj.practitionerId
             responseObj.appointmentId = primaryEncounter?.appointment?.[0]?.reference?.split("/")[1] || null;
             responseObj.appointmentUuid = primaryEncounter?.identifier?.[0].value
             resourceResult.push(responseObj)

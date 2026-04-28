@@ -246,7 +246,7 @@ let getExaminationData = async function (req, res) {
             const primaryEncounter = mainEncounters.find((e) => e.id === examinationResponse.resource.encounter.reference.split("/")[1]);
             responseObj.practitionerName = getPractitionerName(responseObj.practitionerId, practitionerList.entry);
             responseObj.examinations = responseObj? responseObj.activityList : []
-            responseObj.practitionerId = isCampaignPath ? null : responseObj.practitionerId
+            responseObj.practitionerId = responseObj.practitionerId
             delete responseObj["activityList"]
             responseObj.appointmentId = primaryEncounter?.appointment?.[0]?.reference?.split("/")[1] || null;
             responseObj.appointmentUuid = primaryEncounter?.identifier?.[0].value;

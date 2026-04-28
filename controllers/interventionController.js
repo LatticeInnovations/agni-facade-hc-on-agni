@@ -237,7 +237,7 @@ let getInterventionData = async function (req, res) {
             const responseObj = getTransformedResult(ServiceRequest, interventionResponse.resource);
             const primaryEncounter = mainEncounters.find((e) => e.id === interventionResponse.resource.encounter.reference.split("/")[1]);
             responseObj.practitionerName = getPractitionerName(responseObj.practitionerId, practitionerList.entry);
-            responseObj.practitionerId = isCampaignPath ? null : responseObj.practitionerId;
+            responseObj.practitionerId = responseObj.practitionerId;
             responseObj.interventions = responseObj?.activityList || []
             delete responseObj["activityList"]
             responseObj.appointmentId = primaryEncounter?.appointment?.[0]?.reference?.split("/")[1] || null;

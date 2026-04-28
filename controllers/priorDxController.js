@@ -278,7 +278,6 @@ const getConditionList = async (priorDxEncounterList, practitionerList, mainEnco
                 conditionData.practitionerName = getPractitionerName(conditionData.practitionerId, practitionerList);
                 // Remove unnecessary fields
                 delete conditionData.primaryEncounterId;
-                conditionData.practitionerId = isCampaignPath ? null : conditionData.practitionerId;
                 conditionData.roleId = isCampaignPath ? null : conditionData.roleId;
                 conditionData.campaignId = isCampaignPath ? (encounter?.location?.[0]?.location?.reference.split("/")[1] ): null
     

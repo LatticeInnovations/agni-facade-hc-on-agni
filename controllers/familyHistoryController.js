@@ -166,13 +166,12 @@ let getFamilyHistoryData = async function (req, res) {
         //  get practitionerData
         const practitionerIds = questionnaireResponses.entry.map((e) => e.resource.author?.reference?.split("/")[1]).filter(Boolean).join(",");
         const practitionerList = await fetchResource("Practitioner", { _count: 10000, _id: practitionerIds }, token)
+        console.log("practitionerList: ", practitionerList)
         const mainEncounters = mainEncounterList.entry.map((e) => e.resource);
         questionnaireResponses.entry.forEach(questionnaireResponse => {            
             const responseObj = getTransformedResult(QuestionnaireResponse, questionnaireResponse.resource);
-            const primaryEncounter = mainEncounters.find((e) => e.id === questionnaireResponse.resource.encounter.reference.split("/")[1]); responseObj.practitionerId = isCampaignPath? null : responseObj.practitionerId;
+            const primaryEncounter = mainEncounters.find((e) => e.id === questionnaireResponse.resource.encounter.reference.split("/")[1]); 
             responseObj.practitionerName = getPractitionerName(responseObj.practitionerId, practitionerList.entry);
-            responseObj.practitionerId = isCampaignPath? null : responseObj.practitionerId;
-            
             responseObj.appointmentId = primaryEncounter?.appointment?.[0]?.reference?.split("/")[1] || null;
             responseObj.appointmentUuid = primaryEncounter?.identifier?.[0].value;
             responseObj.campaignId = isCampaignPath ? primaryEncounter.location[0].location.reference.split("/")[1] : null;

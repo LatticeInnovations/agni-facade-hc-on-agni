@@ -285,7 +285,7 @@ const getVitalObservationList = async (vitalEncounterList, practitionerList, mai
                 const primaryEncounter = mainEncounters.find((e) => e.id === observationData.primaryEncounterId);
                 observationData.appointmentId = primaryEncounter?.appointment?.[0]?.reference?.split("/")[1] || null;
                 observationData.appointmentUuid = primaryEncounter?.identifier?.[0].value
-                observationData.practitionerId = isCampaignPath ? null : observationData.practitionerId;
+                observationData.practitionerId = observationData.practitionerId;
                 observationData.roleId = isCampaignPath ? null : observationData.roleId;
                 observationData.campaignId = isCampaignPath ? (encounter?.location?.[0]?.location?.reference.split("/")[1] ): null
 

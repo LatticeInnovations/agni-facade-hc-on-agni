@@ -168,7 +168,7 @@ let getMedicationHistoryData = async function (req, res) {
         questionnaireResponses.entry.forEach(questionnaireResponse => {            
             const responseObj = getTransformedResult(QuestionnaireResponse, questionnaireResponse.resource);
             const primaryEncounter = mainEncounters.find((e) => e.id === questionnaireResponse.resource.encounter.reference.split("/")[1]);
-            responseObj.practitionerId = isCampaignPath? null : responseObj.practitionerId;
+            console.log("responseObj:", responseObj)
             responseObj.practitionerName = getPractitionerName(responseObj.practitionerId, practitionerList.entry);
             responseObj.appointmentId = primaryEncounter?.appointment?.[0]?.reference?.split("/")[1] || null;
             responseObj.appointmentUuid = primaryEncounter?.identifier?.[0].value;

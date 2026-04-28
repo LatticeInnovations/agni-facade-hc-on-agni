@@ -284,6 +284,7 @@ const getSymDiagForEncounter = async(mainEncounterList, subEncounterList, sympto
                 progressNote: encounter?.extension?.[0]?.valueAnnotation?.text || null,
                 createdOn: encounter.period.start,
                 diagnosis: diagnosisList,
+                practitionerId: practitioner?.[0]?.resource?.id || null,
                 practitionerName: practitionerName.trim(),
                 campaignId : isCampaignPath ? (encounter?.location?.[0]?.location?.reference.split("/")[1] ) : null
             }
