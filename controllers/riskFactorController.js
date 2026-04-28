@@ -169,8 +169,8 @@ let getRiskFactorData = async function (req, res) {
         questionnaireResponses.entry.forEach(questionnaireResponse => {            
             const responseObj = getTransformedResult(QuestionnaireResponse, questionnaireResponse.resource);
             const primaryEncounter = mainEncounters.find((e) => e.id === questionnaireResponse.resource.encounter.reference.split("/")[1]);
-            responseObj.practitionerId = isCampaignPath? null : responseObj.practitionerId;            
-            responseObj.practitionerName = isCampaignPath ? null : getPractitionerName(responseObj.practitionerId, practitionerList.entry);
+            responseObj.practitionerId = responseObj.practitionerId;            
+            responseObj.practitionerName = getPractitionerName(responseObj.practitionerId, practitionerList.entry);
             responseObj.appointmentId = primaryEncounter?.appointment?.[0]?.reference?.split("/")[1] || null;
             responseObj.appointmentUuid = primaryEncounter?.identifier?.[0].value;
             responseObj.campaignId = isCampaignPath ? primaryEncounter.location[0].location.reference.split("/")[1] : null;

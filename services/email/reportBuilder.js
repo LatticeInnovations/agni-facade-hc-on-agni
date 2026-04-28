@@ -931,6 +931,33 @@ function buildInterventionHTML(interventions) {
     </div>
   `).join("");
 }
+
+function formatDateDDMMMYYYY(dateStr) {
+  if (!dateStr) return "--";
+
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  }).replace(/ /g, "-");
+}
+
+function generateFilePassword(name, birthDate) {
+  if (!name || !birthDate) return null;
+
+  // Remove spaces & take first 4 characters
+  const cleanName = name.replace(/\s+/g, "").toUpperCase();
+  const first4 = cleanName.substring(0, 4);
+
+  // Extract DDMM from DOB
+  const date = new Date(birthDate);
+  const dd = String(date.getDate()).padStart(2, "0");
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+
+  return `${first4}${dd}${mm}`;
+}
+
 function buildReport(entries) {
   const patient = entries.find(
     e => e.resource?.resourceType === "Patient"
@@ -1041,8 +1068,34 @@ function buildReport(entries) {
   };
   report.guidance = buildWHOGuidance(report);
   report.personalSummary = buildPersonalSummary(report);
-  return report;
 
+  const encounterDate = observation?.effectiveDateTime;
+  const formattedDate = formatDateDDMMMYYYY(encounterDate);
+  const fileName = [
+      val(patient.id),
+      formattedDate
+    ].filter(Boolean).join("-") + ".pdf";
+    
+  const filePassword = generateFilePassword(name, patient?.birthDate);
+
+  const parentEncounterId = chiefComplaint?.partOf?.reference?.split("/")[1];
+  const parentEncounter = entries.find(
+    e =>
+      e.resource?.resourceType === "Encounter" &&
+      e.resource.id === parentEncounterId
+  )?.resource;
+  const appointmentId = parentEncounter?.appointment?.[0]?.reference?.split("/")[1];
+
+  console.log("appointment id", appointmentId)
+
+  return {
+    report,
+    fileName,
+    filePassword,
+    appointmentId,
+    encounterId: parentEncounterId,
+    dob: patient?.birthDate
+  };
 }
 
 module.exports = { buildReport };
