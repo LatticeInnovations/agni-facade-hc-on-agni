@@ -366,7 +366,7 @@ const getPatientLocationDetails = async (patients, token) => {
             
             const facility = facilitiesList.find(e => island.id === e.extension?.[1].valueReference?.reference.split("/")[1])
             console.log("facility: ", facility, island.id)
-            patient.facilityName = facility?.name || null;
+            patient.healthFacility = facility?.name || null;
         })
 
         return patients;
@@ -391,11 +391,11 @@ const getFacilityDashboard = async function (req, res) {
 
         // fetch cvd data for every encounter
         patientMap = await fetchCvdData(mainEncounterIds, patientMap, token);
-        console.log("patientMap: ", patientMap)
 
         // fetch vital data
         patientMap = await fetchVitalData(mainEncounterIds, patientMap, token)
         const filteredMap = filterPatientsWithData(patientMap); 
+
         //  get final cvd vitals
         const result = deriveFinalVtialCvdData(filteredMap)
         const filteredFinalData = filterFinalData(result); 
