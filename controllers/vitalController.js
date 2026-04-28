@@ -276,7 +276,7 @@ const getVitalObservationList = async (vitalEncounterList, practitionerList, mai
                     let observationData = getTransformedResult(Encounter, encounter);
     
                 // Add practitioner name
-                observationData.practitionerName =  isCampaignPath ? null : getPractitionerName(observationData.practitionerId, practitionerList);
+                observationData.practitionerName =  getPractitionerName(observationData.practitionerId, practitionerList);
     
                 // Add creation date
                 observationData.appUpdatedDate = encounter.period.start;

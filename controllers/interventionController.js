@@ -236,7 +236,7 @@ let getInterventionData = async function (req, res) {
         interventionResponses.entry.forEach(interventionResponse => {            
             const responseObj = getTransformedResult(ServiceRequest, interventionResponse.resource);
             const primaryEncounter = mainEncounters.find((e) => e.id === interventionResponse.resource.encounter.reference.split("/")[1]);
-            responseObj.practitionerName = isCampaignPath ? null : getPractitionerName(responseObj.practitionerId, practitionerList.entry);
+            responseObj.practitionerName = getPractitionerName(responseObj.practitionerId, practitionerList.entry);
             responseObj.practitionerId = isCampaignPath ? null : responseObj.practitionerId;
             responseObj.interventions = responseObj?.activityList || []
             delete responseObj["activityList"]

@@ -259,6 +259,7 @@ const getPractitionerName = (practitionerId, practitionerData) => {
 
 const getConditionList = async (priorDxEncounterList, practitionerList, mainEncounters, token, isCampaignPath) => {
     try {
+                console.log("practitionerList: ", practitionerList)  
         return Promise.all(
             priorDxEncounterList.map(async (encounter) => {
                 let conditionData = getTransformedResult(Encounter, encounter);
@@ -274,6 +275,7 @@ const getConditionList = async (priorDxEncounterList, practitionerList, mainEnco
                 const primaryEncounter = mainEncounters.find((e) => e.id === conditionData.primaryEncounterId);
                 conditionData.appointmentId = primaryEncounter?.appointment?.[0]?.reference?.split("/")[1] || null;
                 conditionData.appointmentUuid = primaryEncounter?.identifier?.[0].value
+                conditionData.practitionerName = getPractitionerName(conditionData.practitionerId, practitionerList);
                 // Remove unnecessary fields
                 delete conditionData.primaryEncounterId;
                 conditionData.practitionerId = isCampaignPath ? null : conditionData.practitionerId;

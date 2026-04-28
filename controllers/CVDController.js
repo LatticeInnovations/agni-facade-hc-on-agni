@@ -165,6 +165,7 @@ const getCVDObservationList = async (CVDEncounterList, practitionerList, mainEnc
                 observationData.appointmentId = primaryEncounter?.appointment?.[0]?.reference?.split("/")[1] || null;
                 observationData.appointmentUuid = primaryEncounter?.identifier?.[0].value
                 observationData.practitionerId = isCampaignPath ? null : observationData.practitionerId;
+                observationData.practitionerName = getPractitionerName(observationData.practitionerId, practitionerList);
                 observationData.roleId = isCampaignPath ? null : observationData.roleId;
                 observationData.campaignId = isCampaignPath ? (encounter?.location?.[0]?.location?.reference.split("/")[1] ): null
                 // Remove unnecessary fields

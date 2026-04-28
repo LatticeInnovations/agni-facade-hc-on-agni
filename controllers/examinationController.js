@@ -244,7 +244,7 @@ let getExaminationData = async function (req, res) {
         examinationResponses.entry.forEach(examinationResponse => {            
             const responseObj = getTransformedResult(ServiceRequest, examinationResponse.resource);
             const primaryEncounter = mainEncounters.find((e) => e.id === examinationResponse.resource.encounter.reference.split("/")[1]);
-            responseObj.practitionerName = isCampaignPath ? null : getPractitionerName(responseObj.practitionerId, practitionerList.entry);
+            responseObj.practitionerName = getPractitionerName(responseObj.practitionerId, practitionerList.entry);
             responseObj.examinations = responseObj? responseObj.activityList : []
             responseObj.practitionerId = isCampaignPath ? null : responseObj.practitionerId
             delete responseObj["activityList"]
