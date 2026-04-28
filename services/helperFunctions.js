@@ -155,4 +155,47 @@ const getCampaignPractitionerRole = async (practitionerId, campaignId, token) =>
 
 }
 
-module.exports = {validateRequest, buildFHIRResource, postFHIRResource, buildAndPost, getTransformedResult, handleError, fetchResource, patchFHIRResource, getAPIPath, getCampaignPractitionerRole}
+const fetchMainResourcesParallel = async function(resourceName, queryParams, token) {
+    try {
+        // Check if the facilityId exists
+
+        const firstPage = await fetchResource(resourceName, queryParams, token);
+        const totalPages = Math.ceil(firstPage.total / queryParams._count);    
+        console.log("total: ", firstPage.total)
+        if (totalPages <= 1) 
+            return { ...firstPage };
+        const pagePromises = Array.from({ length: totalPages - 1 }, (_, i) =>
+            fetchResource(resourceName, { ...queryParams, "_offset": (i + 1) * queryParams._count }, token)
+        );
+        const remainingPages = await Promise.all(pagePromises);
+        const allEntries = [
+            ...firstPage.entry,
+            ...remainingPages.flatMap(page => page.entry || [])
+        ];
+
+        return { ...firstPage, entry: allEntries };
+    
+    }
+    catch(error) {
+        console.error("Dashbaord Error: ", error);
+        return Promise.reject(error)
+    }
+}
+
+const getNextPageUrl = function(links = []) {
+    const nextLink = links?.find(link => link.relation === "next");
+    return nextLink ? nextLink.url : null;
+}
+
+const fetchInBatches = async (ids, batchSize, fetchFn ) => {
+    const results = [];
+    for(let i = 0; i < ids.length; i += batchSize) {
+         const batch = ids.slice(i, i + batchSize);
+         const result = await fetchFn(batch);
+         results.push(result);
+    }
+
+    return results;
+}
+
+module.exports = {validateRequest, buildFHIRResource, postFHIRResource, buildAndPost, getTransformedResult, handleError, fetchResource, patchFHIRResource, getAPIPath, getCampaignPractitionerRole, fetchMainResourcesParallel, getNextPageUrl, fetchInBatches}
