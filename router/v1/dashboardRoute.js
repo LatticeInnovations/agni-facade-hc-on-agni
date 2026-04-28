@@ -3,8 +3,7 @@ let router = express.Router();
 let dashboardController = require("../../controllers/dashboardController");
 
 
-router.get("/facility",  dashboardController.getFacilityDashboard);
 
-router.get("/division", dashboardController.getDivisionDashboard); 
+router.get("/screening-site", dashboardController.getScreeningSiteDashboard);
 
 module.exports = router;
