@@ -77,6 +77,12 @@ class FamilyHistoryQuestionnaireResponse {
         this.answerObj.occurrenceAgeData = this.fhirResource?.item?.[1]?.answer?.[0]?.valueCoding?.code || null
     }
 
+    getPractitionerId() {
+        console.log(this.fhirResource.author.reference.split("/")[1])
+        this.answerObj.practitionerId = this.fhirResource?.author?.reference?.split("/")[1] || null;
+        console.log("practitionerId", this.answerObj.practitionerId)
+    }
+
     getJsonToFhirTranslator() {
         this.setBasicStructure();
         this.setFamilyDiseaseDetail();
@@ -90,6 +96,7 @@ class FamilyHistoryQuestionnaireResponse {
         this.getFixedData();
         this.getFamilyDiseaseDetail();
         this.getOccurrenceAgeBoolean();
+        this.getPractitionerId();
     }
 
     getSimplifiedOutput() {
