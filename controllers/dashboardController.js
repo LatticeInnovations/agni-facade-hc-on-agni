@@ -277,8 +277,6 @@ const deriveFinalVtialCvdData = (patientMap) => {
             glucoseUnit:     getLatestValue("glucoseUnit", "vitals"),
             glucoseType:     getLatestValue("glucoseType", "vitals"),
         };
-
-        console.log("check result =>", result)
     });
 
     return result
@@ -286,39 +284,21 @@ const deriveFinalVtialCvdData = (patientMap) => {
 
 const fetchLocationList = async (ids, token, type) => {
     try {
-        const provinceResources = await fetchResource("Location", {
+        console.log(type, " ", ids)
+        const resources = await fetchResource("Location", {
             type: type,
             _id: ids.join(","),
             _count: 100
         }, token)
 
-        return provinceResources.entry.map(e => e.resource)
+        return resources.entry ? resources.entry.map(e => e.resource) : []
     }
     catch(error) {
         return Promise.reject(error)
     }
 }
 
-const mapPatientLocation = async (patients, token) => {
-    const provinceIds = patients.map(e => e.patientDetails.permanentAddress.state)
-    const provinceList = await fetchLocationList(provinceIds, token, "province");
 
-    const areaCouncilIds = patients.map(e => e.patientDetails.permanentAddress.city)
-    const areaCouncilList = await fetchLocationList(provinceIds, token, "area-council");
-
-    const islandIds = patients.map(e => e.patientDetails.permanentAddress.district)
-    const islandList = await fetchLocationList(provinceIds, token, "island");
-
-    const villageIds = patients.map(e => e.patientDetails?.permanentAddress?.line?.[0])
-    const villageList = await fetchLocationList(provinceIds, token, "village");
-
-    const orgResources = await fetchResource("Organization", {
-        "part-of": islandIds.join(","),
-        _count: 200
-    }, token);
-
-    const facilitiesList = orgResources.entry ? orgResources.map(e => e.resource) : [];
-}
 
 const getPatientDetails = async (patients, token) => {
     try {
@@ -343,7 +323,53 @@ const getPatientDetails = async (patients, token) => {
             });
         
         });
+        return patients;
+    }
+    catch(error) {
+        return Promise.reject(error)
+    }
+}
 
+const getPatientLocationDetails = async (patients, token) => {
+    try {
+        const provinceIds = [...new Set(patients.map(e => e.patientDetails.permanentAddress.state))]
+        const provinceList = await fetchLocationList(provinceIds, token, "province");
+
+        const areaCouncilIds = [...new Set(patients.map(e => e.patientDetails.permanentAddress.city))]
+        const areaCouncilList = await fetchLocationList(areaCouncilIds, token, "area-council");
+
+        const islandIds = [...new Set(patients.map(e => e.patientDetails.permanentAddress.district))]
+        const islandList = await fetchLocationList(islandIds, token, "island");
+
+        const villageIds = [...new Set(patients.map(e => e.patientDetails?.permanentAddress?.line?.[0]))]
+        const villageList = await fetchLocationList(villageIds, token, "village");
+
+        const orgResources = await fetchResource("Organization", {
+            type: "health-facility",
+            _count: 2000
+        }, token);
+
+        const facilitiesList = orgResources.entry ? orgResources.entry.map(e => e.resource) : [];
+        console.log("facilitiesList: ", facilitiesList)
+        patients.forEach(patient => {
+            const province = provinceList.find(e => e.id === patient.patientDetails.permanentAddress.state)
+            patient.province = province.name;
+
+            const areaCouncil = areaCouncilList.find(e => e.id === patient.patientDetails.permanentAddress.city)
+            patient.areaCouncil = areaCouncil.name;
+
+            const island = islandList.find(e => e.id === patient.patientDetails.permanentAddress.district)
+            patient.island = island.name;
+
+            const village = islandList.find(e => e.id === patient.patientDetails.permanentAddress?.line?.[0])
+            patient.village = village?.name || null;
+            
+            const facility = facilitiesList.find(e => island.id === e.extension?.[1].valueReference?.reference.split("/")[1])
+            console.log("facility: ", facility, island.id)
+            patient.facilityName = facility?.name || null;
+        })
+
+        return patients;
     }
     catch(error) {
         return Promise.reject(error)
@@ -373,15 +399,17 @@ const getFacilityDashboard = async function (req, res) {
         //  get final cvd vitals
         const result = deriveFinalVtialCvdData(filteredMap)
         const filteredFinalData = filterFinalData(result); 
-        await getPatientDetails(filteredFinalData, token);
-        const paitentArray = Object.entries(filteredFinalData).map(([patientId, data]) => ({
+        await getPatientDetails(filteredFinalData, token)
+        const patientArray = Object.entries(filteredFinalData).map(([patientId, data]) => ({
             patientId,
             ...data
         }));
+
+        await getPatientLocationDetails(patientArray, token)
         return res.status(200).json({
             status: 1,
             message: "Facility dashboard data fetched",
-            data: filteredFinalData
+            data: patientArray
         })
         
     }
