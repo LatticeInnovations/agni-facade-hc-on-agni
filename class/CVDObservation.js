@@ -118,6 +118,7 @@ getBMIData() {
 }
 
 getRiskData() {
+    console.log("check if risk is here:")
     let risk = this.fhirResource?.component?.find((element) => {
         return element.code.text === "CVD Risk Percentage"
     });
@@ -524,6 +525,7 @@ setRiskCode() {
 }
 
 setRiskComponent() {
+    console.log("check if risk is there: =================>",this.observationObj )
     if(this.observationObj?.risk){
         this.fhirResource.component.push({
             "code": {
@@ -548,6 +550,7 @@ setRiskComponent() {
 
 getJsonToFhirTranslator() {
     const config = vitalCVDMethodConfig[this.vitalType]
+    console.log("check config: ", config, this.vitalType)
     if(!config)
         console.warn(`Unsupported vitalType: ${this.vitalType}`);
     else {
@@ -572,10 +575,12 @@ setCommonCVDStructure() {
 getFHIRToTransformedResult() {
     this.getFhirId();
     const module_type = this.fhirResource.module_type == "vital"? fhirTextToVitalType : fhirTextToCVDType
+    console.log("module_type: ", module_type)
     const codeText = this.fhirResource?.code?.text;
     const derivedVitalType = module_type[codeText];
     const config = vitalCVDMethodConfig[derivedVitalType];
     this.vitalType = derivedVitalType;
+    console.log("check vital type: ", config.dataMethod, this.vitalType)
     if(!config || !config.dataMethod){
         console.warn(`Unsupported vital type: ${derivedVitalType}`)
     }

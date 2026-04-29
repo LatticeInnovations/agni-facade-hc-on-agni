@@ -111,7 +111,7 @@ const fhirTextToVitalType = {
     "Smoking Status": "smoker",
     "Cholesterol": "cholesterol",
     "BMI": "bmi",
-    // "CVD Risk Percentage": "risk"
+    "CVD Risk Percentage": "risk",
     "Previous heart attack or stroke": "heartAttackHistory"
   };
 

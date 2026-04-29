@@ -22,7 +22,7 @@ const RESOURCE_TYPES = {
 const CVD_ENCOUNTER_CODE = "cvd-encounter";
 const CAMPAIGN_CVD_ENCOUNTER_CODE = "screening-site-cvd-encounter"
 
-const cvdTypes = ["height", "weight", "bp", "cholesterol", "bmi", "diabetic", "smoker", "heartAttackHistory"];
+const cvdTypes = ["height", "weight", "bp", "cholesterol", "bmi", "diabetic", "smoker", "heartAttackHistory", "risk"];
 
 const fetchMainEncounter = async (cvd, token, mainEncounterType) => {
     const mainEncounter = await fetchResource("Encounter", {
@@ -148,11 +148,11 @@ const saveCVDData = async (req, res) => {
 
 const getCVDObservationList = async (CVDEncounterList, practitionerList, mainEncounters, token, isCampaignPath) => {
     try {
-        console.log("CVDEncounterList: ", CVDEncounterList)
         const observationFinalData = await Promise.all(
             CVDEncounterList.map(async (encounter) => {
                 const allObservations = await fetchResource("Observation", { encounter: encounter.id, _count: 20000 }, token)
                 const observations = allObservations.entry.map((e) => e.resource);
+                console.log("check the observations received: ", observations)
                 let observationData = getTransformedResult(Encounter, encounter);
                 // Add practitioner name
                 observationData.practitionerName = isCampaignPath ? null : getPractitionerName(observationData.practitionerId, practitionerList);
@@ -170,13 +170,11 @@ const getCVDObservationList = async (CVDEncounterList, practitionerList, mainEnc
                 // Remove unnecessary fields
                 delete observationData.primaryEncounterId;
                 // delete observationData.practitionerId;
-                console.log("observationData: ", observationData, "-----------")
                 // Process observations for the encounter
                 const observationList = observations.filter(
                     (obs) => obs.encounter.reference === `${RESOURCE_TYPES.ENCOUNTER}/${encounter.id}`
                 );
 
-                console.log("*********** observationList: ", observationList, "-----------")
                 const observationResult = await processObservationData(observationList, observationData, "CVD", token);
                 return observationResult;
             })
@@ -233,7 +231,6 @@ const getCVDData = async (req, res) => {
 
        // Process cvd encounters
         const resourceResult = await getCVDObservationList(cvdEncounterList, practitionerList, mainEncounters, token, isCampaignPath);
-        console.log("resourceResult: ", resourceResult)
         const resStatus = bundleStructure.setResponse(resourceUrlData, responseData);
 
         res.status(200).json({
@@ -362,6 +359,7 @@ async function handleExistingCVDEncounter({ cvd, cvdEncounter, baseEncounterId, 
             const matchingObservation = observations.entry?.find(
                 e => fhirTextToCVDType[e.resource.code.text] === type
             );
+            console.log("check matching observation: ", matchingObservation, type)
             if (!matchingObservation) return null;
 
             cvd.fhirId = matchingObservation.resource.id;
