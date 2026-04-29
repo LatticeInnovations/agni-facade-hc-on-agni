@@ -48,7 +48,7 @@ const componentValueSchema = Joi.object({
   cholesterolUnit: Joi.string().valid("mg/dl", "mmol/L").optional(),
   diabetic: Joi.number().valid(0, 1).optional(),
   smoker: Joi.number().valid(0, 1).optional(),
-  risk: Joi.alternatives().try(Joi.number(), Joi.string()).optional()
+  risk: Joi.number()
 }).custom((value, helpers) => {
   // Ensure at least one field other than "operation" is present
   const keys = Object.keys(value).filter(k => k !== 'operation');
