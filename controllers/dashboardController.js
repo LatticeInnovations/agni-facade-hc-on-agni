@@ -1,14 +1,6 @@
-let axios = require("axios");
-let config = require("../config/nodeConfig");
-const bundleStructure = require("../services/bundleOperation")
-const responseService = require("../services/responseService");
-const { fetchResource, buildFHIRResource, getTransformedResult, getAPIPath, fetchMainResourcesParallel, fetchInBatches } = require("../services/helperFunctions");
-const { allergySchema } = require("../utils/Validator//allergyValidator");
-const {validateRequest} = require("../utils/validateRequest");
-const { getPractitionerName } = require("../services/commonFunctions");
-const { publishReportJob } = require("../middleware/reportPublisher");
-const { saveToken } = require("../services/email/tokenStore");
+const { fetchResource,  getTransformedResult, fetchMainResourcesParallel, fetchInBatches } = require("../services/helperFunctions");
 
+const classification = require("../services/dashboardClassification");
 let Patient = require("../class/patient");
 
 // constants
@@ -21,7 +13,8 @@ const CVD_OBS_CODES = {
     "35094-2": "bp",
     "9156-5": "bmi",
     "72166-2": "smoking",
-    "2093-3":  "cholesterol"
+    "2093-3":  "cholesterol",
+    "72333-9": "risk"
 };
 
 const VITAL_OBS_CODES = {
@@ -57,12 +50,11 @@ const groupEncountersByPatient = (patientMap, encounters, type) => {
                  patientMap[patientId] = {
                     mainEncounters: []
                 };
-                console.log("entered here: ", patientMap)
             }
 
              patientMap[patientId][type].push({encounterId, facilityId: resource.serviceProvider.reference.split("/")[1]});
         });
-        console.log("patientMap: ", patientMap)
+        console.log("patientMap 0: ", patientMap["368"].mainEncounters[0])
         return patientMap;
 }
 
@@ -110,9 +102,8 @@ const fetchCvdObservationValue = (encounterEntry, obs, subEncounter) => {
      if (field === "bp") {
         const systolic  = obs.component?.find(c => c.code?.coding?.[0]?.code === "8480-6")?.valueQuantity?.value;
         const diastolic = obs.component?.find(c => c.code?.coding?.[0]?.code === "8462-4")?.valueQuantity?.value;
-        encounterEntry.cvd.bp = systolic && diastolic
-            ? `${systolic}/${diastolic}`
-            : obs.valueQuantity?.value ?? null;
+        encounterEntry.cvd.sysBP = systolic ? `${systolic}` : obs.valueQuantity?.value ?? null;
+        encounterEntry.cvd.diaBP = diastolic ? `${diastolic}` : obs.valueQuantity?.value ?? null;
      }
       else if (field === "smoking") {
         encounterEntry.cvd.smoker = obs.valueCodeableConcept?.coding?.[0]?.code ?? obs.valueString ?? 0;
@@ -123,6 +114,9 @@ const fetchCvdObservationValue = (encounterEntry, obs, subEncounter) => {
     }
     else if (field === "bmi") {
         encounterEntry.cvd.bmi = obs.component?.[0]?.valueQuantity?.value ?? null;
+    }
+    else if (field === "risk") {
+        encounterEntry.cvd.cvdRisk = obs.component?.[0]?.valueQuantity?.value ?? null;
     }
     encounterEntry.cvd.screeningDate = subEncounter.extension?.[0]?.valueDateTime || null
 }
@@ -148,7 +142,6 @@ const mapVitalObservationsToEncounter = (observations, subEncounterLookup, patie
         const code = observation.code?.coding?.[0]?.code;
         const field = VITAL_OBS_CODES[code];
         if (!field || !observation.component) return;
-        console.log("vital component: ", patientId, "==>", observation.component[0].valueQuantity)
         encounterEntry.vitals.glucose = observation.component?.[0]?.valueQuantity?.value ?? null;
         encounterEntry.vitals.glucoseUnit = observation.component?.[0]?.valueQuantity?.unit ?? null;
         encounterEntry.vitals.glucoseType = observation?.code?.coding?.[0].display ?? null;
@@ -174,10 +167,9 @@ const fetchVitalData = async (mainEncounterIds, patientMap, token) => {
             // Separate observations and included sub-encounters by search.mode
             const observations = response.entry.filter(e => e.search?.mode == "match");
             const subEncounters = response.entry.filter(e => e.search?.mode == "include");
-
+            console.log("check observations: ", observations)
             // Build sub encounter to main encounter lookup
             const subEncounterLookup = getSubEncounterLookup(subEncounters);
-            console.log("subEncounterLookup: ", subEncounterLookup)
             // map to correct CVD obseravation in main
             mapVitalObservationsToEncounter(observations, subEncounterLookup, patientMap)
         
@@ -214,7 +206,6 @@ const fetchCvdData = async (mainEncounterIds, patientMap, token) => {
 
             // Build sub encounter to main encounter lookup
             const subEncounterLookup = getSubEncounterLookup(subEncounters);
-            console.log("subEncounterLookup: ", subEncounterLookup)
             // map to correct CVD obseravation in main
             mapCvdObservationsToEncounter(observations, subEncounterLookup, patientMap)
         
@@ -253,10 +244,16 @@ const deriveFinalVtialCvdData = (patientMap) => {
         // Sort by encounterId descending (higher = newer)
         const sortedEncounters = [...patient.mainEncounters]
             .sort((a, b) => Number(b.encounterId) - Number(a.encounterId));
-
         const getLatestValue = (field, type) => {
             for (const enc of sortedEncounters) {
-                const val = enc[type]?.[field];
+                let val = null
+                if(type == null) {
+                    console.log("check if entered here: ", type, field, enc[field])
+                    val = enc[field];
+                }
+                else {
+                    val = enc[type]?.[field];
+                }
                 if (val !== null && val !== undefined) return val;
             }
             return null;
@@ -264,13 +261,15 @@ const deriveFinalVtialCvdData = (patientMap) => {
 
         result[patientId] = {
             // CVD
-            bp:              getLatestValue("bp", "cvd"),
+            facilityId:      getLatestValue("facilityId", null),
+            sysBP:           getLatestValue("sysBP", "cvd"),
+            diaBP:           getLatestValue("diaBP", "cvd"),
             bmi:             getLatestValue("bmi", "cvd"),
             smoker:          getLatestValue("smoker", "cvd"),
             screeningDate:   getLatestValue("screeningDate", "cvd"),
             cholesterol:     getLatestValue("cholesterol", "cvd"),
             cholesterolUnit: getLatestValue("cholesterolUnit", "cvd"),
-            risk:            getLatestValue("risk", "cvd"),
+            cvdRisk:            getLatestValue("cvdRisk", "cvd"),
 
             // Vitals
             glucose:         getLatestValue("glucose", "vitals"),
@@ -312,7 +311,6 @@ const getPatientDetails = async (patients, token) => {
             }, token);
 
             // if (!patientResources?.entry?.length) return;
-            console.log("patientResources: ", patientResources)
             patientResources.entry.forEach(e => {
                 const resource = e.resource;
                 const patientId = resource.id;
@@ -330,7 +328,7 @@ const getPatientDetails = async (patients, token) => {
     }
 }
 
-const getPatientLocationDetails = async (patients, token) => {
+const getPatientLocationAndVitalClassificationDetails = async (patients, token) => {
     try {
         const provinceIds = [...new Set(patients.map(e => e.patientDetails.permanentAddress.state))]
         const provinceList = await fetchLocationList(provinceIds, token, "province");
@@ -344,13 +342,13 @@ const getPatientLocationDetails = async (patients, token) => {
         const villageIds = [...new Set(patients.map(e => e.patientDetails?.permanentAddress?.line?.[0]))]
         const villageList = await fetchLocationList(villageIds, token, "village");
 
+        const facilityIds = [...new Set(patients.map(e => e.facilityId))]
         const orgResources = await fetchResource("Organization", {
             type: "health-facility",
-            _count: 2000
-        }, token);
-
+            _count: 2000,
+            _id: facilityIds.join(",")
+        }, token);        
         const facilitiesList = orgResources.entry ? orgResources.entry.map(e => e.resource) : [];
-        console.log("facilitiesList: ", facilitiesList)
         patients.forEach(patient => {
             const province = provinceList.find(e => e.id === patient.patientDetails.permanentAddress.state)
             patient.province = province.name;
@@ -361,12 +359,17 @@ const getPatientLocationDetails = async (patients, token) => {
             const island = islandList.find(e => e.id === patient.patientDetails.permanentAddress.district)
             patient.island = island.name;
 
-            const village = islandList.find(e => e.id === patient.patientDetails.permanentAddress?.line?.[0])
+            const village = villageList.find(e => e.id === patient.patientDetails.permanentAddress?.line?.[0])
             patient.village = village?.name || null;
             
             const facility = facilitiesList.find(e => island.id === e.extension?.[1].valueReference?.reference.split("/")[1])
-            console.log("facility: ", facility, island.id)
             patient.healthFacility = facility?.name || null;
+
+            // patient.bmiClass = classification.bmiClassification(patient.bmi);
+            // patient.bpClass = classification.bpClassification(patient.sysBP, patient.diaBP)
+            // patient.glucoseClass = classification.glucoseClassification(patient.glucoseType, patient.glucoseUnit, patient.glucose)
+            // patient.cholesterolClass = classification.cholesterolClassification(patient.cholesterol, patient.cholesterolUnit)
+            // patient.cvdRiskClass = classification.riskClassification(patient.cvdRisk)
         })
 
         return patients;
@@ -376,6 +379,44 @@ const getPatientLocationDetails = async (patients, token) => {
     }
 }
 
+const finalResponseStructure = (patients) => {
+    return patients.map(e => ({
+            "patientId": e.patientId,
+            "patientName": e.patientDetails.firstName + " " + e.patientDetails.lastName,
+            "age": classification.birthdateToAge(e.patientDetails.birthDate),
+            "gender": e.patientDetails.gender,
+        
+            "province": e.province,
+            "island": e.island,
+            "areaCouncil": e.areaCouncil,
+            "village": e.village,
+        
+            "bmi": e.bmi,
+            // "bmiClass": e.bmiClass,
+        
+            "sysBP": e.sysBP,
+            "diaBP": e.diaBP,
+            // "bpClass": e.bpClass,
+        
+            "glucose": e.glucose,
+            "glucoseType": e.glucoseType,
+            "glucoseUnit": e.glucoseUnit,
+            // "glucoseClass": e.glucoseClass,
+        
+            "cholesterol": e.cholesterol,
+            // "cholesterolClass": e.cholesterolClass,
+            "cholesterolUnit": e.cholesterolUnit,
+        
+            "smoker": e.smoker,
+        
+            "cvdRisk": e.cvdRisk,
+            // "cvdRiskClass": e.cvdRiskClass,
+        
+            "healthFacility": e.healthFacility,
+            "screeningSite": null,
+            "screeningDate": e.screeningDate
+    }))
+}
 
 
 const getFacilityDashboard = async function (req, res) {
@@ -405,11 +446,13 @@ const getFacilityDashboard = async function (req, res) {
             ...data
         }));
 
-        await getPatientLocationDetails(patientArray, token)
+        await getPatientLocationAndVitalClassificationDetails(patientArray, token)
+
+        const finalData = finalResponseStructure(patientArray); 
         return res.status(200).json({
             status: 1,
             message: "Facility dashboard data fetched",
-            data: patientArray
+            data: finalData
         })
         
     }
