@@ -36,6 +36,9 @@ router.use("/MedicalRecord", auth, require("./medicalRecordRoute"));
 router.use("/Immunization", auth, require("./immunizationRoute"));
 router.use("/ImmunizationRecommendation", auth, require("./immunizationRecommendationRoute"));
 
+router.use("/reportToken", auth, require("./reportTokenRoute"))
+router.use("/report", auth, require("./reportRoute"));
 router.use("/dashboard", auth, require("./dashboardRoute"));
+
 router.use("/campaign", auth, require("./campaign/index"));
 module.exports = router;
