@@ -5,8 +5,8 @@ let Patient = require("../class/patient");
 
 // constants
 const MAIN_ENCOUNTER_TYPE = "facility-main-encounter";
-const TOTAL_COUNT = 3;
-const BATCH_SIZE = 50;
+const TOTAL_COUNT = 500;
+const BATCH_SIZE = 500;
 const CVD_ENCOUNTER_TYPE = "cvd-encounter";
 const VITAL_ENCOUNTER_TYPE = "vital-test-encounter"
 const CVD_OBS_CODES = {
@@ -48,6 +48,7 @@ const groupEncountersByPatient = (patientMap, encounters, type) => {
             if (!patientMap[patientId]) {
                 
                  patientMap[patientId] = {
+                    patientDetails: {},
                     mainEncounters: []
                 };
             }
@@ -243,7 +244,11 @@ const deriveFinalVtialCvdData = (patientMap) => {
     Object.entries(patientMap).forEach(([patientId, patient]) => {
         // Sort by encounterId descending (higher = newer)
         const sortedEncounters = [...patient.mainEncounters]
-            .sort((a, b) => Number(b.encounterId) - Number(a.encounterId));
+    .sort((a, b) => {
+        const dateA = new Date(a.cvd?.screeningDate ?? 0);
+        const dateB = new Date(b.cvd?.screeningDate ?? 0);
+        return dateB - dateA; // descending (latest first)
+    });
         const getLatestValue = (field, type) => {
             for (const enc of sortedEncounters) {
                 let val = null
@@ -261,6 +266,7 @@ const deriveFinalVtialCvdData = (patientMap) => {
 
         result[patientId] = {
             // CVD
+            patientDetails: patient?.patientDetails || null,
             facilityId:      getLatestValue("facilityId", null),
             sysBP:           getLatestValue("sysBP", "cvd"),
             diaBP:           getLatestValue("diaBP", "cvd"),
@@ -382,7 +388,7 @@ const getPatientLocationAndVitalClassificationDetails = async (patients, token) 
 const finalResponseStructure = (patients) => {
     return patients.map(e => ({
             "patientId": e.patientId,
-            "patientName": e.patientDetails.firstName + " " + e.patientDetails.lastName,
+            "patientName": [e.patientDetails.firstName, e.patientDetails.lastName].filter(Boolean).join(" "),
             "age": classification.birthdateToAge(e.patientDetails.birthDate),
             "gender": e.patientDetails.gender,
         
@@ -452,6 +458,7 @@ const getFacilityDashboard = async function (req, res) {
         return res.status(200).json({
             status: 1,
             message: "Facility dashboard data fetched",
+            total: finalData?.length || 0,
             data: finalData
         })
         
@@ -467,11 +474,83 @@ const getFacilityDashboard = async function (req, res) {
 
 }
 
+const facilityDivisionMainEncounterQuery = (queryParams) => {
+    try {
+
+        const query = {
+            type: MAIN_ENCOUNTER_TYPE,
+            "status": "finished,in-progress",
+            "appointment.slot.start:0": `ge${queryParams.startDate}`,
+            "appointment.slot.start:1": `le${queryParams.endDate}`,
+            "_total": "accurate",
+            "_count": TOTAL_COUNT,
+            "_offset" : 0
+        };
+        if(queryParams.divisionType == 1)
+                query["patient.address-state"] = queryParams.divisionIds;
+        else if(queryParams.divisionType == 2) {
+            query["patient.address-city"] = queryParams.divisionIds;
+        }
+        else {
+            query["address"] = queryParams.divisionIds
+        }
+
+        return query;
+    }
+    catch(e) {
+        return Promise.reject(e);
+    }
+}
+
 
 const getDivisionDashboard = async function (req, res) {
     try {
+        
+        const token = req.accessToken;        
+        const queryParams = req.query;
+        const mainEncounterQuery = facilityDivisionMainEncounterQuery(queryParams);
+        const mainEncounters = await fetchMainResourcesParallel("Encounter", mainEncounterQuery, token);
+        if(!mainEncounters.entry) {
+            return res.status(200).json({
+            status: 1,
+            message: "Data not found",
+            total: 0,
+            data: []
+        })
+        }
+        console.log("main encounters: ", mainEncounters)
+        //  check if data is not empty
+        let patientMap = {};
+        const mainEncounterIds = mainEncounters.entry ? mainEncounters.entry.map(e => e.resource.id) : []
+        patientMap = groupEncountersByPatient(patientMap, mainEncounters, "mainEncounters");
+        await getPatientDetails(patientMap, token)
+        console.log("check patient map: ", patientMap)
+        // if island or village we need to add filter
 
+        // fetch cvd data for every encounter
+        patientMap = await fetchCvdData(mainEncounterIds, patientMap, token);
 
+        // fetch vital data
+        patientMap = await fetchVitalData(mainEncounterIds, patientMap, token)
+        const filteredMap = filterPatientsWithData(patientMap); 
+
+        // get final cvd vitals
+        const result = deriveFinalVtialCvdData(filteredMap)
+        const filteredFinalData = filterFinalData(result); 
+        const patientArray = Object.entries(filteredFinalData).map(([patientId, data]) => ({
+            patientId,
+            ...data
+        }));
+
+        await getPatientLocationAndVitalClassificationDetails(patientArray, token)
+        
+        const finalData = finalResponseStructure(patientArray); 
+        return res.status(200).json({
+            status: 1,
+            message: "Facility dashboard data fetched",
+            total: finalData?.length || 0,
+            data: finalData
+        })
     }
     catch (e) {
         console.error(e);
