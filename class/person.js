@@ -9,7 +9,6 @@ class Person {
         this.personObj = personObj;
         this.fhirResource = fhirResource;
         this.fhirResource.resourceType = "Person"
-        console.info("=================------------->", this.fhirResource)
     }
 
     setBasicStructure() {
