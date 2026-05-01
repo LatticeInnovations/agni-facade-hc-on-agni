@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
 const escapeHtml = require("escape-html");
 const { ReportToken } = require("../models");
+const facadeUrl = process.env.facadeUrl;
 
 const renderPage = ({ title, body }) => `
 <!DOCTYPE html>
@@ -81,7 +82,7 @@ exports.getAccessPage = async (req, res) => {
     title: "Download Report",
     body: `
       <h4>Enter Your DOB to Download Report</h4>
-      <form method="POST" action="/api/v1/verify">
+      <form method="POST" action="${facadeUrl}/v1/verify">
         <input type="hidden" name="token" value="${escapeHtml(token)}" />
         <input name="dob" placeholder="YYYY-MM-DD" required />
         <button type="submit">Submit</button>
@@ -127,7 +128,7 @@ exports.verifyDob = async (req, res) => {
     { expiresIn: '10m' }
   );
 
-  const signedUrl = `/api/v1/download/${signedToken}`;
+  const signedUrl = `${facadeUrl}/v1/download/${signedToken}`;
 
   const html = renderPage({
       title: "Download Report",
