@@ -503,6 +503,35 @@ const facilityDivisionMainEncounterQuery = (queryParams) => {
     }
 }
 
+const filterPatientsByDivision = (patientMap, divisionType, divisionIds) => {
+    const divisionIdList = divisionIds.split(",").map(String);
+
+    Object.keys(patientMap).forEach(patientId => {
+        const address = patientMap[patientId]?.patientDetails?.permanentAddress;
+        if (!address) { 
+            delete patientMap[patientId]; 
+            return; 
+        }
+
+        if (+divisionType === 3) {
+            // island — district must match
+            const district = address.district ? String(address.district) : null;
+            if (!district || !divisionIdList.includes(district)) {
+                delete patientMap[patientId];
+            }
+        } else if (+divisionType === 4) {
+            // village — line[0] may be empty, only filter if it exists AND doesn't match
+            const village = address?.line?.[0] ? String(address.line[0]) : null;
+            if (village && !divisionIdList.includes(village)) {
+                delete patientMap[patientId];
+            }
+            // if village is null/empty — keep the patient, don't filter out
+        }
+    });
+
+    return patientMap;
+};
+
 
 const getDivisionDashboard = async function (req, res) {
     try {
@@ -524,8 +553,11 @@ const getDivisionDashboard = async function (req, res) {
         const mainEncounterIds = mainEncounters.entry ? mainEncounters.entry.map(e => e.resource.id) : []
         patientMap = groupEncountersByPatient(patientMap, mainEncounters, "mainEncounters");
         await getPatientDetails(patientMap, token);
-        // if island or village we need to add filter
 
+        // if island or village we need to add filter
+        if ([3, 4].includes(+queryParams.divisionType)) {
+            filterPatientsByDivision(patientMap, queryParams.divisionType, queryParams.divisionIds);
+        }
         // fetch cvd data for every encounter
         patientMap = await fetchCvdData(mainEncounterIds, patientMap, token);
 
