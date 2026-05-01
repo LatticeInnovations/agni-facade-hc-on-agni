@@ -4,36 +4,32 @@ const { getTotalPages, fetchPage } = require("./crvsService");
 
 const FILE_PATH = path.join(__dirname, "nationalData.json");
 function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 async function fullSync() {
+  const totalPages = await getTotalPages();
+  console.log("Total Pages:", totalPages);
 
-    const filePath = path.join(__dirname, "nationalData.json");
+  let allData = [];
+  const batchSize = 5;
 
-    const data = JSON.parse(
-        fs.readFileSync(filePath, "utf-8")
-    );
+  for (let i = 1; i <= totalPages; i += batchSize) {
+    const promises = [];
 
-    const csv = data.map(d => {
-        const escape = (val) => {
-            if (val === null || val === undefined) return '';
-            return `"${String(val).replace(/"/g, '""')}"`; // handle quotes too
-        };
+    for (let j = i; j < i + batchSize && j <= totalPages; j++) {
+      promises.push(fetchPage(j));
+    }
 
-        return [
-            escape(d.nationalId),
-            escape(d.firstName),
-            escape(d.middleName),
-            escape(d.lastName),
-            escape(d.dob),
-            escape(d.gender)
-        ].join(",");
-    }).join("\n");
-    fs.writeFileSync(
-        path.join(__dirname, "nationalData.csv"),
-        csv
-    );
+    const results = await Promise.all(promises);
+    allData.push(...results.flat());
+
+    console.log(`Fetched till page ${i}`);
+    await sleep(1000);
+  }
+
+  fs.writeFileSync(FILE_PATH, JSON.stringify(allData));
+  console.log("JSON file updated");
 }
 
 module.exports = { fullSync, FILE_PATH };
