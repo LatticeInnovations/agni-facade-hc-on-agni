@@ -334,7 +334,7 @@ const getPatientDetails = async (patients, token) => {
     }
 }
 
-const getPatientLocationAndVitalClassificationDetails = async (patients, token) => {
+const getPatientLocationDetails = async (patients, token) => {
     try {
         const provinceIds = [...new Set(patients.map(e => e.patientDetails.permanentAddress.state))]
         const provinceList = await fetchLocationList(provinceIds, token, "province");
@@ -448,11 +448,12 @@ const getFacilityDashboard = async function (req, res) {
         const filteredFinalData = filterFinalData(result); 
         await getPatientDetails(filteredFinalData, token)
         const patientArray = Object.entries(filteredFinalData).map(([patientId, data]) => ({
-            patientId,
-            ...data
-        }));
+                patientId,
+                ...data
+            })
+        );
 
-        await getPatientLocationAndVitalClassificationDetails(patientArray, token)
+        await getPatientLocationDetails(patientArray, token)
 
         const finalData = finalResponseStructure(patientArray); 
         return res.status(200).json({
@@ -512,19 +513,17 @@ const getDivisionDashboard = async function (req, res) {
         const mainEncounters = await fetchMainResourcesParallel("Encounter", mainEncounterQuery, token);
         if(!mainEncounters.entry) {
             return res.status(200).json({
-            status: 1,
-            message: "Data not found",
-            total: 0,
-            data: []
-        })
+                status: 1,
+                message: "Data not found",
+                total: 0,
+                data: []
+            })
         }
-        console.log("main encounters: ", mainEncounters)
         //  check if data is not empty
         let patientMap = {};
         const mainEncounterIds = mainEncounters.entry ? mainEncounters.entry.map(e => e.resource.id) : []
         patientMap = groupEncountersByPatient(patientMap, mainEncounters, "mainEncounters");
-        await getPatientDetails(patientMap, token)
-        console.log("check patient map: ", patientMap)
+        await getPatientDetails(patientMap, token);
         // if island or village we need to add filter
 
         // fetch cvd data for every encounter
@@ -542,7 +541,7 @@ const getDivisionDashboard = async function (req, res) {
             ...data
         }));
 
-        await getPatientLocationAndVitalClassificationDetails(patientArray, token)
+        await getPatientLocationDetails(patientArray, token)
         
         const finalData = finalResponseStructure(patientArray); 
         return res.status(200).json({
