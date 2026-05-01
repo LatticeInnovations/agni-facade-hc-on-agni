@@ -161,10 +161,11 @@ const updateExaminationData = async function (req, res) {
         if (!isCampaignPath) applyNonCampaignSideEffectsOnUpdate(req);
 
         const token = req.accessToken;
+         const mainEncounterType = isCampaignPath ? "screening-site-main-encounter" : "facility-main-encounter";
         const category = isCampaignPath ? "screening-site-10825200" : "10825200"
         let resourceResult = [];
         for (let examData of req.body) {
-                const encounterData = await fetchMainEncounter(examData, token)
+                const encounterData = await fetchMainEncounter(examData, token, mainEncounterType)
                 const reqUuid = examData.uuid;
                 const baseEncounterId = encounterData?.entry?.[0]?.resource?.id;
                 if (!baseEncounterId) return;    
