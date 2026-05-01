@@ -3,6 +3,7 @@ let {sendInvalidDataError} = require("../utils/responseStatus");
 const config = require("../config/nodeConfig");
 let { validationResult } = require('express-validator');
 const bundleStructure = require("../services/bundleOperation");
+const {runWithLimit} = require("../utils/limiter");
 const http = require("http");
 const {URL} = require("url")
 const schemaList = config.schemaList;
@@ -94,7 +95,6 @@ const handleError = (res, error, statusCode=500, message = "Unable to process. P
   };
 
 
-const {runWithLimit} = require("../utils/limiter");
 
 const fetchResource = async (resourceType, queryParams, token) => {
     try {

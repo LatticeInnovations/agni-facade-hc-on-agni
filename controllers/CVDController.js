@@ -89,7 +89,7 @@ const saveCVDData = async (req, res) => {
                 } else {
                     // Create case (POST)
                     console.log("post case")
-                    const duplicateEncounterId = await checkDuplicateScreening(cvd, baseEncounterId, token);
+                    const duplicateEncounterId = await checkDuplicateScreening(cvd, baseEncounterId, token, isCampaignPath);
                     if (duplicateEncounterId) {
                         console.log("duplicate screening case case")
                         errData.push({
@@ -176,7 +176,7 @@ const getCVDObservationList = async (CVDEncounterList, practitionerList, mainEnc
                     (obs) => obs.encounter.reference === `${RESOURCE_TYPES.ENCOUNTER}/${encounter.id}`
                 );
 
-                const observationResult = await processObservationData(observationList, observationData, "CVD", token);
+                const observationResult = processObservationData(observationList, observationData, "CVD");
                 return observationResult;
             })
         )
