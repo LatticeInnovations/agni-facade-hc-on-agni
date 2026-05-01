@@ -493,7 +493,7 @@ const facilityDivisionMainEncounterQuery = (queryParams) => {
             query["patient.address-city"] = queryParams.divisionIds;
         }
         else {
-            query["address"] = queryParams.divisionIds
+            query["patient.address"] = queryParams.divisionIds
         }
 
         return query;
