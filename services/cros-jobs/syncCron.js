@@ -25,7 +25,6 @@ async function runSync() {
 
 // Every Sunday at midnight
 
-runSync();
 cron.schedule("0 0 * * 0", runSync, {
   timezone: "Pacific/Efate"  // Vanuatu timezone
 });
