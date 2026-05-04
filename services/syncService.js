@@ -28,7 +28,6 @@ async function fullSync() {
     await sleep(1000);
   }
 
-  fs.writeFileSync(FILE_PATH, JSON.stringify(allData));
   console.log("JSON file updated");
 }
 
