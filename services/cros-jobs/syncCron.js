@@ -1,14 +1,36 @@
+"use strict";
+
 const cron = require("node-cron");
 const { fullSync } = require("../../services/syncService");
 
-// every 14 days at 2 AM
-cron.schedule("0 2 */14 * *", async () => {
-  console.log("Running national ID sync...");
+let isSyncing = false;
+
+async function runSync() {
+  if (isSyncing) {
+    console.warn("[cron] Previous sync still running — skipping");
+    return;
+  }
+
+  isSyncing = true;
+  console.log("[sync] Starting weekly sync...");
 
   try {
     await fullSync();
-    console.log("Sync completed");
   } catch (err) {
-    console.error("Sync failed", err);
+    console.error("[sync] Sync error:", err.message);
+  } finally {
+    isSyncing = false;
   }
+}
+
+// Every Sunday at midnight
+
+runSync();
+cron.schedule("0 0 * * 0", runSync, {
+  timezone: "Pacific/Efate"  // Vanuatu timezone
 });
+
+
+console.log("[cron] Weekly sync scheduler running");
+
+module.exports = { runSync };
