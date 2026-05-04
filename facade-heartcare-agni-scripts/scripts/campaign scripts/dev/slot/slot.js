@@ -12,6 +12,7 @@
  * Requirements:
  *   - Node.js 18+
  *   - A Slot.json file in the same directory (FHIR Bundle or array of Slot resources)
+ *   - /Slot?service-type:missing=true&_count=1000
  */
 
 "use strict";

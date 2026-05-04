@@ -1,18 +1,19 @@
 /**
- * FHIR Schedule - Add serviceType (Facility) Updater
+ * FHIR AllergyIntolerance - Add code (Facility Allergy) Updater
  *
  * Usage:
- *   node update-schedule-service-type.js --env dev --token <your_token>
- *   node update-schedule-service-type.js --env prod --token <your_token>
- *   node update-schedule-service-type.js --env dev --token <your_token> --dry-run
+ *   node update-allergy-intolerance-code.js --env dev --token <your_token>
+ *   node update-allergy-intolerance-code.js --env prod --token <your_token>
+ *   node update-allergy-intolerance-code.js --env dev --token <your_token> --dry-run
  *
  * Alternatively, set the token via environment variable (recommended for prod):
- *   FHIR_TOKEN=<your_token> node update-schedule-service-type.js --env prod
+ *   FHIR_TOKEN=<your_token> node update-allergy-intolerance-code.js --env prod
  *
  * Requirements:
  *   - Node.js 18+
- *   - A schedule.json file in the same directory (FHIR Bundle or array of Schedule resources)
- *   - /Schedule?service-type:missing=true&_count=1000
+ *   - An allergyIntolerance.json file in the same directory
+ *     (FHIR Bundle, array of AllergyIntolerance resources, or a single resource)
+ *   - /AllergyIntolerance?code:missing=true&_count=1000
  */
 
 "use strict";
@@ -22,7 +23,7 @@ const path  = require("path");
 const http  = require("http");
 const https = require("https");
 
-// ─── CONFIG ──────────────────────────────────────────────────────────────────
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
 
 const SERVER_URLS = {
   dev:  "http://143.110.253.49/fhir",
@@ -30,19 +31,16 @@ const SERVER_URLS = {
   prod: "http://prod-server/fhir",   // update as needed
 };
 
-const SERVICE_TYPE_TO_ADD = [
-  {
-    coding: [
-      {
-        system:  "http://terminology.hl7.org/CodeSystem/service-type",
-        code:    "facility",
-        display: "facility",
-      },
-    ],
-  },
-];
+const CODE_TO_ADD = {
+  coding: [
+    {
+      system: "https://your-custom-coding-system",
+      code:   "facility-allergy",
+    },
+  ],
+};
 
-const SCHEDULES_FILE = path.join(__dirname, "schedule.json");
+const ALLERGY_FILE = path.join(__dirname, "allergyIntolerance.json");
 
 // ─── CLI ARGS ─────────────────────────────────────────────────────────────────
 
@@ -57,7 +55,7 @@ function parseCliArgs() {
   const baseUrl   = customUrl ?? SERVER_URLS[env];
 
   // Token: --token flag takes priority, then FHIR_TOKEN env var
-  const token = "eyJhbGciOiJIUzI1NiJ9.eyJhY2NvdW50X2NyZWF0aW9uX3RpbWVzdGFtcCI6IjIwMjYtMDMtMTFUMDg6MTg6MTMuMjk3NDMwIiwidXNlcl9pZCI6IlVzZXIwNSIsIm5hbWUiOiJEZWZhdWx0UiBSZWNlcHRpb25pc3QiLCJ1c2VyX3R5cGVfaWQiOjMsInVzZXJfcHJpbWFyeV9pZCI6MTYsImZoaXJfaWQiOiIyNjYiLCJzdWIiOiJuaXNoaXRhQHRoZWxhdHRpY2UuaW4iLCJpYXQiOjE3NzY0MjUwMzQsImV4cCI6MTc3NzAyOTgzNH0.zRAQubqt4khKgQA-oqKrVdSg3yLM50Ho6iTzjl4GwvM"
+  const token = get("--token") ?? process.env.FHIR_TOKEN;
 
   if (!baseUrl) {
     console.error(`Unknown env "${env}". Use --base-url or one of: ${Object.keys(SERVER_URLS).join(", ")}`);
@@ -65,7 +63,7 @@ function parseCliArgs() {
   }
 
   if (!token) {
-    console.error(`No token provided. Use --token <your_token> or set the FHIR_TOKEN environment variable.`);
+    console.error("No token provided. Use --token <your_token> or set the FHIR_TOKEN environment variable.");
     process.exit(1);
   }
 
@@ -74,9 +72,9 @@ function parseCliArgs() {
 
 // ─── FILE LOADING ─────────────────────────────────────────────────────────────
 
-function loadSchedules(filePath) {
+function loadAllergyIntolerances(filePath) {
   if (!fs.existsSync(filePath)) {
-    console.error(`schedule.json not found at: ${filePath}`);
+    console.error(`allergyIntolerance.json not found at: ${filePath}`);
     process.exit(1);
   }
 
@@ -86,20 +84,33 @@ function loadSchedules(filePath) {
   if (raw.resourceType === "Bundle" && Array.isArray(raw.entry)) {
     return raw.entry.map((e) => e.resource).filter(Boolean);
   }
-  if (raw.resourceType === "Schedule") return [raw];
+  if (raw.resourceType === "AllergyIntolerance") return [raw];
 
-  console.error("schedule.json must be a FHIR Bundle, array of Schedules, or a single Schedule resource.");
+  console.error(
+    "allergyIntolerance.json must be a FHIR Bundle, an array of AllergyIntolerance resources, or a single AllergyIntolerance resource."
+  );
   process.exit(1);
 }
 
-// ─── SCHEDULE HELPERS ─────────────────────────────────────────────────────────
+// ─── ALLERGY INTOLERANCE HELPERS ──────────────────────────────────────────────
 
-function alreadyHasServiceType(schedule) {
-  return !!schedule.serviceType;
+/**
+ * Returns true if the resource already has a `code` field with at least one coding entry.
+ */
+function alreadyHasCode(resource) {
+  return (
+    resource.code &&
+    resource.code.coding &&
+    Array.isArray(resource.code.coding) &&
+    resource.code.coding.length > 0
+  );
 }
 
-function addServiceType(schedule) {
-  return { ...schedule, serviceType: SERVICE_TYPE_TO_ADD };
+/**
+ * Returns a new resource object with the `code` field added.
+ */
+function addCode(resource) {
+  return { ...resource, code: CODE_TO_ADD };
 }
 
 // ─── HTTP REQUEST ─────────────────────────────────────────────────────────────
@@ -142,24 +153,28 @@ function httpRequest(url, options, body) {
   });
 }
 
-async function putSchedule(baseUrl, token, schedule) {
-  const url  = `${baseUrl}/Schedule/${schedule.id}`;
-  const body = JSON.stringify(schedule);
+async function putAllergyIntolerance(baseUrl, token, resource) {
+  const url  = `${baseUrl}/AllergyIntolerance/${resource.id}`;
+  const body = JSON.stringify(resource);
 
-  const res = await httpRequest(url, {
-    method: "PUT",
-    headers: {
-      "Content-Type":   "application/fhir+json",
-      "Content-Length": Buffer.byteLength(body),
-      "Authorization":  `Bearer ${token}`,
+  const res = await httpRequest(
+    url,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type":   "application/fhir+json",
+        "Content-Length": Buffer.byteLength(body),
+        "Authorization":  `Bearer ${token}`,
+      },
     },
-  }, body);
+    body
+  );
 
   if (res.status === 401) {
-    throw new Error(`Unauthorized (401) — token is missing, expired, or invalid.`);
+    throw new Error("Unauthorized (401) — token is missing, expired, or invalid.");
   }
   if (res.status === 403) {
-    throw new Error(`Forbidden (403) — token does not have permission to update Schedules.`);
+    throw new Error("Forbidden (403) — token does not have permission to update AllergyIntolerance resources.");
   }
   if (res.status < 200 || res.status >= 300) {
     throw new Error(`HTTP ${res.status} ${res.statusMessage} — ${res.body}`);
@@ -173,53 +188,59 @@ async function putSchedule(baseUrl, token, schedule) {
 async function main() {
   const { env, baseUrl, dryRun, token } = parseCliArgs();
 
-  console.log(`\n🏥  FHIR Schedule serviceType Updater`);
+  console.log("\n🏥  FHIR AllergyIntolerance Code Updater");
   console.log(`   Environment : ${env}`);
   console.log(`   Server URL  : ${baseUrl}`);
   console.log(`   Dry run     : ${dryRun}`);
   console.log(`   Token       : ${token.slice(0, 6)}${"*".repeat(10)} (truncated for safety)`);
-  console.log(`   Source file : ${SCHEDULES_FILE}\n`);
+  console.log(`   Source file : ${ALLERGY_FILE}\n`);
 
-  const schedules = loadSchedules(SCHEDULES_FILE);
-  console.log(`📋  Loaded ${schedules.length} schedule(s) from file.\n`);
+  const resources = loadAllergyIntolerances(ALLERGY_FILE);
+  console.log(`📋  Loaded ${resources.length} AllergyIntolerance resource(s) from file.\n`);
 
   const results = { skipped: 0, updated: 0, failed: 0 };
 
-  for (const schedule of schedules) {
-    const id = schedule.id ?? "(no id)";
+  for (const resource of resources) {
+    const id = resource.id ?? "(no id)";
 
-    if (!schedule.id) {
-      console.warn(`  ⚠️  Schedule without id — skipped.`);
+    if (resource.resourceType !== "AllergyIntolerance") {
+      console.warn(`  ⚠️  Resource ${id} is not an AllergyIntolerance (got "${resource.resourceType}") — skipped.`);
       results.skipped++;
       continue;
     }
 
-    if (alreadyHasServiceType(schedule)) {
-      console.log(`  ⏭️  Schedule/${id} — serviceType already present, skipping.`);
+    if (!resource.id) {
+      console.warn("  ⚠️  AllergyIntolerance without id — skipped.");
       results.skipped++;
       continue;
     }
 
-    const updated = addServiceType(schedule);
+    if (alreadyHasCode(resource)) {
+      console.log(`  ⏭️  AllergyIntolerance/${id} — code already present, skipping.`);
+      results.skipped++;
+      continue;
+    }
+
+    const updated = addCode(resource);
 
     if (dryRun) {
-      console.log(`  🔍  [DRY RUN] Would PUT Schedule/${id}`);
-      console.log(`      serviceType:`, JSON.stringify(updated.serviceType, null, 2));
+      console.log(`  🔍  [DRY RUN] Would PUT AllergyIntolerance/${id}`);
+      console.log(`      code:`, JSON.stringify(updated.code, null, 2));
       results.updated++;
       continue;
     }
 
     try {
-      await putSchedule(baseUrl, token, updated);
-      console.log(`  ✅  Schedule/${id} — updated successfully.`);
+      await putAllergyIntolerance(baseUrl, token, updated);
+      console.log(`  ✅  AllergyIntolerance/${id} — updated successfully.`);
       results.updated++;
     } catch (err) {
-      console.error(`  ❌  Schedule/${id} — FAILED: ${err.message}`);
+      console.error(`  ❌  AllergyIntolerance/${id} — FAILED: ${err.message}`);
       results.failed++;
     }
   }
 
-  console.log(`\n📊  Summary`);
+  console.log("\n📊  Summary");
   console.log(`   Updated : ${results.updated}`);
   console.log(`   Skipped : ${results.skipped}`);
   console.log(`   Failed  : ${results.failed}\n`);
@@ -228,3 +249,7 @@ async function main() {
 }
 
 main();
+
+// node update-allergy-intolerance-code.js --env dev --token eyJhbGciOiJIUzI1NiJ9.eyJhY2NvdW50X2NyZWF0aW9uX3RpbWVzdGFtcCI6IjIwMjYtMDMtMTFUMDg6MTg6MTMuMjk3NDMwIiwidXNlcl9pZCI6IlVzZXIwNSIsIm5hbWUiOiJEZWZhdWx0UiBSZWNlcHRpb25pc3QiLCJ1c2VyX3R5cGVfaWQiOjMsInVzZXJfcHJpbWFyeV9pZCI6MTYsImZoaXJfaWQiOiIyNjYiLCJzdWIiOiJuaXNoaXRhQHRoZWxhdHRpY2UuaW4iLCJpYXQiOjE3NzY0MjUwMzQsImV4cCI6MTc3NzAyOTgzNH0.zRAQubqt4khKgQA-oqKrVdSg3yLM50Ho6iTzjl4GwvM
+
+// http://143.110.253.49/fhir/AllergyIntolerance?code:missing=true&_count=1000

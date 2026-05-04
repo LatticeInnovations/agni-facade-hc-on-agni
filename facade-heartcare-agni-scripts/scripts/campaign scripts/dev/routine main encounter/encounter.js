@@ -12,6 +12,7 @@
  * Requirements:
  *   - Node.js 18+
  *   - A Encounter.json file in the same directory (FHIR Bundle or array of Encounter resources)
+ *   - /Encounter?type:missing=true&_count=1000
  */
 
 "use strict";
