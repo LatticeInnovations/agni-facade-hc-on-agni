@@ -2,7 +2,7 @@ const axios = require("axios");
 let config = require("../config/nodeConfig");
 const BASE_URL = config.crvsBaseUrl;
 const MAX_RETRIES = 3;
-const RETRY_DELAY = 2000; 
+const RETRY_DELAY_MS = 3000;
 
 const COMMON_PAYLOAD = {
   nationalid: "9",
