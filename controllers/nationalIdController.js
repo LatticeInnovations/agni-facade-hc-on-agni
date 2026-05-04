@@ -39,12 +39,12 @@ let getPaginatedNationalIds = async function (req, res) {
       total:       totalRecords,
       lastSyncedAt,
       data,
-      err: null
+      error: null
     });
 
   } catch (err) {
     console.error("[national-id] Read error:", err);
-    return res.status(500).json({ status: 0, message: "Failed to read data", err: "Failed to fetch" });
+    return res.status(500).json({ status: 0, message: "Failed to read data", error: "Failed to fetch" });
   }
 }
 
