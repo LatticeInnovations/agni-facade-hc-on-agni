@@ -61,5 +61,5 @@ package-lock.json
 upload/logo/*
 uploads/*
 # scripts/*
-
+nationalData.json
 .DS_Store
