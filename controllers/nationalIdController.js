@@ -39,7 +39,6 @@ let getPaginatedNationalIds = async function (req, res) {
       total:       totalRecords,
       lastSyncedAt,
       data,
-      currentRecords: data.length,
       err: null
     });
 
