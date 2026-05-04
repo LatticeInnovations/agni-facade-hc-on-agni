@@ -41,4 +41,5 @@ router.use("/reportToken", auth, require("./reportTokenRoute"));
 router.use("/dashboard", auth, require("./dashboardRoute"));
 
 router.use("/campaign", auth, require("./campaign/index"));
+router.use("/sync-run", auth, require("./syncRoute"));
 module.exports = router;
