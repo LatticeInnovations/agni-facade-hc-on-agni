@@ -368,7 +368,12 @@ const getPatientLocationDetails = async (patients, token) => {
             const village = villageList.find(e => e.id === patient.patientDetails.permanentAddress?.line?.[0])
             patient.village = village?.name || null;
             
-            const facility = facilitiesList.find(e => island.id === e.extension?.[1].valueReference?.reference.split("/")[1])
+            const facility = facilitiesList.find(e => {
+                const locationExt = e.extension?.find(
+                    ext => ext.url === "http://example.org/fhir/StructureDefinition/location-reference"
+                );
+                return island.id === locationExt?.valueReference?.reference.split("/")[1];
+            });
             patient.healthFacility = facility?.name || null;
 
             // patient.bmiClass = classification.bmiClassification(patient.bmi);
