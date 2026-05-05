@@ -2,12 +2,12 @@
  * FHIR Slot - Add serviceType (Facility) Updater
  *
  * Usage:
- *   node update-Slot-service-type.js --env dev --token <your_token>
- *   node update-Slot-service-type.js --env prod --token <your_token>
- *   node update-Slot-service-type.js --env dev --token <your_token> --dry-run
+ *   node slot.js --env dev --token <your_token>
+ *   node slot.js --env prod --token <your_token>
+ *   node slot.js --env dev --token <your_token> --dry-run
  *
  * Alternatively, set the token via environment variable (recommended for prod):
- *   FHIR_TOKEN=<your_token> node update-Slot-service-type.js --env prod
+ *   FHIR_TOKEN=<your_token> node  slot.js --env prod
  *
  * Requirements:
  *   - Node.js 18+

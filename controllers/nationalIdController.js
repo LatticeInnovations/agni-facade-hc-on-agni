@@ -20,6 +20,7 @@ let getPaginatedNationalIds = async function (req, res) {
     const data         = allData.slice(offset, offset + count);
     const hasNextPage  = offset + count < totalRecords;
 
+    
     // Get last successful sync time
     const [lastSync] = await sequelize.query(
       `SELECT finished_at FROM sync_log
@@ -33,12 +34,16 @@ let getPaginatedNationalIds = async function (req, res) {
       ? new Date(parseInt(lastSync.finished_at)).toISOString()
       : null;
 
+      const finalData = data.map(nationalIdData => ({
+        ...nationalIdData,
+        lastSyncedAt
+      }))
+
     return res.json({
       status:      hasNextPage ? 1 : 2,   // 1 = more pages, 2 = last page
       message:     "National id data fetched",
       total:       totalRecords,
-      lastSyncedAt,
-      data,
+      data: finalData,
       error: null
     });
 
