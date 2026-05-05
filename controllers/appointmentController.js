@@ -174,7 +174,8 @@ const createAppointmentResources= async function(reqData, userId, token, isCampa
             apptData.practitionerId = userId
             apptData.encounterType = isCampaignPath ? "screening-site-main-encounter" : "facility-main-encounter"  
             const patient = patientResources.filter(e => e.id == apptData.patientId);
-            apptData.patientAddress = patient?.[0].address[0];
+            // apptData.patientAddress = patient?.[0]?.address?.[0];
+            // console.log("patient?.[0]?.address?.[0]: ", patient, patientResources)
             const encounterResource = buildFHIRResource(Encounter, apptData)
             let encounterUuid =  uuidv4();             
             let encounterBundle = await bundleStructure.setBundlePost(encounterResource, encounterResource.identifier, encounterUuid, "POST", "identifier"); 
