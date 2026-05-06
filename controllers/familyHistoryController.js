@@ -98,14 +98,15 @@ let saveFamilyHistoryData = async function (req, res) {
             }
         }); 
         console.info("get bundle json response: ", response.status)  
-        if (response.status == 200 || response.status == 201) {
-            const patientIds = [...new Set(req.body.map(cvd => cvd.patientId))];
-            await saveToken(token);
-            for (const patientId of patientIds) {
-                await publishReportJob(patientId);
-            }  
+        if (response.status == 200 || response.status == 201) {  
             let responseData = setSaveResponse(bundleData.bundle.entry, response.data.entry, "post");   
             res.status(201).json({ status: 1, message: "Family history data saved.", data: responseData })
+            const patientIds = [...new Set(req.body.map(cvd => cvd.patientId))];
+            const fhirIds = responseData.map(item => item.fhirId);
+            await saveToken(token);
+            for (const patientId of patientIds) {
+                await publishReportJob(patientId, fhirIds);
+            }            
         }
         else {
                 return res.status(500).json({
