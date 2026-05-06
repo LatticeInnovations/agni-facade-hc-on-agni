@@ -60,6 +60,6 @@ typings/
 package-lock.json
 upload/logo/*
 uploads/*
-scripts/*
-
+# scripts/*
+nationalData.json
 .DS_Store

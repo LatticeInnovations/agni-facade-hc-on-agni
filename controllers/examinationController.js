@@ -161,10 +161,11 @@ const updateExaminationData = async function (req, res) {
         if (!isCampaignPath) applyNonCampaignSideEffectsOnUpdate(req);
 
         const token = req.accessToken;
+         const mainEncounterType = isCampaignPath ? "screening-site-main-encounter" : "facility-main-encounter";
         const category = isCampaignPath ? "screening-site-10825200" : "10825200"
         let resourceResult = [];
         for (let examData of req.body) {
-                const encounterData = await fetchMainEncounter(examData, token)
+                const encounterData = await fetchMainEncounter(examData, token, mainEncounterType)
                 const reqUuid = examData.uuid;
                 const baseEncounterId = encounterData?.entry?.[0]?.resource?.id;
                 if (!baseEncounterId) return;    
@@ -244,9 +245,9 @@ let getExaminationData = async function (req, res) {
         examinationResponses.entry.forEach(examinationResponse => {            
             const responseObj = getTransformedResult(ServiceRequest, examinationResponse.resource);
             const primaryEncounter = mainEncounters.find((e) => e.id === examinationResponse.resource.encounter.reference.split("/")[1]);
-            responseObj.practitionerName = isCampaignPath ? null : getPractitionerName(responseObj.practitionerId, practitionerList.entry);
+            responseObj.practitionerName = getPractitionerName(responseObj.practitionerId, practitionerList.entry);
             responseObj.examinations = responseObj? responseObj.activityList : []
-            responseObj.practitionerId = isCampaignPath ? null : responseObj.practitionerId
+            responseObj.practitionerId = responseObj.practitionerId
             delete responseObj["activityList"]
             responseObj.appointmentId = primaryEncounter?.appointment?.[0]?.reference?.split("/")[1] || null;
             responseObj.appointmentUuid = primaryEncounter?.identifier?.[0].value;

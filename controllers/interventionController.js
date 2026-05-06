@@ -146,7 +146,7 @@ let updateInterventionData = async function (req, res) {
     try {
         const isCampaignPath = await getAPIPath(req);
         console.log("check is it campaign path: ", isCampaignPath)
-
+        const mainEncounterType = isCampaignPath ? "screening-site-main-encounter" : "facility-main-encounter";
         const validatedBody = validateRequest(req.body, interventionUpdateSchema, res);
         if (!validatedBody) return;
 
@@ -156,7 +156,7 @@ let updateInterventionData = async function (req, res) {
         const category = isCampaignPath ? "screening-site-409073007" : "409073007"
         let resourceResult = [];
         for (let interventionData of req.body) {
-                const encounterData = await fetchMainEncounter(interventionData, token)
+                const encounterData = await fetchMainEncounter(interventionData, token, mainEncounterType)
                 const reqUuid = interventionData.uuid;
                 const baseEncounterId = encounterData?.entry?.[0]?.resource?.id;
                 if (!baseEncounterId) return;    
@@ -236,8 +236,8 @@ let getInterventionData = async function (req, res) {
         interventionResponses.entry.forEach(interventionResponse => {            
             const responseObj = getTransformedResult(ServiceRequest, interventionResponse.resource);
             const primaryEncounter = mainEncounters.find((e) => e.id === interventionResponse.resource.encounter.reference.split("/")[1]);
-            responseObj.practitionerName = isCampaignPath ? null : getPractitionerName(responseObj.practitionerId, practitionerList.entry);
-            responseObj.practitionerId = isCampaignPath ? null : responseObj.practitionerId;
+            responseObj.practitionerName = getPractitionerName(responseObj.practitionerId, practitionerList.entry);
+            responseObj.practitionerId = responseObj.practitionerId;
             responseObj.interventions = responseObj?.activityList || []
             delete responseObj["activityList"]
             responseObj.appointmentId = primaryEncounter?.appointment?.[0]?.reference?.split("/")[1] || null;

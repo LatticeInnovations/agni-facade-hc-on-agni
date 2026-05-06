@@ -27,7 +27,10 @@ let config = function () {
             mailgunApiKey: process.env.MAILGUN_API_KEY,
             mailgunDomain: process.env.MAILGUN_DOMAIN,
             mailFrom: process.env.MAIL_FROM,
-            token: process.env.token
+            token: process.env.token,
+            crvsBaseUrl: process.env.crvsBaseUrl,
+            crvsUsername: process.env.crvsUsername,
+            crvsPassword: process.env.crvsPassword
         };
 };
 module.exports = new config();

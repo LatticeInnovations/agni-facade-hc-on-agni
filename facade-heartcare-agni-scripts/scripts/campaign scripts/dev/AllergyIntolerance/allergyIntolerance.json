@@ -1,0 +1,15 @@
+{
+    "resourceType": "Bundle",
+    "id": "525a1a47-a33b-40ef-a6d5-cd0848c64b15",
+    "meta": {
+        "lastUpdated": "2026-05-04T11:04:36.361+00:00"
+    },
+    "type": "searchset",
+    "total": 0,
+    "link": [
+        {
+            "relation": "self",
+            "url": "http://127.0.0.1:8080/fhir/AllergyIntolerance?_count=1000&code%3Amissing=true"
+        }
+    ]
+}

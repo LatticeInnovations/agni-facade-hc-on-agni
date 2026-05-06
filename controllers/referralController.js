@@ -139,7 +139,9 @@ let getReferralData = async function (req, res) {
             responseObj.appointmentUuid = primaryEncounter?.identifier?.[0].value
             const sourceOrganization = practitionerResult.entry.find(e => e.resource.resourceType == "Organization")?.resource
             responseObj.sourceHealthFacilityId = sourceOrganization?.id || null;
-            responseObj.sourceIslandId = sourceOrganization?.extension?.[0]?.valueReference?.reference?.split("/")[1] ?? null
+            responseObj.sourceIslandId = sourceOrganization?.extension?.find(
+  ext => ext.url === "http://example.org/fhir/StructureDefinition/location-reference"
+)?.valueReference?.reference?.split("/")[1] ?? null;
             resourceResult.push(responseObj)
         }
         

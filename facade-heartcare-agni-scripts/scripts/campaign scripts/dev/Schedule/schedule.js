@@ -12,6 +12,7 @@
  * Requirements:
  *   - Node.js 18+
  *   - A schedule.json file in the same directory (FHIR Bundle or array of Schedule resources)
+ *   - /Schedule?service-type:missing=true&_count=1000
  */
 
 "use strict";

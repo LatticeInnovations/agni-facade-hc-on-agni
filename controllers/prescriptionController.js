@@ -397,7 +397,7 @@ const extractMedicationRequests = (FHIRData, encounterId) => {
  */
 const buildPrescriptionData = (encData, apptEncounter, medReqList, isCampaignPath) => {
     console.log("apptEncounter: ", apptEncounter)
-    apptEncounter.practitionerId = isCampaignPath ? null : apptEncounter.practitionerId
+    apptEncounter.practitionerId = apptEncounter.practitionerId
     apptEncounter.roleId = isCampaignPath ? null : apptEncounter.roleId
     const prescriptionData = {
         prescriptionId: encData.identifier[0].value,

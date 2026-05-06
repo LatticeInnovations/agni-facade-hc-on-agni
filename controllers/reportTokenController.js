@@ -13,7 +13,7 @@ const getReportToken = async (req, res) => {
     
     if (_lastUpdated) {
       const operator = _lastUpdated.substring(0, 2); // ge, gt, le, lt
-      const dateValue = new Date(_lastUpdated.substring(2));
+      const dateValue = new Date(_lastUpdated.substring(2).replace(" ", "+"));
 
       let sequelizeOp;
 
