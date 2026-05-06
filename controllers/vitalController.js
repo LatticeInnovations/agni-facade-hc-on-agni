@@ -125,13 +125,14 @@ let setVitalData = async function (req, res) {
             }
         });
         if ([200, 201].includes(response.status)) {
+            const resourceResponse =  setVitalResponse(bundleData.bundle.entry, response.data.entry, "post");
+            const responseData = [...resourceResponse, ...errData];   
+            const fhirIds = resourceResponse.map(item => item.fhirId);
             const patientIds = [...new Set(req.body.map(cvd => cvd.patientId))];
             await saveToken(token);
             for (const patientId of patientIds) {
-                await publishReportJob(patientId);
+                await publishReportJob(patientId, fhirIds);
             }
-            const resourceResponse =  setVitalResponse(bundleData.bundle.entry, response.data.entry, "post");
-            const responseData = [...resourceResponse, ...errData];   
             return res.status(201).json({
                 status: 1,
                 message: "Vital data saved.",
