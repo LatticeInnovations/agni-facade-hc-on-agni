@@ -1,18 +1,19 @@
 /**
- * FHIR Slot - Add serviceType (Facility) Updater
+ * FHIR AllergyIntolerance - Add code (Facility Allergy) Updater
  *
  * Usage:
- *   node slot.js --env dev --token <your_token>
- *   node slot.js --env prod --token <your_token>
- *   node slot.js --env dev --token <your_token> --dry-run
+ *   node update-allergy-intolerance-code.js --env dev --token <your_token>
+ *   node update-allergy-intolerance-code.js --env prod --token <your_token>
+ *   node update-allergy-intolerance-code.js --env dev --token <your_token> --dry-run
  *
  * Alternatively, set the token via environment variable (recommended for prod):
- *   FHIR_TOKEN=<your_token> node  slot.js --env prod
+ *   FHIR_TOKEN=<your_token> node update-allergy-intolerance-code.js --env prod
  *
  * Requirements:
  *   - Node.js 18+
- *   - A Slot.json file in the same directory (FHIR Bundle or array of Slot resources)
- *   - /Slot?service-type:missing=true&_count=1000
+ *   - An allergyIntolerance.json file in the same directory
+ *     (FHIR Bundle, array of AllergyIntolerance resources, or a single resource)
+ *   - /AllergyIntolerance?code:missing=true&_count=1000
  */
 
 "use strict";
@@ -22,7 +23,7 @@ const path  = require("path");
 const http  = require("http");
 const https = require("https");
 
-// ─── CONFIG ──────────────────────────────────────────────────────────────────
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
 
 const SERVER_URLS = {
   dev:  "http://143.110.253.49/fhir",
@@ -30,19 +31,16 @@ const SERVER_URLS = {
   prod: "http://prod-server/fhir",   // update as needed
 };
 
-const SERVICE_TYPE_TO_ADD = [
-  {
-    coding: [
-      {
-        system:  "http://terminology.hl7.org/CodeSystem/service-type",
-        code:    "facility",
-        display: "facility",
-      },
-    ],
-  },
-];
+const CODE_TO_ADD = {
+  coding: [
+    {
+      system: "https://your-custom-coding-system",
+      code:   "facility-allergy",
+    },
+  ],
+};
 
-const SlotS_FILE = path.join(__dirname, "slot.json");
+const ALLERGY_FILE = path.join(__dirname, "allergyIntolerance.json");
 
 // ─── CLI ARGS ─────────────────────────────────────────────────────────────────
 
@@ -57,7 +55,7 @@ function parseCliArgs() {
   const baseUrl   = customUrl ?? SERVER_URLS[env];
 
   // Token: --token flag takes priority, then FHIR_TOKEN env var
-  const token = "eyJhbGciOiJIUzI1NiJ9.eyJhY2NvdW50X2NyZWF0aW9uX3RpbWVzdGFtcCI6IjIwMjYtMDMtMTFUMDg6MTg6MTMuMjk3NDMwIiwidXNlcl9pZCI6IlVzZXIwNSIsIm5hbWUiOiJEZWZhdWx0UiBSZWNlcHRpb25pc3QiLCJ1c2VyX3R5cGVfaWQiOjMsInVzZXJfcHJpbWFyeV9pZCI6MTYsImZoaXJfaWQiOiIyNjYiLCJzdWIiOiJuaXNoaXRhQHRoZWxhdHRpY2UuaW4iLCJpYXQiOjE3NzY0MjUwMzQsImV4cCI6MTc3NzAyOTgzNH0.zRAQubqt4khKgQA-oqKrVdSg3yLM50Ho6iTzjl4GwvM"
+  const token = get("--token") ?? process.env.FHIR_TOKEN;
 
   if (!baseUrl) {
     console.error(`Unknown env "${env}". Use --base-url or one of: ${Object.keys(SERVER_URLS).join(", ")}`);
@@ -65,7 +63,7 @@ function parseCliArgs() {
   }
 
   if (!token) {
-    console.error(`No token provided. Use --token <your_token> or set the FHIR_TOKEN environment variable.`);
+    console.error("No token provided. Use --token <your_token> or set the FHIR_TOKEN environment variable.");
     process.exit(1);
   }
 
@@ -74,9 +72,9 @@ function parseCliArgs() {
 
 // ─── FILE LOADING ─────────────────────────────────────────────────────────────
 
-function loadSlots(filePath) {
+function loadAllergyIntolerances(filePath) {
   if (!fs.existsSync(filePath)) {
-    console.error(`Slot.json not found at: ${filePath}`);
+    console.error(`allergyIntolerance.json not found at: ${filePath}`);
     process.exit(1);
   }
 
@@ -86,20 +84,33 @@ function loadSlots(filePath) {
   if (raw.resourceType === "Bundle" && Array.isArray(raw.entry)) {
     return raw.entry.map((e) => e.resource).filter(Boolean);
   }
-  if (raw.resourceType === "Slot") return [raw];
+  if (raw.resourceType === "AllergyIntolerance") return [raw];
 
-  console.error("Slot.json must be a FHIR Bundle, array of Slots, or a single Slot resource.");
+  console.error(
+    "allergyIntolerance.json must be a FHIR Bundle, an array of AllergyIntolerance resources, or a single AllergyIntolerance resource."
+  );
   process.exit(1);
 }
 
-// ─── Slot HELPERS ─────────────────────────────────────────────────────────
+// ─── ALLERGY INTOLERANCE HELPERS ──────────────────────────────────────────────
 
-function alreadyHasServiceType(Slot) {
-  return !!Slot.serviceType;
+/**
+ * Returns true if the resource already has a `code` field with at least one coding entry.
+ */
+function alreadyHasCode(resource) {
+  return (
+    resource.code &&
+    resource.code.coding &&
+    Array.isArray(resource.code.coding) &&
+    resource.code.coding.length > 0
+  );
 }
 
-function addServiceType(Slot) {
-  return { ...Slot, serviceType: SERVICE_TYPE_TO_ADD };
+/**
+ * Returns a new resource object with the `code` field added.
+ */
+function addCode(resource) {
+  return { ...resource, code: CODE_TO_ADD };
 }
 
 // ─── HTTP REQUEST ─────────────────────────────────────────────────────────────
@@ -142,24 +153,28 @@ function httpRequest(url, options, body) {
   });
 }
 
-async function putSlot(baseUrl, token, Slot) {
-  const url  = `${baseUrl}/Slot/${Slot.id}`;
-  const body = JSON.stringify(Slot);
+async function putAllergyIntolerance(baseUrl, token, resource) {
+  const url  = `${baseUrl}/AllergyIntolerance/${resource.id}`;
+  const body = JSON.stringify(resource);
 
-  const res = await httpRequest(url, {
-    method: "PUT",
-    headers: {
-      "Content-Type":   "application/fhir+json",
-      "Content-Length": Buffer.byteLength(body),
-      "Authorization":  `Bearer ${token}`,
+  const res = await httpRequest(
+    url,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type":   "application/fhir+json",
+        "Content-Length": Buffer.byteLength(body),
+        "Authorization":  `Bearer ${token}`,
+      },
     },
-  }, body);
+    body
+  );
 
   if (res.status === 401) {
-    throw new Error(`Unauthorized (401) — token is missing, expired, or invalid.`);
+    throw new Error("Unauthorized (401) — token is missing, expired, or invalid.");
   }
   if (res.status === 403) {
-    throw new Error(`Forbidden (403) — token does not have permission to update Slots.`);
+    throw new Error("Forbidden (403) — token does not have permission to update AllergyIntolerance resources.");
   }
   if (res.status < 200 || res.status >= 300) {
     throw new Error(`HTTP ${res.status} ${res.statusMessage} — ${res.body}`);
@@ -173,53 +188,59 @@ async function putSlot(baseUrl, token, Slot) {
 async function main() {
   const { env, baseUrl, dryRun, token } = parseCliArgs();
 
-  console.log(`\n🏥  FHIR Slot serviceType Updater`);
+  console.log("\n🏥  FHIR AllergyIntolerance Code Updater");
   console.log(`   Environment : ${env}`);
   console.log(`   Server URL  : ${baseUrl}`);
   console.log(`   Dry run     : ${dryRun}`);
   console.log(`   Token       : ${token.slice(0, 6)}${"*".repeat(10)} (truncated for safety)`);
-  console.log(`   Source file : ${SlotS_FILE}\n`);
+  console.log(`   Source file : ${ALLERGY_FILE}\n`);
 
-  const Slots = loadSlots(SlotS_FILE);
-  console.log(`📋  Loaded ${Slots.length} Slot(s) from file.\n`);
+  const resources = loadAllergyIntolerances(ALLERGY_FILE);
+  console.log(`📋  Loaded ${resources.length} AllergyIntolerance resource(s) from file.\n`);
 
   const results = { skipped: 0, updated: 0, failed: 0 };
 
-  for (const Slot of Slots) {
-    const id = Slot.id ?? "(no id)";
+  for (const resource of resources) {
+    const id = resource.id ?? "(no id)";
 
-    if (!Slot.id) {
-      console.warn(`  ⚠️  Slot without id — skipped.`);
+    if (resource.resourceType !== "AllergyIntolerance") {
+      console.warn(`  ⚠️  Resource ${id} is not an AllergyIntolerance (got "${resource.resourceType}") — skipped.`);
       results.skipped++;
       continue;
     }
 
-    if (alreadyHasServiceType(Slot)) {
-      console.log(`  ⏭️  Slot/${id} — serviceType already present, skipping.`);
+    if (!resource.id) {
+      console.warn("  ⚠️  AllergyIntolerance without id — skipped.");
       results.skipped++;
       continue;
     }
 
-    const updated = addServiceType(Slot);
+    if (alreadyHasCode(resource)) {
+      console.log(`  ⏭️  AllergyIntolerance/${id} — code already present, skipping.`);
+      results.skipped++;
+      continue;
+    }
+
+    const updated = addCode(resource);
 
     if (dryRun) {
-      console.log(`  🔍  [DRY RUN] Would PUT Slot/${id}`);
-      console.log(`      serviceType:`, JSON.stringify(updated.serviceType, null, 2));
+      console.log(`  🔍  [DRY RUN] Would PUT AllergyIntolerance/${id}`);
+      console.log(`      code:`, JSON.stringify(updated.code, null, 2));
       results.updated++;
       continue;
     }
 
     try {
-      await putSlot(baseUrl, token, updated);
-      console.log(`  ✅  Slot/${id} — updated successfully.`);
+      await putAllergyIntolerance(baseUrl, token, updated);
+      console.log(`  ✅  AllergyIntolerance/${id} — updated successfully.`);
       results.updated++;
     } catch (err) {
-      console.error(`  ❌  Slot/${id} — FAILED: ${err.message}`);
+      console.error(`  ❌  AllergyIntolerance/${id} — FAILED: ${err.message}`);
       results.failed++;
     }
   }
 
-  console.log(`\n📊  Summary`);
+  console.log("\n📊  Summary");
   console.log(`   Updated : ${results.updated}`);
   console.log(`   Skipped : ${results.skipped}`);
   console.log(`   Failed  : ${results.failed}\n`);
@@ -228,3 +249,7 @@ async function main() {
 }
 
 main();
+
+// node update-allergy-intolerance-code.js --env dev --token eyJhbGciOiJIUzI1NiJ9.eyJhY2NvdW50X2NyZWF0aW9uX3RpbWVzdGFtcCI6IjIwMjYtMDMtMTFUMDg6MTg6MTMuMjk3NDMwIiwidXNlcl9pZCI6IlVzZXIwNSIsIm5hbWUiOiJEZWZhdWx0UiBSZWNlcHRpb25pc3QiLCJ1c2VyX3R5cGVfaWQiOjMsInVzZXJfcHJpbWFyeV9pZCI6MTYsImZoaXJfaWQiOiIyNjYiLCJzdWIiOiJuaXNoaXRhQHRoZWxhdHRpY2UuaW4iLCJpYXQiOjE3NzY0MjUwMzQsImV4cCI6MTc3NzAyOTgzNH0.zRAQubqt4khKgQA-oqKrVdSg3yLM50Ho6iTzjl4GwvM
+
+// http://143.110.253.49/fhir/AllergyIntolerance?code:missing=true&_count=1000

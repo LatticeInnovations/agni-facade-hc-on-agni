@@ -185,7 +185,7 @@ getPatientReference() {
     this.setStatus();
     this.setType();
     this.setParticipant();
-    this.setLocationForFacility();
+    // this.setLocationForFacility();
     this.setLocationForCampaign();
     this.setOrganizationReference();
   }
