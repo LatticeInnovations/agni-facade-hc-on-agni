@@ -22,8 +22,15 @@ async function processPendingReports() {
 
     try {
 
-      await generateReport(patientId);
+      const key = `pending_reports:${patientId}`;
+      const fhirIds = await redisClient.sMembers(key);
 
+      console.log(`Processing ${patientId}`, fhirIds);
+
+      await generateReport(patientId, fhirIds);
+
+      // cleanup after success
+      await redisClient.del(key);
       await redisClient.sRem("pending_reports", patientId);
 
     } catch (err) {
@@ -38,7 +45,7 @@ async function processPendingReports() {
 function reportTrigger() {
 
   cron.schedule(
-    "0 9,12,15,18,21 * * *",
+    "*  * * * *",
     async () => {
 
       console.log("Running report window");

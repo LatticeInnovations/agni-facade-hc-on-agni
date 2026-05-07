@@ -176,14 +176,15 @@ function applyNonCampaignSideEffects(req) {
             console.info("get bundle json response: ", response.status);
 
             if (response.status === 200 || response.status === 201) {
-                const patientIds = [...new Set(req.body.map(cvd => cvd.patientId))];
-                await saveToken(token);
-                for (const patientId of patientIds) {
-                    await publishReportJob(patientId);
-                }  
                 const resourceResponse = setPrescriptionResponse(bundleData.bundle.entry, response.data.entry, "post");
                 const responseData = [...resourceResponse, ...errData];
-                return res.status(201).json({ status: 1, message: "Prescription data saved.", data: responseData });
+                const patientIds = [...new Set(req.body.map(cvd => cvd.patientId))];
+                await saveToken(token);
+                const fhirIds = responseData.map(item => item.fhirId);
+                for (const patientId of patientIds) {
+                    await publishReportJob(patientId, fhirIds);
+                } 
+                return res.status(201).json({ status: 1, message: "Prescription data saved.", data: responseData }); 
             } else {
                 return handleError(res, response);
             }
@@ -257,12 +258,13 @@ const updateExistingPrescription = async function (req, res) {
         console.info("get bundle json response: ", response.status);
 
         if (response.status === 200 || response.status === 201) {
+            const responseData = setPrescriptionResponse(bundleData.bundle.entry, response.data.entry, "put");
             const patientIds = [...new Set(req.body.map(cvd => cvd.patientId))];
+            const fhirIds = [...new Set(req.body.map(cvd => cvd.prescriptionFhirId))];
             await saveToken(token);
             for (const patientId of patientIds) {
-                await publishReportJob(patientId);
+                await publishReportJob(patientId, fhirIds);
             }  
-            const responseData = setPrescriptionResponse(bundleData.bundle.entry, response.data.entry, "put");
             return res.status(201).json({ status: 1, message: "Prescription data updated.", data: responseData });
         } else {
             return handleError(res, response);
