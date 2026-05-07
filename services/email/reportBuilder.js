@@ -665,12 +665,44 @@ function buildPatientFields(patient) {
   return { name, heartcareId };
 }
 
-function buildFileDetails(patient, observation, name) {
-  const encounterDate = observation?.effectiveDateTime;
-  const formattedDate = formatDateDDMMMYYYY(encounterDate);
-  const fileName = [val(patient?.id), formattedDate].filter(Boolean).join("-") + ".pdf";
+function buildFileDetails(patient, observation, name, forceType, primaryEncounter) {
+  let fileNameParts = [val(patient?.id), forceType];
+
+  if (forceType === "screening-site") {
+    const screeningSiteId = getScreeningSiteId(primaryEncounter);
+
+    if (screeningSiteId) {
+      fileNameParts.push(screeningSiteId);
+    }
+  } else if (forceType === "facility") {
+    const encounterDate = observation?.effectiveDateTime;
+    const formattedDate = formatDateDDMMMYYYY(encounterDate);
+    
+    fileNameParts.push(formattedDate);
+  }
+
+  const fileName = fileNameParts.filter(Boolean).join("-") + ".pdf";
+
   const filePassword = generateFilePassword(name, patient?.birthDate);
-  return { fileName, filePassword, encounterDate };
+
+  return { fileName, filePassword };
+}
+
+function getScreeningSiteId(primaryEncounter) {
+  const locationRef = primaryEncounter?.location?.[0]?.location?.reference;
+
+  let screeningSiteId = null;
+
+  if (locationRef && locationRef.includes('/')) {
+    screeningSiteId = locationRef.split('/')[1];
+  }
+  return screeningSiteId;
+}
+
+function getPrimaryEncounter(id, encounters) {
+  if (!id || !Array.isArray(encounters)) return null;
+
+  return encounters.find(encounter => encounter.id === id) || null;
 }
 
 function buildReport(entries, encounterIds, forceType = null) {
@@ -751,8 +783,10 @@ function buildReport(entries, encounterIds, forceType = null) {
   
   report.guidance = buildWHOGuidance(report);
   report.personalSummary = buildPersonalSummary(report);
+
+  const primaryEncounter = getPrimaryEncounter(allEncounterIdsFiltered[0], index.encounters)
   
-  const { fileName, filePassword } = buildFileDetails(patient, latestObs, name);
+  const { fileName, filePassword } = buildFileDetails(patient, latestObs, name, forceType, primaryEncounter);
   
   let appointmentId = getAppointmentFromEncounter(index.encounters, allEncounterIds) || findAppointment(entries, patient?.id);
   
