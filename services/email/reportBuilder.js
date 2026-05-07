@@ -746,7 +746,7 @@ function buildReport(entries, encounterIds, forceType = null) {
     examination: buildServiceRequestHTML(services),
     intervention: buildInterventionHTML(interventions),
     facility: getHealthFacility(entries, ctx),
-    reportType: forceType || (isScreeningSite ? "screening-site" : isFacility ? "facility" : "general")
+    reportType: forceType || (isScreeningSite ? "screening-site" :"facility")
   };
   
   report.guidance = buildWHOGuidance(report);
@@ -756,13 +756,16 @@ function buildReport(entries, encounterIds, forceType = null) {
   
   let appointmentId = getAppointmentFromEncounter(index.encounters, allEncounterIds) || findAppointment(entries, patient?.id);
   
-  return {
+return {
     report,
     fileName,
     filePassword,
     appointmentId,
-    encounterId: allEncounterIdsArr[0],
-    dob: patient?.birthDate
+    encounterId: allEncounterIdsFiltered[0],
+    dob: patient?.birthDate,
+    hasData: effectiveRefs.length > 0,
+    hasScreening: screeningSiteRefs.length > 0,
+    hasFacility: facilityRefs.length > 0
   };
 }
 
