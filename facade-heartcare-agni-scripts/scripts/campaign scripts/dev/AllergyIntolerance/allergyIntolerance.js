@@ -26,7 +26,7 @@ const https = require("https");
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 
 const SERVER_URLS = {
-  dev:  "http://143.110.253.49/fhir",
+  dev:  "https://heartcareprod.thelattice.in/fhir",
   test: "http://test-server/fhir",   // update as needed
   prod: "http://prod-server/fhir",   // update as needed
 };

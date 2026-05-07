@@ -1,15 +1,125 @@
 {
     "resourceType": "Bundle",
-    "id": "525a1a47-a33b-40ef-a6d5-cd0848c64b15",
+    "id": "293ed9f8-a80c-4615-bb01-451441d6c915",
     "meta": {
-        "lastUpdated": "2026-05-04T11:04:36.361+00:00"
+        "lastUpdated": "2026-05-07T05:26:57.180+00:00"
     },
     "type": "searchset",
-    "total": 0,
+    "total": 3,
     "link": [
         {
             "relation": "self",
             "url": "http://127.0.0.1:8080/fhir/AllergyIntolerance?_count=1000&code%3Amissing=true"
+        }
+    ],
+    "entry": [
+        {
+            "fullUrl": "http://127.0.0.1:8080/fhir/AllergyIntolerance/746",
+            "resource": {
+                "resourceType": "AllergyIntolerance",
+                "id": "746",
+                "meta": {
+                    "versionId": "1",
+                    "lastUpdated": "2026-03-20T04:19:23.119+00:00",
+                    "source": "#r5MBMBon66NEQwFP"
+                },
+                "identifier": [
+                    {
+                        "system": "https://www.thelattice.in/",
+                        "value": "f3b90d8c-a31a-4784-a7ef-e7226dc2cd4b"
+                    }
+                ],
+                "patient": {
+                    "reference": "Patient/719"
+                },
+                "encounter": {
+                    "reference": "Encounter/734"
+                },
+                "recordedDate": "2026-03-20T04:08:26.317Z",
+                "recorder": {
+                    "reference": "Practitioner/266"
+                },
+                "note": [
+                    {
+                        "text": "Sugar"
+                    }
+                ]
+            },
+            "search": {
+                "mode": "match"
+            }
+        },
+        {
+            "fullUrl": "http://127.0.0.1:8080/fhir/AllergyIntolerance/826",
+            "resource": {
+                "resourceType": "AllergyIntolerance",
+                "id": "826",
+                "meta": {
+                    "versionId": "1",
+                    "lastUpdated": "2026-03-25T03:45:12.130+00:00",
+                    "source": "#9JocAcbk1DEScH4O"
+                },
+                "identifier": [
+                    {
+                        "system": "https://www.thelattice.in/",
+                        "value": "f0cd112e-70bb-4a9a-a27a-b044d01c1dac"
+                    }
+                ],
+                "patient": {
+                    "reference": "Patient/793"
+                },
+                "encounter": {
+                    "reference": "Encounter/802"
+                },
+                "recordedDate": "2026-03-25T03:33:11.162Z",
+                "recorder": {
+                    "reference": "Practitioner/786"
+                },
+                "note": [
+                    {
+                        "text": "Allergic to Cotrimoxazole tablet"
+                    }
+                ]
+            },
+            "search": {
+                "mode": "match"
+            }
+        },
+        {
+            "fullUrl": "http://127.0.0.1:8080/fhir/AllergyIntolerance/947",
+            "resource": {
+                "resourceType": "AllergyIntolerance",
+                "id": "947",
+                "meta": {
+                    "versionId": "2",
+                    "lastUpdated": "2026-03-26T02:36:57.257+00:00",
+                    "source": "#Y5LXzw0nNTJcriVL"
+                },
+                "identifier": [
+                    {
+                        "system": "https://www.thelattice.in/",
+                        "value": "98b4b3b0-a32b-446c-aaa5-ad518197c9be"
+                    }
+                ],
+                "patient": {
+                    "reference": "Patient/879"
+                },
+                "encounter": {
+                    "reference": "Encounter/927"
+                },
+                "recordedDate": "2026-03-26T02:27:40.660Z",
+                "recorder": {
+                    "reference": "Practitioner/788"
+                },
+                "note": [
+                    {
+                        "text": "Medication, red meat"
+                    }
+                ]
+            },
+            "search": {
+                "mode": "match"
+            }
         }
     ]
 }
