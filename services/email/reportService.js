@@ -25,8 +25,8 @@ async function fetchResourceTimestamp(entries) {
   );
 }
 
-async function buildAndSendReport(entries, patientId, encounterIds, forceType, email) {
-  const { report, fileName, filePassword, appointmentId, encounterId, dob } = buildReport(entries, encounterIds, forceType);
+async function buildAndSendReport(entries, patientId, encounterIds, forceType, email, preBuiltReport) {
+  const { report, fileName, filePassword, appointmentId, encounterId, dob } = preBuiltReport;
   const template = fs.readFileSync(templatePath, "utf8");
 
   const html = template.replace(/\$\{data\.(.*?)\}/g, (match, key) => {
@@ -105,20 +105,28 @@ async function generateReport(patientId, encounterIds) {
     return;
   }
 
-  const screeningReport = buildReport(entries, encounterIds, "screening-site");
-  const facilityReport = buildReport(entries, encounterIds, "facility");
+  const report = buildReport(entries, encounterIds);
 
-  const hasScreening = screeningReport.report?.visitDate !== "--" && screeningReport.report?.visitDate;
-  const hasFacility = facilityReport.report?.visitDate !== "--" && facilityReport.report?.visitDate;
+  const hasScreening = report.hasScreening;
+  const hasFacility = report.hasFacility;
 
-  if (hasScreening) {
-    console.log("Generating screening-site report...");
-    await buildAndSendReport(entries, patientId, encounterIds, "screening-site", email);
+  if (!hasScreening && !hasFacility) {
+    console.log("No valid encounter data found");
+    return;
   }
 
-  if (hasFacility) {
+  if (hasScreening && hasFacility) {
+    console.log("Generating both reports...");
+    const screeningReport = buildReport(entries, encounterIds, "screening-site");
+    const facilityReport = buildReport(entries, encounterIds, "facility");
+    await buildAndSendReport(entries, patientId, encounterIds, "screening-site", email, screeningReport);
+    await buildAndSendReport(entries, patientId, encounterIds, "facility", email, facilityReport);
+  } else if (hasScreening) {
+    console.log("Generating screening-site report...");
+    await buildAndSendReport(entries, patientId, encounterIds, "screening-site", email, report);
+  } else if (hasFacility) {
     console.log("Generating facility report...");
-    await buildAndSendReport(entries, patientId, encounterIds, "facility", email);
+    await buildAndSendReport(entries, patientId, encounterIds, "facility", email, report);
   }
 
   await saveReportSent(patientId);
