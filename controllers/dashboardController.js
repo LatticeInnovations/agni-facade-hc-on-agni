@@ -2,7 +2,7 @@ const { fetchResource,  getTransformedResult, fetchMainResourcesParallel, fetchI
 
 const classification = require("../services/dashboardClassification");
 let Patient = require("../class/patient");
-
+const urlList = require("../utils/heartcareSystemUrl")
 // constants
 const MAIN_ENCOUNTER_TYPE = "facility-main-encounter";
 const TOTAL_COUNT = 500;
@@ -23,6 +23,8 @@ const VITAL_OBS_CODES = {
 
 const CVD_FIELDS = ["bp", "bmi", "smoker", "screeningDate", "cholesterol", "cholesterolUnit", "risk"];
 const VITAL_FIELDS = ["glucose", "glucoseUnit", "glucoseType"];
+
+
 
 const facilityMainEncounterQuery = (queryParams) => {
 return {
@@ -370,7 +372,7 @@ const getPatientLocationDetails = async (patients, token) => {
             
             const facility = facilitiesList.find(e => {
                 const locationExt = e.extension?.find(
-                    ext => ext.url === "http://example.org/fhir/StructureDefinition/location-reference"
+                    ext => ext.url == urlList.locationReferenceUrl
                 );
                 return island.id === locationExt?.valueReference?.reference.split("/")[1];
             });

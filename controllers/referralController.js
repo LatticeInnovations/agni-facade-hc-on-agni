@@ -9,6 +9,7 @@ const { fetchResource, buildFHIRResource, getTransformedResult } = require("../s
 // const { riskFactorSchema } = require("../utils/Validator/referralValidator");
 const {validateRequest} = require("../utils/validateRequest");
 const { getPractitionerName } = require("../services/commonFunctions");
+const urlList = require("../utils/heartcareSystemUrl")
 
 const fetchMainEncounter = async (riskFactorData, token) => {
     const mainEncounter =   await fetchResource("Encounter", {
@@ -140,7 +141,7 @@ let getReferralData = async function (req, res) {
             const sourceOrganization = practitionerResult.entry.find(e => e.resource.resourceType == "Organization")?.resource
             responseObj.sourceHealthFacilityId = sourceOrganization?.id || null;
             responseObj.sourceIslandId = sourceOrganization?.extension?.find(
-  ext => ext.url === "http://example.org/fhir/StructureDefinition/location-reference"
+  ext => ext.url === urlList.locationReferenceUrl
 )?.valueReference?.reference?.split("/")[1] ?? null;
             resourceResult.push(responseObj)
         }
