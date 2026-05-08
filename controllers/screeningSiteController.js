@@ -358,7 +358,7 @@ const listScreeningSites = async (req, res) => {
 
         const practitionerRoleResponse = await fetchResource(
             "PractitionerRole",
-            { location: locationIds.join(",") },
+            { location: locationIds.join(","), _count: 5000 },
             token
         );
 
