@@ -41,6 +41,14 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: false,
     },
+
+    reportType: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      validate: {
+        isIn: [['screening-site', 'facility']],
+      },
+    }
   }, {
     sequelize,
     modelName: 'ReportToken',

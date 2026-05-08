@@ -35,14 +35,26 @@ async function buildAndSendReport(entries, patientId, encounterIds, forceType, e
   });
   const htmlWithLogo = html.replace("LOGO_PLACEHOLDER", `data:image/png;base64,${logoBase64}`);
   const pdfBuffer = await generatePdf(htmlWithLogo);
+
   await savePdfToUploads(pdfBuffer, fileName, filePassword);
 
   const [/*reportToken*/, created] = await ReportToken.findOrCreate({
-    where: { appointmentId },
-    defaults: { token: uuidv4(), patientId, dob, fileName }
+  where: { appointmentId },
+  defaults: {
+      token: uuidv4(),
+      patientId,
+      dob,
+      fileName,
+      reportType: report.reportType,
+    }
   });
 
   if (created) await saveDocumentReference(patientId, encounterId, fileName);
+
+  if (!email) {
+    console.log("Patient has no email");
+    return;
+  }
 
   const reportType = report.reportType || "general";
   let typeLabel;
@@ -100,11 +112,6 @@ async function generateReport(patientId, encounterIds) {
     return;
   }
 
-  if (!email) {
-    console.log("Patient has no email");
-    return;
-  }
-
   const report = buildReport(entries, encounterIds);
 
   const hasScreening = report.hasScreening;
@@ -122,11 +129,13 @@ async function generateReport(patientId, encounterIds) {
     await buildAndSendReport(entries, patientId, encounterIds, "screening-site", email, screeningReport);
     await buildAndSendReport(entries, patientId, encounterIds, "facility", email, facilityReport);
   } else if (hasScreening) {
+    const screeningReport = buildReport(entries, encounterIds, "screening-site");
     console.log("Generating screening-site report...");
-    await buildAndSendReport(entries, patientId, encounterIds, "screening-site", email, report);
+    await buildAndSendReport(entries, patientId, encounterIds, "screening-site", email, screeningReport);
   } else if (hasFacility) {
+    const facilityReport = buildReport(entries, encounterIds, "facility");
     console.log("Generating facility report...");
-    await buildAndSendReport(entries, patientId, encounterIds, "facility", email, report);
+    await buildAndSendReport(entries, patientId, encounterIds, "facility", email, facilityReport);
   }
 
   await saveReportSent(patientId);

@@ -665,12 +665,61 @@ function buildPatientFields(patient) {
   return { name, heartcareId };
 }
 
-function buildFileDetails(patient, observation, name) {
-  const encounterDate = observation?.effectiveDateTime;
-  const formattedDate = formatDateDDMMMYYYY(encounterDate);
-  const fileName = [val(patient?.id), formattedDate].filter(Boolean).join("-") + ".pdf";
+function buildFileDetails(patient, name, forceType, primaryEncounter) {
+  let fileNameParts = [val(patient?.id), forceType];
+
+  if (forceType === "screening-site") {
+    const screeningSiteId = getScreeningSiteId(primaryEncounter);
+
+    if (screeningSiteId) {
+      fileNameParts.push(screeningSiteId);
+    }
+  } else if (forceType === "facility") {
+    const encounterDate = primaryEncounter.period?.start;
+    const formattedDate = formatDateDDMMMYYYY(encounterDate);
+    
+    fileNameParts.push(formattedDate);
+  }
+
+  const fileName = fileNameParts.filter(Boolean).join("-") + ".pdf";
+
   const filePassword = generateFilePassword(name, patient?.birthDate);
-  return { fileName, filePassword, encounterDate };
+
+  return { fileName, filePassword };
+}
+
+function getScreeningSiteId(primaryEncounter) {
+  const locationRef = primaryEncounter?.location?.[0]?.location?.reference;
+
+  if (!locationRef || !locationRef.includes('/')) {
+    throw new Error('Invalid or missing location reference in primaryEncounter');
+  }
+
+  const screeningSiteId = locationRef.split('/')[1];
+
+  if (!screeningSiteId) {
+    throw new Error('screeningSiteId could not be extracted');
+  }
+
+  return screeningSiteId;
+}
+
+function getPrimaryEncounter(id, encounters) {
+  if (!id) {
+    throw new Error('Encounter ID is required');
+  }
+
+  if (!Array.isArray(encounters)) {
+    throw new Error('Encounters must be a valid array');
+  }
+
+  const encounter = encounters.find(e => e.id === id);
+
+  if (!encounter) {
+    throw new Error(`Primary encounter not found with id: ${id}`);
+  }
+
+  return encounter;
 }
 
 function buildReport(entries, encounterIds, forceType = null) {
@@ -684,7 +733,7 @@ function buildReport(entries, encounterIds, forceType = null) {
   else if (forceType === "facility") { isScreeningSite = false; isFacility = true; }
   
   const allEncounterIds = collectConnectedEncounters(targetIds, index.encounters);
-  const allEncounterIdsArr = [...allEncounterIds];
+  const allEncounterIdsArr = [...allEncounterIds].sort((a, b) => Number(a) - Number(b));;
   const encounterRefs = allEncounterIdsArr.map(id => `Encounter/${id}`);
   
   const screeningSiteRefs = index.screeningSiteEncounterRefs.filter(ref => encounterRefs.includes(ref));
@@ -751,8 +800,10 @@ function buildReport(entries, encounterIds, forceType = null) {
   
   report.guidance = buildWHOGuidance(report);
   report.personalSummary = buildPersonalSummary(report);
+
+  const primaryEncounter = getPrimaryEncounter(allEncounterIdsFiltered[0], index.encounters)
   
-  const { fileName, filePassword } = buildFileDetails(patient, latestObs, name);
+  const { fileName, filePassword } = buildFileDetails(patient, name, forceType, primaryEncounter);
   
   let appointmentId = getAppointmentFromEncounter(index.encounters, allEncounterIds) || findAppointment(entries, patient?.id);
   
