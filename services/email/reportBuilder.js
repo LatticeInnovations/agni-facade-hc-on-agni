@@ -665,7 +665,7 @@ function buildPatientFields(patient) {
   return { name, heartcareId };
 }
 
-function buildFileDetails(patient, observation, name, forceType, primaryEncounter) {
+function buildFileDetails(patient, name, forceType, primaryEncounter) {
   let fileNameParts = [val(patient?.id), forceType];
 
   if (forceType === "screening-site") {
@@ -675,7 +675,7 @@ function buildFileDetails(patient, observation, name, forceType, primaryEncounte
       fileNameParts.push(screeningSiteId);
     }
   } else if (forceType === "facility") {
-    const encounterDate = observation?.effectiveDateTime;
+    const encounterDate = primaryEncounter.period?.start;
     const formattedDate = formatDateDDMMMYYYY(encounterDate);
     
     fileNameParts.push(formattedDate);
@@ -803,7 +803,7 @@ function buildReport(entries, encounterIds, forceType = null) {
 
   const primaryEncounter = getPrimaryEncounter(allEncounterIdsFiltered[0], index.encounters)
   
-  const { fileName, filePassword } = buildFileDetails(patient, latestObs, name, forceType, primaryEncounter);
+  const { fileName, filePassword } = buildFileDetails(patient, name, forceType, primaryEncounter);
   
   let appointmentId = getAppointmentFromEncounter(index.encounters, allEncounterIds) || findAppointment(entries, patient?.id);
   
