@@ -107,7 +107,7 @@ async function fetchObservationsByEncounter(encounterIds, token) {
     const map = new Map();
     const bundle = await fetchMainResourcesParallel(
         "Observation",
-        { encounter: encounterIds.join(","), _count: 1000 },
+        { encounter: encounterIds.join(","), _count: 1000, _total: "accurate" },
         token
     );
 
@@ -194,8 +194,8 @@ function buildRecord(patient, obs, locationMap, encounter, facilityName) {
 
 async function fetchAllEncounters(token, screeningSiteIds) {
     const [screening, facility] = await Promise.all([
-        fetchMainResourcesParallel("Encounter", { type: ENCOUNTER_CODES.SCREENING, location: screeningSiteIds, _sort: "-date", _count: 1000 }, token),
-        fetchMainResourcesParallel("Encounter", { type: ENCOUNTER_CODES.FACILITY, _sort: "-date", _count: 1000 }, token)
+        fetchMainResourcesParallel("Encounter", { type: ENCOUNTER_CODES.SCREENING, location: screeningSiteIds, _sort: "-date", _count: 1000, _total: "accurate" }, token),
+        fetchMainResourcesParallel("Encounter", { type: ENCOUNTER_CODES.FACILITY, _sort: "-date", _count: 1000, _total: "accurate" }, token)
     ]);
     return {
         screening: (screening.entry || []).map(e => e.resource),
@@ -237,23 +237,19 @@ function buildFacilityMap(facilityEncounters, locationMap) {
 }
 
 function processScreeningEncounters(screeningEncounters, patientMap, obsMap, locationMap, facilityMap) {
-    const dedupMap = new Map();
+    const records = [];
     for (const enc of screeningEncounters) {
         const patientId = getIdFromRef(enc.subject);
         if (!patientId) continue;
         const patient = patientMap.get(patientId);
         if (!patient) continue;
 
-        const screeningDate = getExtensionValue(enc, "screening-date");
-        const existing = dedupMap.get(patientId);
-        if (existing && new Date(screeningDate) <= new Date(existing.screeningDate)) continue;
-
         const obs = obsMap.get(enc.id) || {};
         const facility = facilityMap.get(patientId);
         const record = buildRecord(patient, obs, locationMap, enc, facility);
-        dedupMap.set(patientId, record);
+        records.push(record);
     }
-    return dedupMap;
+    return records;
 }
 
 async function getScreeningSiteDashboard(req, res) {
@@ -266,6 +262,7 @@ async function getScreeningSiteDashboard(req, res) {
         if (!allEncounters.length) return res.json({ status: 1, data: [], total: 0 });
 
         const { patientIds, locationIds } = collectIds(allEncounters);
+        
         const [patientMap, locationMap, obsMap] = await Promise.all([
             fetchPatientsById([...patientIds], token),
             fetchLocationsById([...locationIds], token),
@@ -276,7 +273,7 @@ async function getScreeningSiteDashboard(req, res) {
         const facilityMap = buildFacilityMap(facilityEncounters, locationMap);
         const dedupMap = processScreeningEncounters(screeningEncounters, patientMap, obsMap, locationMap, facilityMap);
 
-        return res.json({ status: 1, data: [...dedupMap.values()], total: dedupMap.size });
+        return res.json({ status: 1, data: dedupMap, total: dedupMap.length });
     } catch (error) {
         console.error("Dashboard Error:", error);
         return handleError(res, error);
