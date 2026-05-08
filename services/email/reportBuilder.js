@@ -733,7 +733,7 @@ function buildReport(entries, encounterIds, forceType = null) {
   else if (forceType === "facility") { isScreeningSite = false; isFacility = true; }
   
   const allEncounterIds = collectConnectedEncounters(targetIds, index.encounters);
-  const allEncounterIdsArr = [...allEncounterIds];
+  const allEncounterIdsArr = [...allEncounterIds].sort((a, b) => Number(a) - Number(b));;
   const encounterRefs = allEncounterIdsArr.map(id => `Encounter/${id}`);
   
   const screeningSiteRefs = index.screeningSiteEncounterRefs.filter(ref => encounterRefs.includes(ref));
