@@ -691,18 +691,35 @@ function buildFileDetails(patient, observation, name, forceType, primaryEncounte
 function getScreeningSiteId(primaryEncounter) {
   const locationRef = primaryEncounter?.location?.[0]?.location?.reference;
 
-  let screeningSiteId = null;
-
-  if (locationRef && locationRef.includes('/')) {
-    screeningSiteId = locationRef.split('/')[1];
+  if (!locationRef || !locationRef.includes('/')) {
+    throw new Error('Invalid or missing location reference in primaryEncounter');
   }
+
+  const screeningSiteId = locationRef.split('/')[1];
+
+  if (!screeningSiteId) {
+    throw new Error('screeningSiteId could not be extracted');
+  }
+
   return screeningSiteId;
 }
 
 function getPrimaryEncounter(id, encounters) {
-  if (!id || !Array.isArray(encounters)) return null;
+  if (!id) {
+    throw new Error('Encounter ID is required');
+  }
 
-  return encounters.find(encounter => encounter.id === id) || null;
+  if (!Array.isArray(encounters)) {
+    throw new Error('Encounters must be a valid array');
+  }
+
+  const encounter = encounters.find(e => e.id === id);
+
+  if (!encounter) {
+    throw new Error(`Primary encounter not found with id: ${id}`);
+  }
+
+  return encounter;
 }
 
 function buildReport(entries, encounterIds, forceType = null) {
