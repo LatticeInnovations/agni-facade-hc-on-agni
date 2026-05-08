@@ -36,14 +36,20 @@ async function buildAndSendReport(entries, patientId, encounterIds, forceType, e
   const htmlWithLogo = html.replace("LOGO_PLACEHOLDER", `data:image/png;base64,${logoBase64}`);
   const pdfBuffer = await generatePdf(htmlWithLogo);
 
-  // await savePdfToUploads(pdfBuffer, fileName, filePassword);
+  await savePdfToUploads(pdfBuffer, fileName, filePassword);
 
-  // const [/*reportToken*/, created] = await ReportToken.findOrCreate({
-  //   where: { appointmentId },
-  //   defaults: { token: uuidv4(), patientId, dob, fileName }
-  // });
+  const [/*reportToken*/, created] = await ReportToken.findOrCreate({
+  where: { appointmentId },
+  defaults: {
+      token: uuidv4(),
+      patientId,
+      dob,
+      fileName,
+      reportType: report.reportType,
+    }
+  });
 
-  // if (created) await saveDocumentReference(patientId, encounterId, fileName);
+  if (created) await saveDocumentReference(patientId, encounterId, fileName);
 
   if (!email) {
     console.log("Patient has no email");
