@@ -9,7 +9,11 @@ const getReportToken = async (req, res) => {
     let _count = parseInt(queryParams._count) || 200;
     let _lastUpdated = queryParams._lastUpdated;
 
-    let whereCondition = {};
+    let whereCondition = {
+      reportType: {
+        [Op.in]: ["facility", "screening-site"],
+      },
+    };
     
     if (_lastUpdated) {
       const operator = _lastUpdated.substring(0, 2); // ge, gt, le, lt
@@ -42,7 +46,7 @@ const getReportToken = async (req, res) => {
     let order = [["updatedAt", "ASC"]];
 
     const result = await model.ReportToken.findAndCountAll({
-      attributes: ["appointmentId", "token"],
+      attributes: ["appointmentId", "token", "reportType"],
       where: whereCondition,
       offset: _offset,
       limit: _count,
