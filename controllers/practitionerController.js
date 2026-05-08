@@ -201,6 +201,7 @@ let getPractitionerData = async function (req, res) {
         const token = req.accessToken;
         let resourceUrlData = { link: link, reqQuery: queryParams, allowNesting: 1, specialOffset: specialOffset }
         let responseData = await fetchResource("Practitioner", queryParams, token);
+        // console.log("response data: ", responseData)
         let resStatus = 1;
         if( !responseData.entry || responseData.total == 0) {
                 return res.status(200).json({ status: resStatus, message: "Data fetched", total: 0, data: []  })
@@ -209,14 +210,15 @@ let getPractitionerData = async function (req, res) {
             resStatus = bundleStructure.setResponse(resourceUrlData, responseData);
             // get practitionerRole
             const practitionerIds = responseData.entry.map(e=>e.resource.id).join(",");
-            
-            const practitionerRoleData = await fetchResource("PractitionerRole", {practitioner: practitionerIds, active:true}, token);
+            console.log("practitionerIds: ", practitionerIds)
+            const practitionerRoleData = await fetchResource("PractitionerRole", {practitioner: practitionerIds, active:true, _total: "accurate", _count: 5000}, token);
+            console.log("practitionerRoleData: ",  practitionerRoleData.entry.length, practitionerRoleData.total)
             for (let i = 0; i < responseData.entry.length; i++) {
                 let practitioner = getTransformedResult(Practitioner, responseData.entry[i].resource);
                 const roleResourceIndex = practitionerRoleData.entry.findIndex(e => e.resource.practitioner.reference.split("/")[1] == practitioner.fhirId)
                 // console.log("roleResource: ",practitionerRoleData.entry[roleResourceIndex], practitioner.fhirId)
                 const roleObj = getTransformedResult(PractitionerRole, practitionerRoleData?.entry?.[roleResourceIndex]?.resource || {})
-                console.log("roleObj: ", roleObj)
+                console.log("roleObj: ", roleObj, practitioner, roleResourceIndex)
                 practitioner.role = roleObj?.role || null;
                 practitioner.roleGroup = roleObj?.roleGroup || null;
                 practitioner.healthFacilityId = roleObj?.orgId || null
