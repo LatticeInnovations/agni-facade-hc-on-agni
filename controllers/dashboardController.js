@@ -57,7 +57,6 @@ const groupEncountersByPatient = (patientMap, encounters, type) => {
 
              patientMap[patientId][type].push({encounterId, facilityId: resource.serviceProvider.reference.split("/")[1]});
         });
-        console.log("patientMap 0: ", patientMap["368"].mainEncounters[0])
         return patientMap;
 }
 
