@@ -4,6 +4,16 @@ let config = require("../../config/nodeConfig");
 const base = config.baseUrl;
 let fhirClient = require("./fhirAxiosClient");
 
+function replaceBaseUrl(nextUrl, baseUrl) {
+  const parsedNext = new URL(nextUrl);
+  const parsedBase = new URL(baseUrl);
+
+  // Replace protocol + host
+  parsedNext.protocol = parsedBase.protocol;
+  parsedNext.host = parsedBase.host;
+
+  return parsedNext.toString();
+}
 async function fetchEverything(patientId) {
   let url = `${base}Patient/${patientId}/$everything?_count=200`;
   let allEntries = [];
@@ -15,7 +25,9 @@ async function fetchEverything(patientId) {
     allEntries = allEntries.concat(data.entry || []);
 
     const nextLink = data.link?.find(l => l.relation === "next");
-    url = nextLink ? nextLink.url : null;
+    url = nextLink?.url
+      ? replaceBaseUrl(nextLink.url, base)
+      : null;
   }
 
   return allEntries;
