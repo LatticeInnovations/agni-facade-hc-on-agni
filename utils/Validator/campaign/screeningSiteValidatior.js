@@ -23,18 +23,10 @@ const screeningSiteSchema = Joi.object({
         }),
 
     startDate: Joi.date()
-        .min("now")
-        .required()
-        .messages({
-            "date.min": "Start date must be today or future"
-        }),
+        .required(),
 
     endDate: Joi.date()
-        .min(Joi.ref("startDate"))
-        .required()
-        .messages({
-            "date.min": "End date must be after start date"
-        }),
+        .required(),
 
     location: Joi.object({
         type: Joi.string()
@@ -86,11 +78,7 @@ const screeningSiteUpdateSchema = Joi.object({
         .optional(),
 
     endDate: Joi.date()
-        .min(Joi.ref("startDate"))
-        .optional()
-        .messages({
-            "date.min": "End date must be after start date"
-        }),
+        .optional(),
 
     location: Joi.object({
         type: Joi.string()
