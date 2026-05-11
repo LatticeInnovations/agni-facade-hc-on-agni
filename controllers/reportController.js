@@ -2,6 +2,7 @@ const jwt = require("jsonwebtoken");
 const escapeHtml = require("escape-html");
 const { ReportToken } = require("../models");
 const facadeUrl = process.env.facadeUrl;
+const { fetchPatient } = require("../services/email/fhirService");
 
 const renderPage = ({ title, body }) => `
 <!DOCTYPE html>
@@ -82,7 +83,7 @@ exports.getAccessPage = async (req, res) => {
     title: "Download Report",
     body: `
       <h4>Enter Your DOB to Download Report</h4>
-      <form method="POST" action="${facadeUrl}/v1/verify">
+      <form method="POST" action="${facadeUrl}api/v1/verify">
         <input type="hidden" name="token" value="${escapeHtml(token)}" />
         <input name="dob" placeholder="YYYY-MM-DD" required />
         <button type="submit">Submit</button>
@@ -115,7 +116,9 @@ exports.verifyDob = async (req, res) => {
         }));
     }
 
-  if (report.dob !== dob) {
+  const patient = await fetchPatient(report.patientId);
+
+  if (patient.birthDate !== dob) {
       return res.send(renderPage({
         title: "Error",
         body: `<p class="error">Incorrect DOB</p>`
@@ -128,17 +131,11 @@ exports.verifyDob = async (req, res) => {
     { expiresIn: '10m' }
   );
 
-  const signedUrl = `${facadeUrl}/v1/download/${signedToken}`;
+  const signedUrl = `${facadeUrl}api/v1/download/${signedToken}`;
 
   const html = renderPage({
       title: "Download Report",
       body: `
-        <h4>This report is password protected for your privacy.</h4>
-        <h5>
-            <p>Enter the password using first 4 letters of your name (UPPERCASE) + DOB (DDMM)</p>
-            <p>Example: <strong>ROHA0803</strong> (Rohan, 8 March)</p>
-        </h5>
-
         <form method="GET" action="${escapeHtml(signedUrl)}">
           <button>Download Report</button>
         </form>

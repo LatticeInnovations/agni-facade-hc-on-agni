@@ -25,7 +25,7 @@ async function runSync() {
 
 // Every Sunday at midnight
 
-cron.schedule("0 0 1,15 * *", runSync, {
+cron.schedule("0 0 * * 0,3", runSync, {
   timezone: "Pacific/Efate"
 });
 

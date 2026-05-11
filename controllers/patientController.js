@@ -54,15 +54,7 @@ let savePatientData = async function (req, res) {
         });
         if (response.status == 200 || response.status == 201) {
             let resourceResponse = setPatientSaveResponse(bundleData.bundle.entry, response.data.entry, "post");
-            let responseData = [...resourceResponse, ...bundleData.errData];
-            await saveToken(token);
-            const patientIds = response.data.entry
-                .filter(e => e.response?.location?.includes("Patient"))
-                .map(e => e.response.location.split("/")[1]);
-
-            for (const patientId of patientIds) {
-                await publishReportJob(patientId);
-            }   
+            let responseData = [...resourceResponse, ...bundleData.errData];  
             return res.status(201).json({ status: 1, message: "Patient data saved.", data: responseData })
         }
         else {
@@ -128,11 +120,6 @@ let updatePatientData = async function (req, res) {
         });
         console.log("get bundle json response: ", response.status)
         if (response.status == 200 || response.status == 201) {
-            const patientIds = [...new Set(req.body.map(p => p.fhirId))];
-            await saveToken(token);
-            for (const patientId of patientIds) {
-                await publishReportJob(patientId);
-            }
             let resourceResponse = setPatientSaveResponse(bundleData.bundle.entry, response.data.entry, "put");
             let responseData = [...resourceResponse, ...bundleData.errData];
             res.status(201).json({ status: 1, message: "Patient data updated.", data: responseData })

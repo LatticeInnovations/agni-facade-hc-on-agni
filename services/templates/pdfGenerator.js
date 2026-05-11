@@ -2,8 +2,6 @@ const puppeteer = require("puppeteer");
 const fs = require('fs');
 const path = require('path');
 
-const { exec } = require("child_process");
-
 async function generatePdf(html) {
 
 const browser = await puppeteer.launch({
@@ -35,7 +33,7 @@ return pdf;
 
 }
 
-async function savePdfToUploads(pdfBuffer, fileName, password) {
+async function savePdfToUploads(pdfBuffer, fileName) {
   try {
     const uploadsDir = path.join(process.cwd(), "uploads");
 
@@ -43,26 +41,11 @@ async function savePdfToUploads(pdfBuffer, fileName, password) {
       fs.mkdirSync(uploadsDir, { recursive: true });
     }
 
-    const tempPath = path.join(uploadsDir, `temp-${fileName}`);
     const finalPath = path.join(uploadsDir, fileName);
 
-    // Save temp PDF
-    await fs.promises.writeFile(tempPath, pdfBuffer);
+    await fs.promises.writeFile(finalPath, pdfBuffer);
 
-    // Encrypt using qpdf
-    const command = `qpdf --encrypt "${password}" "${password}" 256 -- "${tempPath}" "${finalPath}"`;
-
-    await new Promise((resolve, reject) => {
-      exec(command, (error, stdout, stderr) => {
-        if (error) return reject(error);
-        resolve();
-      });
-    });
-
-    // Remove temp file
-    fs.unlinkSync(tempPath);
-
-    console.log(`Protected PDF saved at: ${finalPath}`);
+    console.log(`PDF saved at: ${finalPath}`);
     return finalPath;
 
   } catch (error) {
