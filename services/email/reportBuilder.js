@@ -243,7 +243,7 @@ function getVital(entries, text, ctx) {
   if (!ctx.observations) return "--";
   const filtered = filterByEncounter(ctx.observations, ctx.encounterRefs);
   const obs = filtered.find(o =>
-    o.category?.some(c => c.coding?.some(cd => cd.code === "vital-signs")) &&
+    o.category?.some(c => c.coding?.some(cd => cd.code === "vital-signs" || cd.code === "Vital")) &&
     o.component?.some(c => c.code?.text === text)
   );
   if (!obs) return "--";
