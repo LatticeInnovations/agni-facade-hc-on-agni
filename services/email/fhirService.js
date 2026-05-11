@@ -33,4 +33,14 @@ async function fetchEverything(patientId) {
   return allEntries;
 }
 
-module.exports = { fetchEverything };
+async function fetchPatient(patientId) {
+  try {
+    const res = await fhirClient.get(`${base}Patient/${patientId}`);
+    return res.data;
+  } catch (error) {
+    console.error("Error fetching patient:", error.response?.data || error.message);
+    throw error;
+  }
+}
+
+module.exports = { fetchEverything, fetchPatient };
