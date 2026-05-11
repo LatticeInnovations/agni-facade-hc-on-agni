@@ -63,10 +63,10 @@ function buildEncounterRefs(encounters) {
   };
 }
 
-function filterByEncounterType(encounters, typeCode, isIncludes = false) {
+function filterByEncounterType(encounters, typeCode, isExact = false) {
   return encounters.filter(e =>
     e.type?.[0]?.coding?.some(c =>
-      isIncludes ? c.code?.includes(typeCode) : ENCOUNTER_TYPES.FACILITY.has(c.code)
+      isExact ? c.code === typeCode : ENCOUNTER_TYPES.FACILITY.has(c.code)
     )
   ).map(e => `Encounter/${e.id}`);
 }
@@ -101,6 +101,12 @@ function buildOrgMap(orgs) {
   return map;
 }
 
+function filterScreeningSiteEncounters(encounters) {
+  return encounters.filter(e =>
+    e.type?.[0]?.coding?.some(c => c.code && c.code.includes(ENCOUNTER_TYPES.SCREENING_SITE))
+  ).map(e => `Encounter/${e.id}`);
+}
+
 function buildEntryIndex(entries) {
   if (!entries || !Array.isArray(entries)) {
     return {
@@ -116,7 +122,7 @@ function buildEntryIndex(entries) {
 
   return {
     byType: {}, encounterRefs: refs, allEncounterIds: allIds, allEncounterIdSet: allIdSet,
-    screeningSiteEncounterRefs: filterByEncounterType(enc, ENCOUNTER_TYPES.SCREENING_SITE, true),
+    screeningSiteEncounterRefs: filterScreeningSiteEncounters(enc),
     facilityEncounterRefs: filterByEncounterType(enc, null, false),
     questionnaireCodeMaps: buildQuestionnaireMaps(questionnaire),
     activityDefinitionMap: buildActivityMap(activity),
@@ -399,7 +405,8 @@ function getRiskFactors(entries, ctx) {
 }
 
 function getTobaccoCessation(entries, ctx) {
-  const response = filterByEncounter(ctx.questionnaireResponses, ctx.encounterRefs).find(r => r.item?.some(i => i.linkId === "tobaccoUse"));
+  const allRefs = [...(ctx.screeningSiteEncounterRefs || []), ...(ctx.facilityEncounterRefs || [])];
+  const response = filterByEncounter(ctx.questionnaireResponses, allRefs).find(r => r.item?.some(i => i.linkId === "tobaccoUse"));
   if (!response) {
     return {
       tobaccoUse: "--",
@@ -414,14 +421,16 @@ function getTobaccoCessation(entries, ctx) {
   const getItem = (id) => response.item?.find(i => i.linkId === id)?.answer?.[0];
   const tobaccoCode = getItem("tobaccoUse")?.valueCoding?.code;
   const tobaccoUseMap = { "1": "Yes, every day", "2": "Yes, sometimes", "3": "No" };
-  const assistMap = { "1": "Yes", "2": "No" };
-  const planStatusMap = { "1": "Active", "2": "Not started", "3": "Completed" };
+  const assistMap = { "1": "Yes, brief quit plan", "2": "Yes, intensive quit plan", "3": "No", "4": "Refer to intensive counselling" };
+  const planStatusMap = { "1": "Active", "2": "Completed", "3": "Abandoned" };
+  const pharmaMap = { "1": "Nicotine Replacement Therapy", "2": "Other", "3": "No" };
+  const pharmaValue = getItem("pharmacotherapy")?.valueCoding?.code;
   return {
     tobaccoUse: tobaccoUseMap[tobaccoCode] || "--",
     briefAdvice: getItem("briefAdvice")?.valueBoolean === true ? "Yes" : "No",
     assessedStatus: getItem("assessedStatus")?.valueBoolean === true ? "Yes" : "No",
     assistQuit: assistMap[getItem("assistQuit")?.valueCoding?.code] || "--",
-    pharmacotherapy: getItem("pharmacotherapy")?.valueBoolean === true ? "Yes" : "--",
+    pharmacotherapy: pharmaValue ? (pharmaMap[pharmaValue] || "--") : "--",
     dateOfPlan: getItem("dateOfPlan")?.valueDate ? new Date(getItem("dateOfPlan").valueDate).toLocaleDateString("en-GB") : "--",
     planStatus: planStatusMap[getItem("planStatus")?.valueCoding?.code] || "--"
   };
@@ -577,16 +586,6 @@ function getRiskLevel(value) {
   return "Very High";
 }
 
-function findMainEncounter(encounters, targetIds) {
-  return encounters.find(e => targetIds.includes(String(e.id)));
-}
-
-function determineEncounterType(mainEncounter) {
-  const hasLocation = mainEncounter?.location && mainEncounter.location.length > 0;
-  const hasProvider = mainEncounter?.serviceProvider && (!mainEncounter.location || mainEncounter.location.length === 0);
-  return { isScreeningSite: hasLocation, isFacility: hasProvider };
-}
-
 function getPartOfId(enc) {
   return enc.partOf?.reference?.split("/")[1];
 }
@@ -725,26 +724,49 @@ function getPrimaryEncounter(id, encounters) {
 function buildReport(entries, encounterIds, forceType = null) {
   const patient = findPatient(entries);
   const index = buildEntryIndex(entries);
-  const targetIds = (Array.isArray(encounterIds) ? encounterIds : [encounterIds]).map(String);
-  const mainEncounter = findMainEncounter(index.encounters, targetIds);
+  let targetIds = (Array.isArray(encounterIds) ? encounterIds : [encounterIds]).map(String);
   
-  let { isScreeningSite, isFacility } = determineEncounterType(mainEncounter);
-  if (forceType === "screening-site") { isScreeningSite = true; isFacility = false; }
-  else if (forceType === "facility") { isScreeningSite = false; isFacility = true; }
+  const encounterIdSet = new Set(index.encounters.map(e => e.id));
+  const qrMap = new Map();
+  index.questionnaireResponses.forEach(qr => {
+    const encRef = qr.encounter?.reference?.split("/")[1];
+    if (encRef) qrMap.set(qr.id, encRef);
+  });
+  
+  targetIds = targetIds.map(id => {
+    if (encounterIdSet.has(id)) return id;
+    return qrMap.get(id) || id;
+  }).filter((id, idx, arr) => arr.indexOf(id) === idx);
   
   const allEncounterIds = collectConnectedEncounters(targetIds, index.encounters);
-  const allEncounterIdsArr = [...allEncounterIds].sort((a, b) => Number(a) - Number(b));;
+  const allEncounterIdsArr = [...allEncounterIds].sort((a, b) => Number(a) - Number(b));
   const encounterRefs = allEncounterIdsArr.map(id => `Encounter/${id}`);
   
   const screeningSiteRefs = index.screeningSiteEncounterRefs.filter(ref => encounterRefs.includes(ref));
   const facilityRefs = index.facilityEncounterRefs.filter(ref => encounterRefs.includes(ref));
-  let effectiveRefs;
-  if (isScreeningSite) {
+  
+  const hasScreeningDirectly = targetIds.some(id => screeningSiteRefs.includes(`Encounter/${id}`));
+  const hasFacilityDirectly = targetIds.some(id => facilityRefs.includes(`Encounter/${id}`));
+  
+  let effectiveRefs = encounterRefs;
+  if (forceType === "screening-site" || (hasScreeningDirectly && !hasFacilityDirectly)) {
     effectiveRefs = screeningSiteRefs;
-  } else if (isFacility) {
+  } else if (forceType === "facility" || (hasFacilityDirectly && !hasScreeningDirectly)) {
     effectiveRefs = facilityRefs;
-  } else {
-    effectiveRefs = encounterRefs;
+  }
+  
+  if (effectiveRefs.length === 0) {
+    return {
+      report: { name: "--" },
+      fileName: "--",
+      filePassword: "--",
+      appointmentId: null,
+      encounterId: null,
+      dob: null,
+      hasData: false,
+      hasScreening: false,
+      hasFacility: false
+    };
   }
   
   const filteredObs = filterByEncounter(index.observations, effectiveRefs);
@@ -795,13 +817,21 @@ function buildReport(entries, encounterIds, forceType = null) {
     examination: buildServiceRequestHTML(services),
     intervention: buildInterventionHTML(interventions),
     facility: getHealthFacility(entries, ctx),
-    reportType: forceType || (isScreeningSite ? "screening-site" :"facility")
+    reportType: forceType || (effectiveRefs === screeningSiteRefs ? "screening-site" : "facility")
   };
   
   report.guidance = buildWHOGuidance(report);
   report.personalSummary = buildPersonalSummary(report);
 
-  const primaryEncounter = getPrimaryEncounter(allEncounterIdsFiltered[0], index.encounters)
+  const primaryEncounterId = allEncounterIdsFiltered[0];
+  let primaryEncounter = null;
+  if (primaryEncounterId) {
+    try {
+      primaryEncounter = getPrimaryEncounter(primaryEncounterId, index.encounters);
+    } catch (e) {
+      console.warn("Primary encounter not found:", primaryEncounterId, e.message);
+    }
+  }
   
   const { fileName, filePassword } = buildFileDetails(patient, name, forceType, primaryEncounter);
   
