@@ -207,6 +207,8 @@ async function handleExistingVitalEncounter({ vital, vitalEncounter, baseEncount
               encounterId: "Encounter/" + existingEncounter.id,
               practitionerId,
               patientId: vital.patientId,
+              categoryCode: "Vital",
+              categoryDisplay: "Vital assessment",
               appUpdatedDate: vital.appUpdatedDate
             }, key, "put", "Vital")
           })
