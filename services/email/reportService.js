@@ -25,12 +25,12 @@ async function fetchResourceTimestamp(entries) {
   );
 }
 
-async function buildAndSendReport(entries, patientId, encounterIds, forceType, email, preBuiltReport) {
-  const { report, fileName, filePassword, appointmentId, encounterId, dob } = preBuiltReport;
+async function buildAndSendReport(entries, patientId, encounterIds, forceType, email, preBuiltReport, locationName = null) {
+  const { report, fileName, appointmentId, encounterId, dob } = preBuiltReport;
   const template = fs.readFileSync(templatePath, "utf8");
-
+  
   const html = template.replace(/\$\{data\.(.*?)\}/g, (match, key) => {
-    const value = key.split('.').reduce((obj, k) => obj?.[k], report);
+    const value = key.trim().split('.').reduce((obj, k) => obj?.[k], report);
     return value ?? "--";
   });
   const htmlWithLogo = html.replace("LOGO_PLACEHOLDER", `data:image/png;base64,${logoBase64}`);
@@ -72,7 +72,7 @@ async function buildAndSendReport(entries, patientId, encounterIds, forceType, e
   const contentMap = {
     "screening-site": `
       <p>Dear ${report.name},</p>
-      <p>Thank you for participating in our HeartCare community screening program. Your screening results from ${report.visitDate} are attached.</p>
+      <p>Thank you for participating in our HeartCare community screening program.${locationName ? ` Your screening was conducted at <strong>${locationName}</strong>.` : ''} Your screening results from ${report.visitDate} are attached.</p>
       <p>This screening helps identify potential risk factors. Based on your results, you may be referred to a health facility for further evaluation if needed.</p>
       <p>Please review the attached report and contact us if you have any questions.</p>
       <p>Wishing you good health,<br>HeartCare Team</p>`,
@@ -97,12 +97,57 @@ async function buildAndSendReport(entries, patientId, encounterIds, forceType, e
   return { fileName, report };
 }
 
-async function generateReport(patientId, encounterIds) {
-  const entries = await fetchEverything(patientId);
-  const email = extractEmail(entries);
+async function fetchWithRetry(patientId, maxRetries = 3, delayMs = 2000) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    console.log(`Fetching data (attempt ${attempt}/${maxRetries})...`);
+    const entries = await fetchEverything(patientId);
+    const observations = entries.filter(e => e.resource?.resourceType === "Observation");
+    const encounters = entries.filter(e => e.resource?.resourceType === "Encounter");
+    
+    if (observations.length > 0 || encounters.length > 0) {
+      console.log(`Data found: ${observations.length} observations, ${encounters.length} encounters`);
+      return entries;
+    }
+    
+    if (attempt < maxRetries) {
+      console.log(`No data found, retrying in ${delayMs}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+  }
+  return await fetchEverything(patientId);
+}
+
+function groupEncountersByLocation(encounters) {
+  const locationGroups = new Map();
   
-  console.log("Fetching FHIR data for patient", patientId);
-  console.log("Email extracted:", email);
+  encounters.forEach(enc => {
+    const resource = enc.resource || enc;
+    if (resource.type && resource.type[0] && resource.type[0].coding && 
+        resource.type[0].coding.some(c => c.code && c.code.includes("screening-site"))) {
+      const locationRef = resource.location && resource.location[0] && resource.location[0].location && resource.location[0].location.reference;
+      if (locationRef) {
+        if (!locationGroups.has(locationRef)) {
+          locationGroups.set(locationRef, []);
+        }
+        locationGroups.get(locationRef).push(resource.id);
+      }
+    }
+  });
+  
+  return locationGroups;
+}
+
+function getLocationName(entries, locationRef) {
+  const locationEntry = entries.find(e => 
+    e.fullUrl?.includes(`/Location/`) && 
+    e.resource?.id === locationRef?.split("/")[1]
+  );
+  return locationEntry?.resource?.name || null;
+}
+
+async function generateReport(patientId, encounterIds) {
+  const entries = await fetchWithRetry(patientId);
+  const email = extractEmail(entries);
 
   const lastSent = await getLastReport(patientId);
   const latestUpdate = await fetchResourceTimestamp(entries);
@@ -122,17 +167,26 @@ async function generateReport(patientId, encounterIds) {
     return;
   }
 
-  if (hasScreening && hasFacility) {
-    console.log("Generating both reports...");
-    const screeningReport = buildReport(entries, encounterIds, "screening-site");
-    const facilityReport = buildReport(entries, encounterIds, "facility");
-    await buildAndSendReport(entries, patientId, encounterIds, "screening-site", email, screeningReport);
-    await buildAndSendReport(entries, patientId, encounterIds, "facility", email, facilityReport);
-  } else if (hasScreening) {
-    const screeningReport = buildReport(entries, encounterIds, "screening-site");
-    console.log("Generating screening-site report...");
-    await buildAndSendReport(entries, patientId, encounterIds, "screening-site", email, screeningReport);
-  } else if (hasFacility) {
+  const encounters = entries.filter(e => e.resource?.resourceType === "Encounter");
+  
+  if (hasScreening) {
+    const locationGroups = groupEncountersByLocation(encounters);
+    console.log(`Found ${locationGroups.size} unique screening locations`);
+    console.log(`Location groups:`, [...locationGroups.keys()]);
+    
+    for (const [locationRef, locationEncounterIds] of locationGroups) {
+      const locationName = getLocationName(entries, locationRef);
+      console.log(`Generating report for location: ${locationRef} (${locationName || 'Unknown'})`);
+      const screeningReport = buildReport(entries, locationEncounterIds, "screening-site");
+      
+      if (screeningReport.hasData) {
+        await buildAndSendReport(entries, patientId, locationEncounterIds, "screening-site", email, screeningReport, locationName);
+        console.log(`Email sent for location: ${locationRef} (${locationName || 'Unknown'})`);
+      }
+    }
+  }
+
+  if (hasFacility) {
     const facilityReport = buildReport(entries, encounterIds, "facility");
     console.log("Generating facility report...");
     await buildAndSendReport(entries, patientId, encounterIds, "facility", email, facilityReport);

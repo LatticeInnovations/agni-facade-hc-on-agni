@@ -1,6 +1,15 @@
 require("./fhirAxiosClient");
 const { reverseCodeMap } = require("../../controllers/priorDxController");
 const { buildWHOGuidance, buildPersonalSummary } = require("./helperService");
+const QUESTIONNAIRE_MAPPING = require("./questionnaireMapping.json");
+const heartCareIdUrl = require("../../utils/heartcareSystemUrl").heartCareIdUrl;
+
+const SECTION_ID_MAP = Object.freeze({
+  fruitsVegetables: "fruitVegetable",
+  fatAndOil: "fatsOils",
+  sugar: "sugars",
+  mealsOutsideHome: "mealsNotFromHomeGroup"
+});
 
 function val(v) {
   return v ?? "--";
@@ -71,22 +80,131 @@ function filterByEncounterType(encounters, typeCode, isExact = false) {
   ).map(e => `Encounter/${e.id}`);
 }
 
-function buildQuestionnaireMaps(questionnaires) {
-  const maps = {};
-  questionnaires.forEach(q => {
-    q.item?.forEach(item => {
-      if (!item.linkId || !item.answerOption) return;
-      const map = {};
-      item.answerOption.forEach(opt => {
-        const coding = opt.valueCoding || opt.valueInteger;
-        if (!coding) return;
-        const code = coding.code === undefined ? code : coding.code;
-        map[code] = coding.display === undefined ? code : coding.display;
-      });
-      if (Object.keys(map).length > 0) maps[item.linkId] = map;
-    });
-  });
-  return maps;
+function normalizeSectionId(sectionId) {
+  return SECTION_ID_MAP[sectionId] || sectionId;
+}
+
+function lookupAnswer(sectionId, questionId, answer) {
+  if (!answer) return "--";
+  
+  const normalizedSection = normalizeSectionId(sectionId);
+  const mapping = QUESTIONNAIRE_MAPPING[normalizedSection];
+  if (!mapping) return "--";
+  
+  const fieldMapping = mapping[questionId];
+  
+  if (answer.valueBoolean !== undefined) {
+    if (fieldMapping && Object.keys(fieldMapping).length > 0) {
+      return fieldMapping[String(answer.valueBoolean)] ?? (answer.valueBoolean ? "Yes" : "No");
+    }
+    return answer.valueBoolean ? "Yes" : "No";
+  }
+  if (answer.valueString !== undefined) {
+    if (fieldMapping && Object.keys(fieldMapping).length > 0) {
+      return fieldMapping[answer.valueString] ?? answer.valueString;
+    }
+    return answer.valueString;
+  }
+  if (answer.valueInteger !== undefined) {
+    if (fieldMapping && Object.keys(fieldMapping).length > 0) {
+      return fieldMapping[String(answer.valueInteger)] ?? fieldMapping[answer.valueInteger] ?? String(answer.valueInteger);
+    }
+    return String(answer.valueInteger);
+  }
+  if (answer.valueCoding?.code) {
+    if (fieldMapping && Object.keys(fieldMapping).length > 0) {
+      return fieldMapping[answer.valueCoding.code] ?? answer.valueCoding.display ?? answer.valueCoding.code;
+    }
+    return answer.valueCoding.display ?? answer.valueCoding.code;
+  }
+  
+  return "--";
+}
+
+function findQuestionInResponse(response, sectionId, questionId) {
+  if (!response?.item) return null;
+  
+  const section = response.item.find(i => i.linkId === sectionId);
+  if (section) {
+    if (section.item?.length) {
+      return section.item.find(i => i.linkId === questionId);
+    }
+    return section;
+  }
+  
+  return response.item.find(i => i.linkId === questionId);
+}
+
+function getRiskAnswer(responses, sectionId, questionId, ctx) {
+  const targetRefs = new Set(ctx.encounterRefs || []);
+  const facilityRefs = new Set(ctx.facilityEncounterRefs || []);
+  const combinedRefs = new Set([...targetRefs, ...facilityRefs]);
+  
+  const allResponses = (responses || []).filter(r => 
+    r.encounter?.reference && combinedRefs.has(r.encounter.reference)
+  );
+  
+  const response = allResponses.find(r => r.item?.some(i => i.linkId === sectionId));
+  if (!response) return "--";
+  
+  const question = findQuestionInResponse(response, sectionId, questionId);
+  if (!question?.answer?.length) return "--";
+  
+  return lookupAnswer(sectionId, questionId, question.answer[0]);
+}
+
+function getRiskFactors(entries, ctx) {
+  const result = {
+    tobacco: {
+      tobaccoUser: getRiskAnswer(ctx.questionnaireResponses, "tobacco", "tobaccoUser", ctx),
+      productUsed: getRiskAnswer(ctx.questionnaireResponses, "tobacco", "tobaccoItemType", ctx),
+      startAge: getRiskAnswer(ctx.questionnaireResponses, "tobacco", "startAge", ctx),
+      dailyUse: getRiskAnswer(ctx.questionnaireResponses, "tobacco", "consumptionAmount", ctx),
+      consumptionUnit: getRiskAnswer(ctx.questionnaireResponses, "tobacco", "consumptionUnit", ctx),
+      willingToQuit: getRiskAnswer(ctx.questionnaireResponses, "tobacco", "willingToQuit", ctx),
+    },
+    alcohol: {
+      consumedWithin30Days: getRiskAnswer(ctx.questionnaireResponses, "alcohol", "consumedWithin30Days", ctx),
+      drinkOccasion: getRiskAnswer(ctx.questionnaireResponses, "alcohol", "alcoholQ1", ctx),
+      drinksPerOccasion: getRiskAnswer(ctx.questionnaireResponses, "alcohol", "alcoholQ2", ctx),
+      sixOrMoreDrinks: getRiskAnswer(ctx.questionnaireResponses, "alcohol", "alcoholQ3", ctx)
+    },
+    fruitsVegetables: {
+      eatWeekly: getRiskAnswer(ctx.questionnaireResponses, "fruitsVegetables", "consumptionInWeek", ctx),
+      fruitsDays: getRiskAnswer(ctx.questionnaireResponses, "fruitsVegetables", "fruitsDays", ctx),
+      fruitServings: getRiskAnswer(ctx.questionnaireResponses, "fruitsVegetables", "fruitServings", ctx),
+      vegDays: getRiskAnswer(ctx.questionnaireResponses, "fruitsVegetables", "vegetableDays", ctx),
+      vegServings: getRiskAnswer(ctx.questionnaireResponses, "fruitsVegetables", "vegetableServings", ctx)
+    },
+    physicalActivity: {
+      weeklyEngagement: getRiskAnswer(ctx.questionnaireResponses, "physicalActivity", "weeklyEngagement", ctx),
+      vigorousDays: getRiskAnswer(ctx.questionnaireResponses, "physicalActivity", "vigorousDays", ctx),
+      vigorousTime: getRiskAnswer(ctx.questionnaireResponses, "physicalActivity", "vigorousTime", ctx),
+      moderateDays: getRiskAnswer(ctx.questionnaireResponses, "physicalActivity", "moderateDays", ctx),
+      moderateTime: getRiskAnswer(ctx.questionnaireResponses, "physicalActivity", "moderateTime", ctx),
+    },
+    salt: {
+      saltAmount: getRiskAnswer(ctx.questionnaireResponses, "salt", "saltAmount", ctx),
+      saltAddMeal: getRiskAnswer(ctx.questionnaireResponses, "salt", "saltAddMeal", ctx),
+      saltAddCooking: getRiskAnswer(ctx.questionnaireResponses, "salt", "saltAddCooking", ctx),
+      processedFood: getRiskAnswer(ctx.questionnaireResponses, "salt", "saltProcessedFood", ctx)
+    },
+    fats: {
+      oilUsed: getRiskAnswer(ctx.questionnaireResponses, "fatAndOil", "oilUsed", ctx),
+      fatFoodFrequency: getRiskAnswer(ctx.questionnaireResponses, "fatAndOil", "fatFoodFrequency", ctx),
+      otherFat: getRiskAnswer(ctx.questionnaireResponses, "fatAndOil", "otherFatAndOils", ctx)
+    },
+    sugar: {
+      softDrink: getRiskAnswer(ctx.questionnaireResponses, "sugar", "softDrinkFrequency", ctx),
+      juice: getRiskAnswer(ctx.questionnaireResponses, "sugar", "juiceFrequency", ctx)
+    },
+    mealsOutside: {
+      eatsOut: getRiskAnswer(ctx.questionnaireResponses, "mealsOutsideHome", "eatsOut", ctx),
+      mealsPerWeek: getRiskAnswer(ctx.questionnaireResponses, "mealsOutsideHome", "mealsPerWeek", ctx),
+    }
+  };
+  
+return result;
 }
 
 function buildActivityMap(activityDefs) {
@@ -117,14 +235,14 @@ function buildEntryIndex(entries) {
     };
   }
 
-  const { enc, obs, cond, qr, mr, sr, questionnaire, activity, org } = categorizeEntries(entries);
+  const { enc, obs, cond, qr, mr, sr, activity, org } = categorizeEntries(entries);
   const { allIds, allIdSet, refs } = buildEncounterRefs(enc);
 
   return {
     byType: {}, encounterRefs: refs, allEncounterIds: allIds, allEncounterIdSet: allIdSet,
     screeningSiteEncounterRefs: filterScreeningSiteEncounters(enc),
     facilityEncounterRefs: filterByEncounterType(enc, null, false),
-    questionnaireCodeMaps: buildQuestionnaireMaps(questionnaire),
+    questionnaireCodeMaps: {},
     activityDefinitionMap: buildActivityMap(activity),
     organizationMap: buildOrgMap(org),
     observations: obs, conditions: cond, questionnaireResponses: qr,
@@ -310,9 +428,8 @@ function getSideEffects(entries, ctx) {
 function getAdherence(entries, ctx) {
   const response = getLatestQuestionnaireResponse(ctx.questionnaireResponses, "Adherence", ctx);
   if (!response) return "--";
-  const codeMap = ctx.questionnaireCodeMaps["Adherence"] || {};
-  const code = response.item.find(i => i.linkId === "Adherence")?.answer?.[0]?.valueCoding?.code;
-  return codeMap[String(code)] || codeMap[code] || "--";
+  const ans = response.item.find(i => i.linkId === "Adherence")?.answer?.[0];
+  return lookupAnswer("Adherence", "Adherence", ans);
 }
 
 function getFamilyHistory(entries, ctx) {
@@ -334,74 +451,6 @@ function getAllergies(entries, ctx) {
   const texts = [];
   filtered.forEach(a => a.note?.forEach(n => { if (n.text) texts.push(n.text); }));
   return texts.length ? texts.join(", ") : "--";
-}
-
-function getRiskAnswer(responses, sectionId, questionId, ctx) {
-  const targetRefs = new Set(ctx.encounterRefs || ctx.facilityEncounterRefs || []);
-  const allResponses = (responses || []).filter(r => 
-    r.encounter?.reference && targetRefs.has(r.encounter.reference)
-  );
-  const response = allResponses.find(r => r.item?.some(i => i.linkId === sectionId));
-  if (!response) return "--";
-  const section = response.item.find(i => i.linkId === sectionId);
-  if (!section?.item) return "--";
-  const question = section.item.find(i => i.linkId === questionId);
-  if (!question?.answer?.length) return "--";
-  const ans = question.answer[0];
-  if (ans.valueBoolean !== undefined) return ans.valueBoolean ? "Yes" : "No";
-  return ans.valueString ?? ans.valueInteger ?? ans.valueCoding?.display ?? ans.valueCoding?.code ?? "--";
-}
-
-function getRiskFactors(entries, ctx) {
-  return {
-    tobacco: {
-      tobaccoUser: getRiskAnswer(ctx.questionnaireResponses, "tobacco", "tobaccoUser", ctx),
-      productUsed: getRiskAnswer(ctx.questionnaireResponses, "tobacco", "tobaccoItemType", ctx),
-      startAge: getRiskAnswer(ctx.questionnaireResponses, "tobacco", "startAge", ctx),
-      dailyUse: getRiskAnswer(ctx.questionnaireResponses, "tobacco", "consumptionAmount", ctx),
-      consumptionUnit: getRiskAnswer(ctx.questionnaireResponses, "tobacco", "consumptionUnit", ctx),
-      willingToQuit: getRiskAnswer(ctx.questionnaireResponses, "tobacco", "willingToQuit", ctx),
-    },
-    alcohol: {
-      consumedWithin30Days: getRiskAnswer(ctx.questionnaireResponses, "alcohol", "consumedWithin30Days", ctx),
-      drinkOccasion: getRiskAnswer(ctx.questionnaireResponses, "alcohol", "alcoholQ1", ctx),
-      drinksPerOccasion: getRiskAnswer(ctx.questionnaireResponses, "alcohol", "alcoholQ2", ctx),
-      sixOrMoreDrinks: getRiskAnswer(ctx.questionnaireResponses, "alcohol", "alcoholQ3", ctx)
-    },
-    fruitsVegetables: {
-      eatWeekly: getRiskAnswer(ctx.questionnaireResponses, "fruitsVegetables", "consumptionInWeek", ctx),
-      fruitsDays: getRiskAnswer(ctx.questionnaireResponses, "fruitsVegetables", "fruitsDays", ctx),
-      fruitServings: getRiskAnswer(ctx.questionnaireResponses, "fruitsVegetables", "fruitServings", ctx),
-      vegDays: getRiskAnswer(ctx.questionnaireResponses, "fruitsVegetables", "vegetableDays", ctx),
-      vegServings: getRiskAnswer(ctx.questionnaireResponses, "fruitsVegetables", "vegetableServings", ctx)
-    },
-    physicalActivity: {
-      weeklyEngagement: getRiskAnswer(ctx.questionnaireResponses, "physicalActivity", "weeklyEngagement", ctx),
-      vigorousDays: getRiskAnswer(ctx.questionnaireResponses, "physicalActivity", "vigorousDays", ctx),
-      vigorousTime: getRiskAnswer(ctx.questionnaireResponses, "physicalActivity", "vigorousTime", ctx),
-      moderateDays: getRiskAnswer(ctx.questionnaireResponses, "physicalActivity", "moderateDays", ctx),
-      moderateTime: getRiskAnswer(ctx.questionnaireResponses, "physicalActivity", "moderateTime", ctx),
-    },
-    salt: {
-      saltAmount: getRiskAnswer(ctx.questionnaireResponses, "salt", "saltAmount", ctx),
-      saltAddMeal: getRiskAnswer(ctx.questionnaireResponses, "salt", "saltAddMeal", ctx),
-      saltAddCooking: getRiskAnswer(ctx.questionnaireResponses, "salt", "saltAddCooking", ctx),
-      processedFood: getRiskAnswer(ctx.questionnaireResponses, "salt", "saltProcessedFood", ctx)
-    },
-    fats: {
-      oilUsed: getRiskAnswer(ctx.questionnaireResponses, "fatAndOil", "oilUsed", ctx),
-      fatFoodFrequency: getRiskAnswer(ctx.questionnaireResponses, "fatAndOil", "fatFoodFrequency", ctx),
-      otherFat: getRiskAnswer(ctx.questionnaireResponses, "fatAndOil", "otherFatAndOils", ctx)
-    },
-    sugar: {
-      softDrink: getRiskAnswer(ctx.questionnaireResponses, "sugar", "softDrinkFrequency", ctx),
-      juice: getRiskAnswer(ctx.questionnaireResponses, "sugar", "juiceFrequency", ctx)
-    },
-    mealsOutside: {
-      eatsOut: getRiskAnswer(ctx.questionnaireResponses, "mealsOutsideHome", "eatsOut", ctx),
-      mealsPerWeek: getRiskAnswer(ctx.questionnaireResponses, "mealsOutsideHome", "mealsPerWeek", ctx),
-    }
-  };
 }
 
 function getTobaccoCessation(entries, ctx) {
@@ -660,7 +709,7 @@ function buildObservationFields(ctx, filteredObs) {
 
 function buildPatientFields(patient) {
   const name = [...(patient?.name?.[0]?.given || []), patient?.name?.[0]?.family || ""].join(" ").trim();
-  const heartcareId = patient?.identifier?.find(id => id.system === "https://heartcare.gov.vu/dashboard/patient-info" && id.value)?.value;
+  const heartcareId = patient?.identifier?.find(id => id.system === heartCareIdUrl.heartCareIdUrl && id.value)?.value;
   return { name, heartcareId };
 }
 
@@ -690,7 +739,7 @@ function buildFileDetails(patient, name, forceType, primaryEncounter) {
 function getScreeningSiteId(primaryEncounter) {
   const locationRef = primaryEncounter?.location?.[0]?.location?.reference;
 
-  if (!locationRef || !locationRef.includes('/')) {
+  if (!primaryEncounter?.location?.[0]?.location?.reference?.includes('/')) {
     throw new Error('Invalid or missing location reference in primaryEncounter');
   }
 

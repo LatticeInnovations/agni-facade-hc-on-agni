@@ -1,0 +1,124 @@
+{
+  "tobacco": {
+    "tobaccoUser": { "true": "Yes", "false": "No" },
+    "tobaccoItemType": {
+      "1": "Cigarettes",
+      "2": "Cigars",
+      "3": "Pipes",
+      "4": "Bidis and kreteks",
+      "5": "Hookah",
+      "6": "Chewing tobacco",
+      "7": "Snuff",
+      "8": "Dissolvables",
+      "9": "Electronic cigarettes",
+      "10": "Other"
+    },
+    "tobaccoOther": {},
+    "consumptionAmount": {},
+    "consumptionUnit": {
+      "times": "Times",
+      "sticks": "Sticks"
+    },
+    "startAge": {},
+    "willingToQuit": { "true": "Yes", "false": "No" }
+  },
+  "alcohol": {
+    "consumedWithin30Days": { "true": "Yes", "false": "No" },
+    "alcoholQ1": {},
+    "alcoholQ2": {},
+    "alcoholQ3": {}
+  },
+  "fruitVegetable": {
+    "consumptionInWeek": { "true": "Yes", "false": "No" },
+    "fruitsDays": {},
+    "fruitServings": {},
+    "vegetableDays": {},
+    "vegetableServings": {}
+  },
+  "physicalActivity": {
+    "weeklyEngagement": { "true": "Yes", "false": "No" },
+    "vigorousDays": {},
+    "vigorousTime": {},
+    "moderateDays": {},
+    "moderateTime": {}
+  },
+  "salt": {
+    "saltAmount": {
+      "1": "Far too little",
+      "2": "Too little",
+      "3": "Just the right amount",
+      "4": "Too much",
+      "5": "Far too much",
+      "6": "Don't know"
+    },
+    "saltAddMeal": {
+      "1": "Never",
+      "2": "Rarely",
+      "3": "Sometimes",
+      "4": "Often",
+      "5": "Always",
+      "6": "Don't know"
+    },
+    "saltAddCooking": {
+      "1": "Never",
+      "2": "Rarely",
+      "3": "Sometimes",
+      "4": "Often",
+      "5": "Always",
+      "6": "Don't know"
+    },
+    "saltProcessedFood": {
+      "1": "Never",
+      "2": "Rarely",
+      "3": "Sometimes",
+      "4": "Often",
+      "5": "Always",
+      "6": "Don't know"
+    }
+  },
+  "fatsOils": {
+    "oilUsed": {
+      "1": "Vegetable Oil",
+      "2": "Lard or suet",
+      "3": "Butter or ghee",
+      "4": "Margarine",
+      "5": "Others",
+      "6": "None used",
+      "7": "Don't know"
+    },
+    "otherFatAndOils": {},
+    "fatFoodFrequency": {
+      "1": "Did not eat",
+      "2": "Less than once a day",
+      "3": "Once a day",
+      "4": "2 times per day",
+      "5": "3 times per day",
+      "6": "4 times per day",
+      "7": "5 or more times per day"
+    }
+  },
+  "sugars": {
+    "softDrinkFrequency": {
+      "1": "Did not drink",
+      "2": "Less than once a day",
+      "3": "Once a day",
+      "4": "2 times per day",
+      "5": "3 times per day",
+      "6": "4 times per day",
+      "7": "5 or more times per day"
+    },
+    "juiceFrequency": {
+      "1": "Did not drink",
+      "2": "Less than once a day",
+      "3": "Once a day",
+      "4": "2 times per day",
+      "5": "3 times per day",
+      "6": "4 times per day",
+      "7": "5 or more times per day"
+    }
+  },
+  "mealsNotFromHomeGroup": {
+    "eatsOut": { "true": "Yes", "false": "No" },
+    "mealsPerWeek": {}
+  }
+}
