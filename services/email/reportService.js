@@ -170,6 +170,7 @@ async function generateReport(patientId, encounterIds) {
   const encounters = entries.filter(e => e.resource?.resourceType === "Encounter");
   
   if (hasScreening) {
+    const encounters = entries.filter(e => e.resource?.resourceType === "Encounter");
     const locationGroups = groupEncountersByLocation(encounters);
     console.log(`Found ${locationGroups.size} unique screening locations`);
     console.log(`Location groups:`, [...locationGroups.keys()]);
@@ -177,6 +178,11 @@ async function generateReport(patientId, encounterIds) {
     for (const [locationRef, locationEncounterIds] of locationGroups) {
       const locationName = getLocationName(entries, locationRef);
       console.log(`Generating report for location: ${locationRef} (${locationName || 'Unknown'})`);
+      
+      const locationEncounters = encounters.filter(e => {
+        const ref = e.location && e.location[0] && e.location[0].location && e.location[0].location.reference;
+        return ref === locationRef;
+      });
       const screeningReport = buildReport(entries, locationEncounterIds, "screening-site");
       
       if (screeningReport.hasData) {
