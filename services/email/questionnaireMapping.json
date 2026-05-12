@@ -120,5 +120,27 @@
   "mealsNotFromHomeGroup": {
     "eatsOut": { "true": "Yes", "false": "No" },
     "mealsPerWeek": {}
+  },
+  "Adherence": {
+    "Adherence": {
+      "1": "Taking medication as prescribed",
+      "2": "Discontinued due to poor compliance",
+      "3": "Forget to take medication sometimes",
+      "4": "Discontinued due to pharmacy stock-out"
+    }
+  },
+  "familyDiseaseDetail": {
+    "familyDiseaseDetail": {
+      "56265001": "Heart attack/ angina/ other heart disease",
+      "266257000": "Transient ischaemic attack (TIA)",
+      "73211009": "Diabetes",
+      "431855005": "Chronic kidney disease"
+    }
+  },
+  "occurrenceAgeBoolean": {
+    "occurrenceAgeBoolean": {
+      "1": "Yes",
+      "2": "No"
+    }
   }
 }

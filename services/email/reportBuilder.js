@@ -435,12 +435,12 @@ function getAdherence(entries, ctx) {
 function getFamilyHistory(entries, ctx) {
   const response = getLatestQuestionnaireResponse(ctx.questionnaireResponses, "familyDiseaseDetail", ctx);
   if (!response) return "--";
-  const codeMap = ctx.questionnaireCodeMaps["familyDiseaseDetail"] || {};
   const codes = response.item.find(i => i.linkId === "familyDiseaseDetail")?.answer?.map(a => a.valueCoding?.code) || [];
-  const diseases = codes.map(code => codeMap[code] || code);
-  const earlyAge = response.item.find(i => i.linkId === "occurrenceAgeBoolean")?.answer?.[0]?.valueCoding?.code;
-  let text = diseases.join(", ");
-  if (earlyAge === "yes") text += " (before age 50)";
+  const diseases = codes.map(code => lookupAnswer("familyDiseaseDetail", "familyDiseaseDetail", { valueCoding: { code } }));
+  const earlyAgeAns = response.item.find(i => i.linkId === "occurrenceAgeBoolean")?.answer?.[0];
+  const earlyAge = lookupAnswer("occurrenceAgeBoolean", "occurrenceAgeBoolean", earlyAgeAns);
+  let text = diseases.filter(d => d !== "--").join(", ");
+  if (earlyAge === "Yes") text += " (before age 55/65)";
   return text || "--";
 }
 
@@ -842,7 +842,7 @@ function buildReport(entries, encounterIds, forceType = null) {
     bp: getBloodPressure(entries, ctx),
     cholesterol: formatCholesterol(entries, ctx),
     bmi: formatBMI(getObservationByCode(ctx.observations, "9156-5", effectiveRefs)[0]?.value),
-    chiefComplaint: getChiefComplaintById(index.encounters, allEncounterIdsFiltered)?.reasonCode?.[0]?.text || "--",
+    chiefComplaint: getChiefComplaintById(index.encounters.filter(e => effectiveRefs.includes(`Encounter/${e.id}`)), allEncounterIdsFiltered)?.reasonCode?.[0]?.text || "--",
     glucose: getGlucose(entries, ctx),
     abdominal: getVital(entries, "Abdominal circumference", ctx),
     creatinine: getVital(entries, "Serum creatinine", ctx),
