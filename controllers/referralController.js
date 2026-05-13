@@ -167,6 +167,8 @@ const referralHospitals = async function (req, res) {
         let resStatus = 1;
         const token = req.accessToken;
         queryParams._total = "accurate"
+        queryParams._sort = queryParams._sort ? queryParams._sort  : "-_lastUpdated"
+        console.log("queryParams: ", queryParams)
         let resourceResult = [];
         const responseResult = await fetchResource("Organization", queryParams, token);
         const responseData = responseResult.entry || []
