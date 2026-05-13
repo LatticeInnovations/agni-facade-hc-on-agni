@@ -11,7 +11,7 @@ const ENCOUNTER_CODES = Object.freeze({
 });
 const BATCH_SIZES = Object.freeze({ LOCATION: 50, PATIENT: 50 });
 const OBS_CODES = Object.freeze({
-    BP: "Blood Pressure", BMI: "BMI", GLUCOSE: "Diabetic status",
+    BP: "Blood Pressure", BMI: "BMI", GLUCOSE: "Blood glucose",
     CHOLESTEROL: "Cholesterol", SMOKING: "Smoking Status", RISK: "CVD Risk Percentage"
 });
 
@@ -42,7 +42,8 @@ function parsePatient(patientResource) {
         patientName: buildPatientName(patientResource.name?.[0]),
         age: calculateAge(patientResource.birthDate),
         gender: patientResource.gender || null,
-        village: patientResource.address?.[0]?.line?.join(" ") || null,
+        village: patientResource.address?.[0]?.line?.[0] || null,
+        _villageId: patientResource.address?.[0]?.line?.[0] || null,
         _cityId: patientResource.address?.[0]?.city || null,
         _districtId: patientResource.address?.[0]?.district || null,
         _stateId: patientResource.address?.[0]?.state || null,
@@ -90,6 +91,15 @@ function getObsValue(resource, label) {
 }
 
 function getObsValueWithUnit(resource, label) {
+    if (resource.valueQuantity?.value !== undefined) {
+        return {
+            value: resource.valueQuantity.value,
+            unit: resource.valueQuantity.unit || null
+        };
+    }
+    if (resource.valueString) {
+        return { value: resource.valueString, unit: null };
+    }
     const comp = resource.component?.find(c => c.code?.text === label);
     return {
         value: comp?.valueQuantity?.value ?? comp?.value ?? null,
@@ -100,55 +110,6 @@ function getObsValueWithUnit(resource, label) {
 function getCvdRiskValue(resource) {
     const component = resource.component?.find(c => c.code?.text === "CVD Risk Percentage");
     return resource.valueQuantity?.value ?? component?.valueQuantity?.value ?? component?.value ?? null;
-}
-
-async function fetchObservationsByEncounter(encounterIds, token) {
-    if (!encounterIds.length) return new Map();
-    const map = new Map();
-    const bundle = await fetchMainResourcesParallel(
-        "Observation",
-        { encounter: encounterIds.join(","), _count: 1000, _total: "accurate" },
-        token
-    );
-
-    for (const entry of bundle.entry || []) {
-        const r = entry.resource;
-        const encId = getIdFromRef(r.encounter);
-        if (!encId) continue;
-
-        if (!map.has(encId)) map.set(encId, {});
-        const obs = map.get(encId);
-        const code = r.code?.text;
-
-        switch (code) {
-            case OBS_CODES.BP:
-                obs.bpSystolic = getObsValue(r, "Systolic blood pressure");
-                obs.bpDiastolic = getObsValue(r, "Diastolic blood pressure");
-                break;
-            case OBS_CODES.BMI:
-                obs.bmi = getObsValue(r, "BMI");
-                break;
-            case OBS_CODES.GLUCOSE: {
-                const g = getObsValueWithUnit(r, "Diabetic status");
-                obs.glucose = g.value; obs.glucoseUnit = g.unit; obs.glucoseType = "random";
-                break;
-            }
-            case OBS_CODES.CHOLESTEROL: {
-                const c = getObsValueWithUnit(r, "Cholesterol");
-                obs.cholesterol = c.value; obs.cholesterolUnit = c.unit ?? "mmol/L";
-                break;
-            }
-            case OBS_CODES.SMOKING:
-                obs.smoker = getObsValue(r, "Smoking Status");
-                break;
-            case OBS_CODES.RISK:
-            case "CVD Risk":
-            case "Cardiovascular disease risk score":
-                obs.cvdRisk = getCvdRiskValue(r);
-                break;
-        }
-    }
-    return map;
 }
 
 function getExtensionValue(encounter, urlPart) {
@@ -172,7 +133,7 @@ function buildRecord(patient, obs, locationMap, encounter, facilityName) {
         patientName: patient.patientName,
         age: patient.age,
         gender: patient.gender,
-        village: patient.village,
+        village: locationMap.get(patient._villageId)?.name || patient._villageId || null,
         province: locationMap.get(patient._stateId)?.name || patient._stateId || null,
         island: locationMap.get(patient._districtId)?.name || patient._districtId || null,
         areaCouncil: locationMap.get(patient._cityId)?.name || patient._cityId || null,
@@ -203,6 +164,82 @@ async function fetchAllEncounters(token, screeningSiteIds) {
     };
 }
 
+async function fetchObservationsByPatient(patientIds, token) {
+    if (!patientIds.length) return new Map();
+    const map = new Map();
+    const batchResults = await fetchInBatches(
+        patientIds, 50,
+        (batch) => fetchResource("Observation", { subject: batch.join(","), _count: 5000, _total: "accurate" }, token)
+    );
+    for (const res of batchResults) {
+        for (const entry of res.entry || []) {
+            const r = entry.resource;
+            const patId = getIdFromRef(r.subject);
+            if (!patId) continue;
+            if (!map.has(patId)) map.set(patId, {});
+            const obs = map.get(patId);
+            const obsDate = r.effectiveDateTime || r.meta?.lastUpdated || null;
+
+            if (r.code?.coding?.[0]?.code === "36048009") {
+                const comp = r.component?.[0]?.valueQuantity;
+                const val = comp?.value ?? r.valueQuantity?.value ?? r.valueString ?? null;
+                if (!obs.glucose || (obsDate && obsDate > obs._glucoseDate)) {
+                    obs.glucose = val;
+                    obs.glucoseUnit = comp?.unit ?? r.valueQuantity?.unit ?? null;
+                    obs.glucoseType = r.code?.coding?.[0]?.display || null;
+                    obs._glucoseDate = obsDate;
+                }
+                continue;
+            }
+            const code = r.code?.text;
+            switch (code) {
+                case OBS_CODES.BP: {
+                    const systolic = getObsValue(r, "Systolic blood pressure");
+                    const diastolic = getObsValue(r, "Diastolic blood pressure");
+                    if (!obs.bpSystolic || (obsDate && obsDate > obs._bpDate)) {
+                        obs.bpSystolic = systolic; obs.bpDiastolic = diastolic; obs._bpDate = obsDate;
+                    }
+                    break;
+                }
+                case OBS_CODES.BMI: {
+                    const bmi = getObsValue(r, "BMI");
+                    if (!obs.bmi || (obsDate && obsDate > obs._bmiDate)) {
+                        obs.bmi = bmi; obs._bmiDate = obsDate;
+                    }
+                    break;
+                }
+                case OBS_CODES.CHOLESTEROL: {
+                    const c = getObsValueWithUnit(r, "Cholesterol");
+                    if (!obs.cholesterol || (obsDate && obsDate > obs._cholDate)) {
+                        obs.cholesterol = c.value; obs.cholesterolUnit = c.unit ?? "mmol/L"; obs._cholDate = obsDate;
+                    }
+                    break;
+                }
+                case OBS_CODES.SMOKING: {
+                    const smoker = getObsValue(r, "Smoking Status");
+                    if (!obs.smoker || (obsDate && obsDate > obs._smokeDate)) {
+                        obs.smoker = smoker; obs._smokeDate = obsDate;
+                    }
+                    break;
+                }
+                case OBS_CODES.RISK:
+                case "CVD Risk":
+                case "Cardiovascular disease risk score": {
+                    const risk = getCvdRiskValue(r);
+                    if (!obs.cvdRisk || (obsDate && obsDate > obs._riskDate)) {
+                        obs.cvdRisk = risk; obs._riskDate = obsDate;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+    for (const [, obs] of map) {
+        delete obs._glucoseDate; delete obs._bpDate; delete obs._bmiDate; delete obs._cholDate; delete obs._smokeDate; delete obs._riskDate;
+    }
+    return map;
+}
+
 function collectIds(encounters) {
     const patientIds = new Set();
     const locationIds = new Set();
@@ -217,8 +254,26 @@ function collectIds(encounters) {
     return { patientIds, locationIds };
 }
 
+function collectPatientLocationIds(patientMap) {
+    const locationIds = new Set();
+    for (const [, p] of patientMap) {
+        if (p._villageId) locationIds.add(p._villageId);
+        if (p._cityId) locationIds.add(p._cityId);
+        if (p._districtId) locationIds.add(p._districtId);
+        if (p._stateId) locationIds.add(p._stateId);
+    }
+    return locationIds;
+}
+
+async function fetchPatientAddressLocations(patientMap, token) {
+    const patientLocationIds = collectPatientLocationIds(patientMap);
+    if (!patientLocationIds.size) return new Map();
+    return fetchLocationsById([...patientLocationIds], token);
+}
+
 function enrichPatientLocations(patientMap, locationMap) {
     for (const [, p] of patientMap) {
+        if (p._villageId && !locationMap.has(p._villageId)) locationMap.set(p._villageId, { id: p._villageId, name: p._villageId });
         if (p._cityId && !locationMap.has(p._cityId)) locationMap.set(p._cityId, { id: p._cityId, name: p._cityId });
         if (p._districtId && !locationMap.has(p._districtId)) locationMap.set(p._districtId, { id: p._districtId, name: p._districtId });
         if (p._stateId && !locationMap.has(p._stateId)) locationMap.set(p._stateId, { id: p._stateId, name: p._stateId });
@@ -244,7 +299,7 @@ function processScreeningEncounters(screeningEncounters, patientMap, obsMap, loc
         const patient = patientMap.get(patientId);
         if (!patient) continue;
 
-        const obs = obsMap.get(enc.id) || {};
+        const obs = obsMap.get(patientId) || {};
         const facility = facilityMap.get(patientId);
         const record = buildRecord(patient, obs, locationMap, enc, facility);
         records.push(record);
@@ -266,8 +321,13 @@ async function getScreeningSiteDashboard(req, res) {
         const [patientMap, locationMap, obsMap] = await Promise.all([
             fetchPatientsById([...patientIds], token),
             fetchLocationsById([...locationIds], token),
-            fetchObservationsByEncounter(allEncounters.map(e => e.id), token)
+            fetchObservationsByPatient([...patientIds], token)
         ]);
+
+        const patientAddressLocationMap = await fetchPatientAddressLocations(patientMap, token);
+        for (const [id, loc] of patientAddressLocationMap) {
+            locationMap.set(id, loc);
+        }
 
         enrichPatientLocations(patientMap, locationMap);
         const facilityMap = buildFacilityMap(facilityEncounters, locationMap);
