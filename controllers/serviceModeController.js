@@ -25,12 +25,21 @@ const normalizeToArray = (body) => {
 const checkDuplicateServiceMode = async (name, token) => {
     const existing = await fetchResource(
         "ActivityDefinition",
-        { name, _count: 1000, topic: "SERVICE_MODE" },
+        { topic: "SERVICE_MODE", _count: 1000 },
         token
     );
 
-    if (existing.total > 0) {
-        throw new Error(`Service mode already exists with name: ${name}`);
+    if (existing.entry) {
+        const duplicate = existing.entry.find(e => {
+            const resource = e.resource;
+            const coding = resource.code?.coding?.find(c => c.system === serviceModeSystemUrl);
+            const storedName = coding?.display || resource.name || "";
+            return storedName.toLowerCase() === name.toLowerCase();
+        });
+
+        if (duplicate) {
+            throw new Error(`Service mode already exists with name: ${name}`);
+        }
     }
 };
 
