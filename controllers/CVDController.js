@@ -124,8 +124,9 @@ const saveCVDData = async (req, res) => {
             const resourceResponse = setCVDResponse(bundleData.bundle.entry, response.data.entry, "post");
             const responseData = [...resourceResponse, ...errData];
             await saveToken(token);
+            const fhirIds = responseData.map(item => item.fhirId);
             for (const patientId of patientIds) {
-                await publishReportJob(patientId);
+                await publishReportJob(patientId, fhirIds);
             }
             return res.status(201).json({
                 status: 1,

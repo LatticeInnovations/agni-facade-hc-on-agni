@@ -157,13 +157,11 @@ const getCampaignPractitionerRole = async (practitionerId, campaignId, token) =>
 
 const fetchMainResourcesParallel = async function(resourceName, queryParams, token) {
     try {
-        // Check if the facilityId exists
-
         const firstPage = await fetchResource(resourceName, queryParams, token);
-        const totalPages = Math.ceil(firstPage.total / queryParams._count);    
-        console.log("total: ", firstPage.total)
-        if (totalPages <= 1) 
-            return { ...firstPage };
+        const total = firstPage.total || 0;
+        const count = queryParams._count || 100;
+        const totalPages = Math.ceil(total / count);
+        if (totalPages <= 1) return { ...firstPage };
         const pagePromises = Array.from({ length: totalPages - 1 }, (_, i) =>
                 runWithLimit(() =>
                     fetchResource(resourceName, { ...queryParams, "_offset": (i + 1) * queryParams._count }, token)
@@ -171,16 +169,14 @@ const fetchMainResourcesParallel = async function(resourceName, queryParams, tok
         );
         const remainingPages = await Promise.all(pagePromises);
         const allEntries = [
-            ...firstPage.entry,
+            ...(firstPage.entry || []),
             ...remainingPages.flatMap(page => page.entry || [])
         ];
-
-        return { ...firstPage, entry: allEntries };
-    
+        return { ...firstPage, entry: allEntries, total };
     }
     catch(error) {
-        console.error("Dashbaord Error: ", error);
-        return Promise.reject(error)
+        console.error("fetchMainResourcesParallel Error: ", error);
+        throw error;
     }
 }
 

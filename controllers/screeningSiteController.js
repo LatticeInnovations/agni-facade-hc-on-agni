@@ -7,6 +7,7 @@ const { validateRequest } = require("../utils/validateRequest");
 const bundleStructure = require("../services/bundleOperation");
 const { fetchResource, buildFHIRResource } = require("../services/helperFunctions");
 const { v4: uuidv4 } = require("uuid");
+const { serviceModeSystemUrl } = require("../utils/heartcareSystemUrl");
 
 const validateBusinessRules = (data) => {
     if (!data.location?.type || !data.location?.value) {
@@ -118,11 +119,12 @@ const getAllServiceModes = async (token) => {
         const resource = entry.resource;
 
         const coding = resource.code?.coding?.find(
-            c => c.system === "http://example.org/service-mode"
+            c => c.system === serviceModeSystemUrl
         );
 
-        if (coding?.display) {
-            map[coding.display] = resource.id;
+        const storedName = coding?.display || resource.name || "";
+        if (storedName) {
+            map[storedName.toLowerCase()] = resource.id;
         }
     }
 
@@ -140,14 +142,17 @@ const getServiceModeId = async (serviceModeCode, token) => {
             token
         );
 
+        const searchName = serviceModeCode.toLowerCase();
+
         for (const entry of response.entry || []) {
             const resource = entry.resource;
 
             const coding = resource.code?.coding?.find(
-                c => c.system === "http://heartcare.vu/service-mode"
+                c => c.system === serviceModeSystemUrl
             );
 
-            if (coding?.display === serviceModeCode) {
+            const storedName = coding?.display?.toLowerCase();
+            if (storedName === searchName) {
                 return resource.id;
             }
         }
@@ -307,6 +312,7 @@ const listScreeningSites = async (req, res) => {
 
         if (status) query.status = status;
         if (req.query._lastUpdated) query._lastUpdated = req.query._lastUpdated;
+        if (req.query._sort) query._sort = req.query._sort;
 
         const locationResponse = await fetchResource("Location", query, token);
 
@@ -357,7 +363,7 @@ const listScreeningSites = async (req, res) => {
 
         const practitionerRoleResponse = await fetchResource(
             "PractitionerRole",
-            { location: locationIds.join(",") },
+            { location: locationIds.join(","), _count: 5000 },
             token
         );
 
@@ -402,6 +408,18 @@ const listScreeningSites = async (req, res) => {
             const staff = await getStaffDetails(staffRoles, token);
 
             const serviceMode = site.getServiceMode() || "";
+            const fromDate = site.getStartDate();
+            const toDate = site.getEndDate();
+
+            let status = locationResource.status || "unknown";
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            if (toDate && new Date(toDate) < today) {
+                status = "closed";
+            } else if (fromDate && new Date(fromDate) > today) {
+                status = "upcoming";
+            }
 
             sites.push({
                 id: locationResource.id,
@@ -410,10 +428,10 @@ const listScreeningSites = async (req, res) => {
                 areaCouncil: areaCouncil,
                 areaCouncilId: areaCouncilId,
                 serviceMode: serviceMode,
-                serviceModeId: serviceModeMap[serviceMode] || "",
-                fromDate: site.getStartDate() || "",
-                toDate: site.getEndDate() || "",
-                status: locationResource.status || "unknown",
+                serviceModeId: serviceModeMap[serviceMode?.toLowerCase()] || "",
+                fromDate: fromDate || "",
+                toDate: toDate || "",
+                status: status,
                 lastUpdated: locationResource.meta?.lastUpdated || "",
                 staff: staff
             });
@@ -481,6 +499,18 @@ const getScreeningSite = async (req, res) => {
         const serviceModeMap = await getAllServiceModes(token);
         const serviceMode = site.getServiceMode() || "";
         const serviceModeId = serviceModeMap[serviceMode] || "";
+        const fromDate = site.getStartDate();
+        const toDate = site.getEndDate();
+
+        let status = locationResource.status || "unknown";
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        if (toDate && new Date(toDate) < today) {
+            status = "closed";
+        } else if (fromDate && new Date(fromDate) > today) {
+            status = "upcoming";
+        }
 
         return res.status(200).json({
             status: 1,
@@ -492,9 +522,9 @@ const getScreeningSite = async (req, res) => {
                 areaCouncilId: areaCouncilId,
                 serviceMode: serviceMode,
                 serviceModeId: serviceModeId,
-                fromDate: site.getStartDate() || "",
-                toDate: site.getEndDate() || "",
-                status: locationResource.status || "unknown",
+                fromDate: fromDate || "",
+                toDate: toDate || "",
+                status: status,
                 lastUpdated: locationResource.meta?.lastUpdated || "",
                 staff: staff
             }

@@ -212,12 +212,13 @@ const saveSymptomDiagnosisData = async function (req, res) {
             }
         });  
         if (response.status == 200 || response.status == 201) {
+            let responseData = setSymptomDiagnosisResponse(bundleData.bundle.entry, response.data.entry, "post", subEncounterType);
+            const fhirIds = responseData.map(item => item.fhirId);
             const patientIds = [...new Set(req.body.map(cvd => cvd.patientId))];
             await saveToken(token);
             for (const patientId of patientIds) {
-                await publishReportJob(patientId);
+                await publishReportJob(patientId, fhirIds);
             }
-            let responseData = setSymptomDiagnosisResponse(bundleData.bundle.entry, response.data.entry, "post", subEncounterType);
             return res.status(201).json({ status: 1, message: "Symptom and diagnosis data saved.", data: responseData })
         }
         else {

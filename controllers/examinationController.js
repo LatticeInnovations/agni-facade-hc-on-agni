@@ -117,15 +117,16 @@ let saveExaminationData = async function (req, res) {
                         }
                     }); 
                     console.info("get bundle json response: ", response.status)  
-            if (response.status == 200 || response.status == 201) {
-                const patientIds = [...new Set(req.body.map(cvd => cvd.patientId))];
-                await saveToken(token);
-                for (const patientId of patientIds) {
-                    await publishReportJob(patientId);
-                }       
+            if (response.status == 200 || response.status == 201) {     
                 let resourceResponse = setExamSaveResponse(bundleData.bundle.entry, response.data.entry, "post"); 
                 const responseData = [...resourceResponse, ...errData];  
                 res.status(201).json({ status: 1, message: "Examination data saved.", data: responseData })
+                const patientIds = [...new Set(req.body.map(cvd => cvd.patientId))];
+                const fhirIds = responseData.map(item => item.fhirId);
+                await saveToken(token);
+                for (const patientId of patientIds) {
+                    await publishReportJob(patientId, fhirIds);
+                }  
             }
             else {
                 return res.status(500).json({  status: 0, message: "Unable to process. Please try again.", err: response  })
@@ -189,13 +190,14 @@ const updateExaminationData = async function (req, res) {
                     }); 
                     console.info("get bundle json response: ", response.status)  
             if (response.status == 200 || response.status == 201) {
-                const patientIds = [...new Set(req.body.map(cvd => cvd.patientId))];
-                await saveToken(token);
-                for (const patientId of patientIds) {
-                    await publishReportJob(patientId);
-                }
                 let responseData = setExamSaveResponse(bundleData.bundle.entry, response.data.entry, "put");   
                 res.status(201).json({ status: 1, message: "Examination data updated.", data: responseData })
+                const patientIds = [...new Set(req.body.map(cvd => cvd.patientId))];
+                const fhirIds = responseData.map(item => item.fhirId);
+                await saveToken(token);
+                for (const patientId of patientIds) {
+                    await publishReportJob(patientId, fhirIds);
+                }
             }
             else {
                 return res.status(500).json({  status: 0, message: "Unable to process. Please try again.", err: response  })

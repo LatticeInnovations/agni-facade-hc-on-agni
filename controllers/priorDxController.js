@@ -166,12 +166,13 @@ const savePriorDxData = async (req, res) => {
         });
         if ([200, 201].includes(response.status)) {       
             const patientIds = [...new Set(req.body.map(cvd => cvd.patientId))];
+            const resourceResponse = setPriorDxResponse(bundleData.bundle.entry, response.data.entry, "post", subEncounterType);
+            const responseData = [...resourceResponse, ...errData];  
+            const fhirIds = responseData.map(item => item.fhirId); 
             await saveToken(token);
             for (const patientId of patientIds) {
-                await publishReportJob(patientId);
+                await publishReportJob(patientId, fhirIds);
             }     
-            const resourceResponse = setPriorDxResponse(bundleData.bundle.entry, response.data.entry, "post", subEncounterType);
-            const responseData = [...resourceResponse, ...errData];   
             return res.status(201).json({
                 status: 1,
                 message: "PriorDx data saved.",
