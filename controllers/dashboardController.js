@@ -41,13 +41,11 @@ return {
 }
 
 const groupEncountersByPatient = (patientMap, encounters, type) => {
-    console.log(encounters)
         if (!encounters || !encounters.entry) return;
         encounters.entry.forEach(entry => {
             const resource = entry.resource;
             const encounterId = resource.id;
             const patientId = resource.subject.reference.split("/")[1];
-            console.log("patientId: ", patientId)
             if (!patientMap[patientId]) {
                 
                  patientMap[patientId] = {
@@ -171,7 +169,6 @@ const fetchVitalData = async (mainEncounterIds, patientMap, token) => {
             // Separate observations and included sub-encounters by search.mode
             const observations = response.entry.filter(e => e.search?.mode == "match");
             const subEncounters = response.entry.filter(e => e.search?.mode == "include");
-            console.log("check observations: ", observations)
             // Build sub encounter to main encounter lookup
             const subEncounterLookup = getSubEncounterLookup(subEncounters);
             // map to correct CVD obseravation in main
@@ -257,7 +254,6 @@ const deriveFinalVtialCvdData = (patientMap) => {
             for (const enc of sortedEncounters) {
                 let val = null
                 if(type == null) {
-                    console.log("check if entered here: ", type, field, enc[field])
                     val = enc[field];
                 }
                 else {
@@ -293,7 +289,6 @@ const deriveFinalVtialCvdData = (patientMap) => {
 
 const fetchLocationList = async (ids, token, type) => {
     try {
-        console.log(type, " ", ids)
         const resources = await fetchResource("Location", {
             type: type,
             _id: ids.join(","),
@@ -313,7 +308,6 @@ const fetchLocationList = async (ids, token, type) => {
 const getPatientDetails = async (patients, token) => {
     try {
         const patientIds = Object.keys(patients);
-        console.log("patient ids: ", patientIds)
         await fetchInBatches(patientIds, BATCH_SIZE, async(batchIds) => {
             const patientResources = await fetchResource("Patient", {
                 
@@ -372,8 +366,9 @@ const getPatientLocationDetails = async (patients, token) => {
             const island = islandList.find(e => e.id === patient.patientDetails.permanentAddress.district)
             patient.island = island.name;
 
-            const village = villageList.find(e => e.id === patient.patientDetails.permanentAddress?.line?.[0])
+            const village = villageList.find(e => e.id === patient.patientDetails.permanentAddress?.addressLine1)
             patient.village = village?.name || null;
+            console.log("check village: ", village, patient.patientDetails.permanentAddress?.addressLine1)
             
             const facility = facilitiesList.find(e => {
                 const locationExt = e.extension?.find(
