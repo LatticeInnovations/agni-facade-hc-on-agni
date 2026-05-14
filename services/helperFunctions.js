@@ -163,7 +163,9 @@ const fetchMainResourcesParallel = async function(resourceName, queryParams, tok
         const totalPages = Math.ceil(total / count);
         if (totalPages <= 1) return { ...firstPage };
         const pagePromises = Array.from({ length: totalPages - 1 }, (_, i) =>
-            fetchResource(resourceName, { ...queryParams, _page: i + 2 }, token)
+                runWithLimit(() =>
+                    fetchResource(resourceName, { ...queryParams, "_offset": (i + 1) * queryParams._count }, token)
+                )
         );
         const remainingPages = await Promise.all(pagePromises);
         const allEntries = [
@@ -183,15 +185,19 @@ const getNextPageUrl = function(links = []) {
     return nextLink ? nextLink.url : null;
 }
 
-const fetchInBatches = async (ids, batchSize, fetchFn ) => {
-    const results = [];
-    for(let i = 0; i < ids.length; i += batchSize) {
-         const batch = ids.slice(i, i + batchSize);
-         const result = await fetchFn(batch);
-         results.push(result);
+const fetchInBatches = async (ids, batchSize, fetchFn, concurrency = 10) => {
+    const batches = [];
+    for (let i = 0; i < ids.length; i += batchSize) {
+        batches.push(ids.slice(i, i + batchSize));
     }
 
+    const results = [];
+    for (let i = 0; i < batches.length; i += concurrency) {
+        const chunk = batches.slice(i, i + concurrency);
+        await Promise.all(chunk.map(batch => fetchFn(batch)));
+        // fetchFn mutates patientMap directly, so no need to collect return values
+    }
     return results;
-}
+};
 
 module.exports = {validateRequest, buildFHIRResource, postFHIRResource, buildAndPost, getTransformedResult, handleError, fetchResource, patchFHIRResource, getAPIPath, getCampaignPractitionerRole, fetchMainResourcesParallel, getNextPageUrl, fetchInBatches}
