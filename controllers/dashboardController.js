@@ -293,7 +293,7 @@ const fetchLocationList = async (ids, token, type) => {
         const resources = await fetchResource("Location", {
             type: type,
             _id: ids.join(","),
-            _count: 300,
+            _count: 5000,
             "_sort": "-_id"
         }, token)
 
