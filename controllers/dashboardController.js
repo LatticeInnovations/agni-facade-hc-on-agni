@@ -53,6 +53,7 @@ const groupEncountersByPatient = (patientMap, encounters, type) => {
                     mainEncounters: []
                 };
             }
+            console.log("encounterId: ", encounterId, " patientId: ", patientId, " facilityId: ", resource.serviceProvider.reference)
 
              patientMap[patientId][type].push({encounterId, facilityId: resource.serviceProvider.reference.split("/")[1]});
         });
@@ -349,14 +350,17 @@ const getPatientLocationDetails = async (patients, token) => {
         const villageList = await fetchLocationList(villageIds, token, "village");
 
         const facilityIds = [...new Set(patients.map(e => e.facilityId))]
+        console.log("facilityIds: ", facilityIds)
         const orgResources = await fetchResource("Organization", {
             type: "health-facility",
             _count: 2000,
             _id: facilityIds.join(","),
             "_sort": "-_id"
         }, token);        
+        console.log(patients[0])
         const facilitiesList = orgResources.entry ? orgResources.entry.map(e => e.resource) : [];
         patients.forEach(patient => {
+            
             const province = provinceList.find(e => e.id === patient.patientDetails.permanentAddress.state)
             patient.province = province.name;
 
@@ -368,8 +372,7 @@ const getPatientLocationDetails = async (patients, token) => {
 
             const village = villageList.find(e => e.id === patient.patientDetails.permanentAddress?.addressLine1)
             patient.village = village?.name || null;
-            console.log("check village: ", village, patient.patientDetails.permanentAddress?.addressLine1)
-            
+
             const facility = facilitiesList.find(e => {
                 const locationExt = e.extension?.find(
                     ext => ext.url == urlList.locationReferenceUrl
