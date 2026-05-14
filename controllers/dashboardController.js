@@ -7,7 +7,7 @@ const { query } = require("express-validator");
 // constants
 const MAIN_ENCOUNTER_TYPE = "facility-main-encounter";
 const TOTAL_COUNT = 500;
-const BATCH_SIZE = 500;
+const BATCH_SIZE = 50;
 const CVD_ENCOUNTER_TYPE = "cvd-encounter";
 const VITAL_ENCOUNTER_TYPE = "vital-test-encounter"
 const CVD_OBS_CODES = {
@@ -24,6 +24,10 @@ const VITAL_OBS_CODES = {
 
 const CVD_FIELDS = ["bp", "bmi", "smoker", "screeningDate", "cholesterol", "cholesterolUnit", "risk"];
 const VITAL_FIELDS = ["glucose", "glucoseUnit", "glucoseType"];
+const CLINICAL_FIELDS = [
+    "sysBP", "diaBP", "bmi", "smoker", "cholesterol",
+    "cvdRisk", "glucose", "screeningDate"
+];
 
 
 
@@ -78,7 +82,9 @@ const mapCvdObservationsToEncounter = (observations, subEncounterLookup, patient
     observations.forEach(e => {
         const observation = e.resource;
         const subEncounterId = observation.encounter?.reference?.split("/")[1];
-        const mainId = subEncounterLookup[subEncounterId].mainEncounterId
+        const lookup = subEncounterLookup[subEncounterId];
+        if (!lookup) return;
+        const mainId = lookup.mainEncounterId;
         const patientId = observation.subject?.reference?.split("/")[1]
         if(!mainId) return;
         const encounterEntry = patientMap[patientId].mainEncounters.find(enc => enc.encounterId == mainId)
@@ -127,7 +133,9 @@ const mapVitalObservationsToEncounter = (observations, subEncounterLookup, patie
     observations.forEach(e => {
         const observation = e.resource;
         const subEncounterId = observation.encounter?.reference?.split("/")[1];
-        const mainId = subEncounterLookup[subEncounterId].mainEncounterId;
+        const lookup = subEncounterLookup[subEncounterId];
+        if (!lookup) return;
+        const mainId = lookup.mainEncounterId;
         const patientId = observation.subject?.reference?.split("/")[1];
         if (!mainId) return;
 
@@ -235,7 +243,7 @@ const filterPatientsWithData = (patientMap) => {
 const filterFinalData = (finalData) => {
     return Object.fromEntries(
         Object.entries(finalData).filter(([patientId, data]) =>
-            Object.values(data).some(val => val !== null)
+            CLINICAL_FIELDS.some(field => data[field] !== null && data[field] !== undefined)
         )
     );
 };
@@ -317,7 +325,7 @@ const getPatientDetails = async (patients, token) => {
                 "_sort": "-_id"
             }, token);
 
-            // if (!patientResources?.entry?.length) return;
+            if (!patientResources?.entry?.length) return;
             patientResources.entry.forEach(e => {
                 const resource = e.resource;
                 const patientId = resource.id;
@@ -337,48 +345,41 @@ const getPatientDetails = async (patients, token) => {
 
 const getPatientLocationDetails = async (patients, token) => {
     try {
-        const provinceIds = [...new Set(patients.map(e => e.patientDetails.permanentAddress.state))]
-        const provinceList = await fetchLocationList(provinceIds, token, "province");
+        const provinceIds = [...new Set(patients.map(e => e.patientDetails.permanentAddress.state))];
+        const areaCouncilIds = [...new Set(patients.map(e => e.patientDetails.permanentAddress.city))];
+        const islandIds = [...new Set(patients.map(e => e.patientDetails.permanentAddress.district))];
+        const villageIds = [...new Set(patients.map(e => e.patientDetails.permanentAddress?.addressLine1).filter(Boolean))];
+        const facilityIds = [...new Set(patients.map(e => e.facilityId))];
 
-        const areaCouncilIds = [...new Set(patients.map(e => e.patientDetails.permanentAddress.city))]
-        const areaCouncilList = await fetchLocationList(areaCouncilIds, token, "area-council");
-
-        const islandIds = [...new Set(patients.map(e => e.patientDetails.permanentAddress.district))]
-        const islandList = await fetchLocationList(islandIds, token, "island");
-
-        const villageIds = [...new Set(patients.map(e => e.patientDetails?.permanentAddress?.line?.[0]))]
-        const villageList = await fetchLocationList(villageIds, token, "village");
-
-        const facilityIds = [...new Set(patients.map(e => e.facilityId))]
-        const orgResources = await fetchResource("Organization", {
+        const [provinceList, areaCouncilList, islandList, villageList, orgResources] = await Promise.all([
+        fetchLocationList(provinceIds, token, "province"),
+        fetchLocationList(areaCouncilIds, token, "area-council"),
+        fetchLocationList(islandIds, token, "island"),
+        fetchLocationList(villageIds, token, "village"),
+        fetchResource("Organization", {
             type: "health-facility",
             _count: 2000,
             _id: facilityIds.join(","),
             "_sort": "-_id"
-        }, token);        
+        }, token)
+    ]);
+     
         const facilitiesList = orgResources.entry ? orgResources.entry.map(e => e.resource) : [];
         patients.forEach(patient => {
             
             const province = provinceList.find(e => e.id === patient.patientDetails.permanentAddress.state)
-            patient.province = province.name;
-
+            patient.province    = province?.name    || null;
             const areaCouncil = areaCouncilList.find(e => e.id === patient.patientDetails.permanentAddress.city)
-            patient.areaCouncil = areaCouncil.name;
+           patient.areaCouncil = areaCouncil?.name || null;
 
             const island = islandList.find(e => e.id === patient.patientDetails.permanentAddress.district)
-            patient.island = island.name;
+            patient.island = island?.name || null;
 
             const village = villageList.find(e => e.id === patient.patientDetails.permanentAddress?.addressLine1)
             patient.village = village?.name || null;
 
             const facility = facilitiesList.find(e => patient.facilityId && e.id === patient.facilityId);
             patient.healthFacility = facility?.name || null;
-
-            // patient.bmiClass = classification.bmiClassification(patient.bmi);
-            // patient.bpClass = classification.bpClassification(patient.sysBP, patient.diaBP)
-            // patient.glucoseClass = classification.glucoseClassification(patient.glucoseType, patient.glucoseUnit, patient.glucose)
-            // patient.cholesterolClass = classification.cholesterolClassification(patient.cholesterol, patient.cholesterolUnit)
-            // patient.cvdRiskClass = classification.riskClassification(patient.cvdRisk)
         })
 
         return patients;
@@ -449,22 +450,13 @@ const getFacilityDashboard = async function (req, res) {
         const mainEncounterIds = mainEncounters.entry ? mainEncounters.entry.map(e => e.resource.id) : []
         patientMap = groupEncountersByPatient(patientMap, mainEncounters, "mainEncounters");
 
+         const patientArray = await buildPatientArray(patientMap, mainEncounterIds, token);
         // fetch cvd data for every encounter
         patientMap = await fetchCvdData(mainEncounterIds, patientMap, token);
-
-        // fetch vital data
-        patientMap = await fetchVitalData(mainEncounterIds, patientMap, token)
-        const filteredMap = filterPatientsWithData(patientMap); 
-
-        //  get final cvd vitals
-        const result = deriveFinalVtialCvdData(filteredMap)
-        const filteredFinalData = filterFinalData(result); 
-        await getPatientDetails(filteredFinalData, token)
-        const patientArray = Object.entries(filteredFinalData).map(([patientId, data]) => ({
-                patientId,
-                ...data
-            })
-        );
+        await getPatientDetails(
+                    Object.fromEntries(patientArray.map(p => [p.patientId, p])),
+                    token
+                );
 
         await getPatientLocationDetails(patientArray, token)
 
@@ -546,6 +538,16 @@ const filterPatientsByDivision = (patientMap, divisionType, divisionIds) => {
     return patientMap;
 };
 
+const buildPatientArray = async (patientMap, mainEncounterIds, token) => {
+    await Promise.all([
+        fetchCvdData(mainEncounterIds, patientMap, token),
+        fetchVitalData(mainEncounterIds, patientMap, token)
+    ]);
+    const filteredMap   = filterPatientsWithData(patientMap);
+    const result        = deriveFinalVtialCvdData(filteredMap);
+    const filteredFinal = filterFinalData(result);
+    return Object.entries(filteredFinal).map(([patientId, data]) => ({ patientId, ...data }));
+};
 
 const getDivisionDashboard = async function (req, res) {
     try {
@@ -574,20 +576,8 @@ const getDivisionDashboard = async function (req, res) {
         if ([3, 4].includes(+queryParams.divisionType)) {
             filterPatientsByDivision(patientMap, queryParams.divisionType, queryParams.divisionIds);
         }
-        // fetch cvd data for every encounter
-        patientMap = await fetchCvdData(mainEncounterIds, patientMap, token);
-
-        // fetch vital data
-        patientMap = await fetchVitalData(mainEncounterIds, patientMap, token)
-        const filteredMap = filterPatientsWithData(patientMap); 
-
-        // get final cvd vitals
-        const result = deriveFinalVtialCvdData(filteredMap)
-        const filteredFinalData = filterFinalData(result); 
-        const patientArray = Object.entries(filteredFinalData).map(([patientId, data]) => ({
-            patientId,
-            ...data
-        }));
+        
+        const patientArray = await buildPatientArray(patientMap, mainEncounterIds, token);
 
         await getPatientLocationDetails(patientArray, token)
         
