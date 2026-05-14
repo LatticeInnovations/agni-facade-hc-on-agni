@@ -60,7 +60,7 @@ const groupEncountersByPatient = (patientMap, encounters, type) => {
             }
 
              patientMap[patientId][type].push({encounterId, facilityId: resource.serviceProvider.reference.split("/")[1]});
-        });
+             });
         return patientMap;
 }
 
@@ -447,9 +447,8 @@ const getFacilityDashboard = async function (req, res) {
         }
         //  check if data is not empty
         let patientMap = {};
-        const mainEncounterIds = mainEncounters.entry ? mainEncounters.entry.map(e => e.resource.id) : []
+        const mainEncounterIds = mainEncounters.entry ? mainEncounters.entry.map(e => e.resource.id) : [];
         patientMap = groupEncountersByPatient(patientMap, mainEncounters, "mainEncounters");
-
          const patientArray = await buildPatientArray(patientMap, mainEncounterIds, token);
         // fetch cvd data for every encounter
         patientMap = await fetchCvdData(mainEncounterIds, patientMap, token);
