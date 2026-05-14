@@ -24,10 +24,6 @@ const VITAL_OBS_CODES = {
 
 const CVD_FIELDS = ["bp", "bmi", "smoker", "screeningDate", "cholesterol", "cholesterolUnit", "risk"];
 const VITAL_FIELDS = ["glucose", "glucoseUnit", "glucoseType"];
-const CLINICAL_FIELDS = [
-    "sysBP", "diaBP", "bmi", "smoker", "cholesterol",
-    "cvdRisk", "glucose", "screeningDate"
-];
 
 
 
@@ -321,22 +317,7 @@ const fetchCvdData = async (mainEncounterIds, patientMap, token) => {
     }
 }
 
-const filterPatientsWithData = (patientMap) => {
-            return Object.fromEntries(
-                Object.entries(patientMap).filter(([patientId, patient]) =>
-                    patient.mainEncounters.some(enc => enc.cvd || enc.vitals)
-                )
-            );
-        };
 
-
-const filterFinalData = (finalData) => {
-    return Object.fromEntries(
-        Object.entries(finalData).filter(([patientId, data]) =>
-            CLINICAL_FIELDS.some(field => data[field] !== null && data[field] !== undefined)
-        )
-    );
-};
 
 const deriveFinalVtialCvdData = (patientMap) => {
     const result = {};
@@ -514,7 +495,7 @@ const finalResponseStructure = (patients) => {
     }))
 }
 
-const cleanPatientMapToDailyFirst = (patientMap, requestedFacilityId) => {
+const cleanPatientMapToDailyFirst = (patientMap, requestedFacilityIds) => {
     Object.keys(patientMap).forEach(patientId => {
         const patient = patientMap[patientId];
         const dailyGroups = {};
@@ -530,13 +511,12 @@ const cleanPatientMapToDailyFirst = (patientMap, requestedFacilityId) => {
         const validEncounters = [];
 
         Object.values(dailyGroups).forEach(dayEncounters => {
-            // Sort by full timestamp (Earliest first)
+            // Sort Earliest to Latest
             dayEncounters.sort((a, b) => new Date(a.appointmentDate) - new Date(b.appointmentDate));
-
             const earliestEncounter = dayEncounters[0];
 
-            // BUSINESS RULE: Only keep if the earliest visit was our facility
-            if (String(earliestEncounter.facilityId) === requestedFacilityId) {
+            // Fix for Issue #5: Check if the earliest facility is in the allowed list
+            if (requestedFacilityIds.includes(String(earliestEncounter.facilityId))) {
                 validEncounters.push(earliestEncounter);
             }
         });
@@ -552,7 +532,7 @@ const getFacilityDashboard = async function (req, res) {
         const queryParams = req.query;
         queryParams._sort = queryParams._sort || "-_id";
         queryParams._count = TOTAL_COUNT;
-        const requestedFacilityId = String(queryParams.facilityIds);
+        const requestedFacilityIds = String(queryParams.facilityIds).split(",").map(String);
         const mainEncounterQuery = facilityMainEncounterQuery(queryParams);
         const mainEncounters = await fetchMainResourcesParallel("Encounter", mainEncounterQuery, token);
         if(!mainEncounters.entry) {
@@ -591,7 +571,7 @@ const getFacilityDashboard = async function (req, res) {
 
         // --- STAGE 2: The Cleanup (The Call Site) ---
         // We call it here so we only fetch clinical data for "Daily Winners"
-        cleanPatientMapToDailyFirst(patientMap, requestedFacilityId);
+        cleanPatientMapToDailyFirst(patientMap, requestedFacilityIds);
 
         // --- STAGE 3: Clinical Fetching ---
         const validMainEncounterIds = [];
@@ -693,10 +673,7 @@ const filterPatientsByDivision = (patientMap, divisionType, divisionIds) => {
 };
 
 const buildPatientArray = async (patientMap, queryParams, token) => {
-    // 1. Resolve all Slot dates first (Mandatory for the rule)
-    await fetchAppointmentDates(patientMap, token);
 
-   // 2. Resolve Cross-Facility/Same-Facility conflicts
     // We fetch every appointment for these patients in this date range
     const patientIds = Object.keys(patientMap);
     await fetchInBatches(patientIds, BATCH_SIZE, async (batchIds) => {
@@ -718,7 +695,7 @@ const buildPatientArray = async (patientMap, queryParams, token) => {
     // we just want the earliest one for that day to be the representative.
     cleanPatientMapToDailyFirstInDivision(patientMap);
 
-    // 5. Fetch clinical data only for the survivors
+    // 4. Fetch clinical data for survivors only
     const validMainEncounterIds = [];
     Object.values(patientMap).forEach(p => {
         p.mainEncounters.forEach(e => validMainEncounterIds.push(e.encounterId));
@@ -731,9 +708,7 @@ const buildPatientArray = async (patientMap, queryParams, token) => {
         ]);
     }
 
-    // 6. Derive final data (Historical Look-back)
     const result = deriveFinalVtialCvdData(patientMap);
-   
     return Object.entries(result).map(([patientId, data]) => ({ patientId, ...data }));
 };
 
@@ -782,7 +757,6 @@ const getDivisionDashboard = async function (req, res) {
         }
         //  check if data is not empty
         let patientMap = {};
-        const mainEncounterIds = mainEncounters.entry ? mainEncounters.entry.map(e => e.resource.id) : []
         patientMap = groupEncountersByPatient(patientMap, mainEncounters, "mainEncounters");
         await getPatientDetails(patientMap, token);
 
