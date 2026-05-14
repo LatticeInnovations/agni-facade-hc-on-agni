@@ -167,10 +167,22 @@ async function fetchAllEncounters(token, screeningSiteIds) {
 async function fetchObservationsByPatient(patientIds, token) {
     if (!patientIds.length) return new Map();
     const map = new Map();
-    const batchResults = await fetchInBatches(
-        patientIds, 50,
-        (batch) => fetchResource("Observation", { subject: batch.join(","), _count: 5000, _total: "accurate" }, token)
-    );
+    const batchResults = await fetchInBatches(patientIds, 10, async(batch) => {
+        const firstPage = await fetchResource("Observation", { patient: batch.join(","), _count: 500, _total: "accurate" }, token);
+        const total = firstPage.total || 0;
+        const firstEntries = firstPage.entry || [];
+        const firstLinks = firstPage.link || [];
+        if (!firstLinks.some(l => l.relation === "next")) {
+            return { entry: firstEntries, total };
+        }
+        const pageCount = Math.ceil(total / 500);
+        const pages = [firstPage];
+        for (let p = 2; p <= pageCount; p++) {
+            const next = await fetchResource("Observation", { patient: batch.join(","), _count: 500, _page: p, _total: "accurate" }, token);
+            pages.push(next);
+        }
+        return { entry: pages.flatMap(p => p.entry || []), total };
+    });
     for (const res of batchResults) {
         for (const entry of res.entry || []) {
             const r = entry.resource;
@@ -181,55 +193,53 @@ async function fetchObservationsByPatient(patientIds, token) {
             const obsDate = r.effectiveDateTime || r.meta?.lastUpdated || null;
 
             if (r.code?.coding?.[0]?.code === "36048009") {
-                const comp = r.component?.[0]?.valueQuantity;
-                const val = comp?.value ?? r.valueQuantity?.value ?? r.valueString ?? null;
-                if (!obs.glucose || (obsDate && obsDate > obs._glucoseDate)) {
+                const comp = r.component?.find(c => c.code?.coding?.[0]?.code === "36048009")?.valueQuantity;
+                const val = comp?.value ?? r.valueQuantity?.value ?? null;
+                if (!obs.glucose || (obsDate && obsDate > (obs._glucoseDate || ""))) {
                     obs.glucose = val;
-                    obs.glucoseUnit = comp?.unit ?? r.valueQuantity?.unit ?? null;
+                    obs.glucoseUnit = comp?.unit ?? null;
                     obs.glucoseType = r.code?.coding?.[0]?.display || null;
                     obs._glucoseDate = obsDate;
                 }
                 continue;
             }
-            const code = r.code?.text;
-            switch (code) {
-                case OBS_CODES.BP: {
-                    const systolic = getObsValue(r, "Systolic blood pressure");
-                    const diastolic = getObsValue(r, "Diastolic blood pressure");
-                    if (!obs.bpSystolic || (obsDate && obsDate > obs._bpDate)) {
-                        obs.bpSystolic = systolic; obs.bpDiastolic = diastolic; obs._bpDate = obsDate;
-                    }
-                    break;
+            const codeText = r.code?.text?.toLowerCase() || "";
+            const code = r.code?.text || "";
+            const firstCod = r.code?.coding?.[0]?.display?.toLowerCase() || "";
+
+            if (codeText === "blood pressure" || firstCod === "blood pressure") {
+                const systolic = r.component?.find(c => (c.code?.text || "").toLowerCase().includes("systolic"))?.valueQuantity?.value ?? null;
+                const diastolic = r.component?.find(c => (c.code?.text || "").toLowerCase().includes("diastolic"))?.valueQuantity?.value ?? null;
+                if (!obs.bpSystolic || (obsDate && obsDate > (obs._bpDate || ""))) {
+                    obs.bpSystolic = systolic; obs.bpDiastolic = diastolic; obs._bpDate = obsDate;
                 }
-                case OBS_CODES.BMI: {
-                    const bmi = getObsValue(r, "BMI");
-                    if (!obs.bmi || (obsDate && obsDate > obs._bmiDate)) {
-                        obs.bmi = bmi; obs._bmiDate = obsDate;
-                    }
-                    break;
+            } else if (codeText === "bmi" || firstCod === "body mass index (bmi) [ratio]") {
+                const bmiComp = r.component?.find(c => (c.code?.text || "").toLowerCase() === "bmi");
+                const bmi = bmiComp?.valueQuantity?.value ?? r.valueQuantity?.value ?? null;
+                if (!obs.bmi || (obsDate && obsDate > (obs._bmiDate || ""))) {
+                    obs.bmi = bmi; obs._bmiDate = obsDate;
                 }
-                case OBS_CODES.CHOLESTEROL: {
-                    const c = getObsValueWithUnit(r, "Cholesterol");
-                    if (!obs.cholesterol || (obsDate && obsDate > obs._cholDate)) {
-                        obs.cholesterol = c.value; obs.cholesterolUnit = c.unit ?? "mmol/L"; obs._cholDate = obsDate;
-                    }
-                    break;
+            } else if (codeText === "cholesterol" || firstCod.includes("cholesterol")) {
+                const cholComp = r.component?.find(c => (c.code?.text || "").toLowerCase() === "cholesterol");
+                const cVal = cholComp?.valueQuantity?.value ?? r.valueQuantity?.value ?? null;
+                const cUnit = cholComp?.valueQuantity?.unit ?? r.valueQuantity?.unit ?? "mmol/L";
+                if (!obs.cholesterol || (obsDate && obsDate > (obs._cholDate || ""))) {
+                    obs.cholesterol = cVal; obs.cholesterolUnit = cUnit; obs._cholDate = obsDate;
                 }
-                case OBS_CODES.SMOKING: {
-                    const smoker = getObsValue(r, "Smoking Status");
-                    if (!obs.smoker || (obsDate && obsDate > obs._smokeDate)) {
-                        obs.smoker = smoker; obs._smokeDate = obsDate;
-                    }
-                    break;
+            } else if (codeText === "smoking status" || firstCod.includes("smoking") || firstCod === "smoking status") {
+                const smokeVal = r.component?.[0]?.valueQuantity?.value ?? r.valueQuantity?.value ?? null;
+                const smokeStr = r.valueString || r.valueCodeableConcept?.text || null;
+                let smokerVal = null;
+                if (smokeVal !== null) smokerVal = smokeVal >= 1 ? 1 : 0;
+                else if (smokeStr) smokerVal = (smokeStr.toLowerCase().includes("yes") || smokeStr.toLowerCase().includes("smoking") || smokeStr.toLowerCase().includes("current")) ? 1 : 0;
+                if (smokerVal !== null && (!obs.smoker || (obsDate && obsDate > (obs._smokeDate || "")))) {
+                    obs.smoker = smokerVal; obs._smokeDate = obsDate;
                 }
-                case OBS_CODES.RISK:
-                case "CVD Risk":
-                case "Cardiovascular disease risk score": {
-                    const risk = getCvdRiskValue(r);
-                    if (!obs.cvdRisk || (obsDate && obsDate > obs._riskDate)) {
-                        obs.cvdRisk = risk; obs._riskDate = obsDate;
-                    }
-                    break;
+            } else if (codeText === "cvd risk percentage" || codeText === "cvd risk" || firstCod.includes("cardiovascular disease risk")) {
+                const riskComp = r.component?.find(c => (c.code?.text || "").toLowerCase().includes("cvd risk"));
+                const risk = riskComp?.valueQuantity?.value ?? r.valueQuantity?.value ?? null;
+                if (!obs.cvdRisk || (obsDate && obsDate > (obs._riskDate || ""))) {
+                    obs.cvdRisk = risk; obs._riskDate = obsDate;
                 }
             }
         }
@@ -317,13 +327,15 @@ async function getScreeningSiteDashboard(req, res) {
         if (!allEncounters.length) return res.json({ status: 1, data: [], total: 0 });
 
         const { patientIds, locationIds } = collectIds(allEncounters);
-        
+        console.log("Total patients:", patientIds.size, "locations:", locationIds.size);
+
         const [patientMap, locationMap, obsMap] = await Promise.all([
             fetchPatientsById([...patientIds], token),
             fetchLocationsById([...locationIds], token),
             fetchObservationsByPatient([...patientIds], token)
         ]);
 
+        console.log("Patient map size:", patientMap.size, "Obs map size:", obsMap.size);
         const patientAddressLocationMap = await fetchPatientAddressLocations(patientMap, token);
         for (const [id, loc] of patientAddressLocationMap) {
             locationMap.set(id, loc);
