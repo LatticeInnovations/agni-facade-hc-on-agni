@@ -46,16 +46,11 @@ return {
 }
 
 const groupEncountersByPatient = (patientMap, encounters, type) => {
-        if (!encounters || !encounters.entry) return patientMap;
-
+        if (!encounters || !encounters.entry) return;
         encounters.entry.forEach(entry => {
             const resource = entry.resource;
             const encounterId = resource.id;
             const patientId = resource.subject.reference.split("/")[1];
-
-            // Extract Facility ID (Service Provider)
-            const facilityId = resource.serviceProvider?.reference?.split("/")[1] || null;
-
             if (!patientMap[patientId]) {
                 
                  patientMap[patientId] = {
@@ -63,19 +58,10 @@ const groupEncountersByPatient = (patientMap, encounters, type) => {
                     mainEncounters: []
                 };
             }
-            
-            // We MUST check if this encounterId is already in the list 
-            // (to prevent duplicates if an encounter shows up in both queries)
-            const alreadyExists = patientMap[patientId][type].some(e => e.encounterId === encounterId);
 
-            if (!alreadyExists) {
-                patientMap[patientId][type].push({
-                    encounterId,
-                    facilityId, // <--- CRITICAL: Store this for the "Daily First" check
-                    appointmentId: resource.appointment?.[0]?.reference?.split("/")?.[1] || null,
-                    appointmentDate: null // Filled later by fetchAppointmentDates
-                });
-            }
+             patientMap[patientId][type].push({encounterId, facilityId: resource.serviceProvider.reference.split("/")[1],  appointmentId:   resource.appointment?.[0]?.reference?.split("/")?.[1] || null,
+             appointmentDate: null  // filled after fetch 
+    });
              });
         return patientMap;
 }
@@ -180,9 +166,8 @@ const fetchAppointmentDates = async (patientMap, token) => {
 
         Object.values(patientMap).forEach(patient => {
             patient.mainEncounters.forEach(enc => {
-                // We ALWAYS fetch the date now, 
-                // regardless of whether clinical data exists
-                if (enc.appointmentId) {
+                const hasDate = enc.cvd?.screeningDate;
+                if (!hasDate && enc.appointmentId) {
                     if (!appointmentIdToEncounters[enc.appointmentId]) {
                         appointmentIdToEncounters[enc.appointmentId] = [];
                     }
@@ -340,47 +325,52 @@ const filterFinalData = (finalData) => {
 
 const deriveFinalVtialCvdData = (patientMap) => {
     const result = {};
+    console.log("Deriving final data from patient map with size: ", Object.keys(patientMap).length);
 
     Object.entries(patientMap).forEach(([patientId, patient]) => {
-        // 1. Group by Date (Already filtered by cleanPatientMapToDailyFirst)
-        // We just need to sort the remaining valid encounters newest to oldest
-        const sortedHistory = [...patient.mainEncounters].sort((a, b) => {
-            return new Date(b.appointmentDate) - new Date(a.appointmentDate);
-        });
 
-        if (sortedHistory.length === 0) return;
+         const getEncounterDate = (enc) => new Date(
+            enc.cvd?.screeningDate ??
+            enc.appointmentDate    ??
+            0
+        );
 
-        const getLatestValue = (field, type) => {
-            for (const enc of sortedHistory) {
+        // Sort by encounterId descending (higher = newer)
+        const sortedEncounters = [...patient.mainEncounters]
+            .sort((a, b) => getEncounterDate(b) - getEncounterDate(a));
+
+    const getLatestValue = (field, type) => {
+            for (const enc of sortedEncounters) {
                 const val = type == null ? enc[field] : enc[type]?.[field];
-                // Check for null, undefined, or empty string
-                if (val !== null && val !== undefined && val !== "") return val;
+                if (val !== null && val !== undefined) return val;
             }
             return null;
         };
 
         result[patientId] = {
+            // CVD
             patientDetails: patient?.patientDetails || null,
-            facilityId:      sortedHistory[0].facilityId,
-            // The display date is the Slot Start of the most recent valid encounter
-            screeningDate:   sortedHistory[0].appointmentDate, 
-
-            // Clinical Look-back (fills gaps from older appointments)
+            facilityId:      getLatestValue("facilityId", null),
             sysBP:           getLatestValue("sysBP", "cvd"),
             diaBP:           getLatestValue("diaBP", "cvd"),
             bmi:             getLatestValue("bmi", "cvd"),
             smoker:          getLatestValue("smoker", "cvd"),
+            screeningDate:   getLatestValue("screeningDate", "cvd") ??
+                getLatestValue("appointmentDate", null) ??
+                null,
             cholesterol:     getLatestValue("cholesterol", "cvd"),
             cholesterolUnit: getLatestValue("cholesterolUnit", "cvd"),
-            cvdRisk:         getLatestValue("cvdRisk", "cvd"),
+            cvdRisk:            getLatestValue("cvdRisk", "cvd"),
+
+            // Vitals
             glucose:         getLatestValue("glucose", "vitals"),
             glucoseUnit:     getLatestValue("glucoseUnit", "vitals"),
             glucoseType:     getLatestValue("glucoseType", "vitals"),
         };
     });
 
-    return result;
-};
+    return result
+}
 
 const fetchLocationList = async (ids, token, type) => {
     try {
@@ -514,37 +504,6 @@ const finalResponseStructure = (patients) => {
     }))
 }
 
-const cleanPatientMapToDailyFirst = (patientMap, requestedFacilityId) => {
-    Object.keys(patientMap).forEach(patientId => {
-        const patient = patientMap[patientId];
-        const dailyGroups = {};
-
-        // Group all encounters by the YYYY-MM-DD of the Slot
-        patient.mainEncounters.forEach(enc => {
-            if (!enc.appointmentDate) return;
-            const dateKey = enc.appointmentDate.slice(0, 10);
-            if (!dailyGroups[dateKey]) dailyGroups[dateKey] = [];
-            dailyGroups[dateKey].push(enc);
-        });
-
-        const validEncounters = [];
-
-        Object.values(dailyGroups).forEach(dayEncounters => {
-            // Sort by full timestamp (Earliest first)
-            dayEncounters.sort((a, b) => new Date(a.appointmentDate) - new Date(b.appointmentDate));
-
-            const earliestEncounter = dayEncounters[0];
-
-            // BUSINESS RULE: Only keep if the earliest visit was our facility
-            if (String(earliestEncounter.facilityId) === requestedFacilityId) {
-                validEncounters.push(earliestEncounter);
-            }
-        });
-
-        patient.mainEncounters = validEncounters;
-        if (patient.mainEncounters.length === 0) delete patientMap[patientId];
-    });
-};
 
 const getFacilityDashboard = async function (req, res) {
     try {
@@ -552,7 +511,6 @@ const getFacilityDashboard = async function (req, res) {
         const queryParams = req.query;
         queryParams._sort = queryParams._sort || "-_id";
         queryParams._count = TOTAL_COUNT;
-        const requestedFacilityId = String(queryParams.facilityIds);
         const mainEncounterQuery = facilityMainEncounterQuery(queryParams);
         const mainEncounters = await fetchMainResourcesParallel("Encounter", mainEncounterQuery, token);
         if(!mainEncounters.entry) {
@@ -565,56 +523,18 @@ const getFacilityDashboard = async function (req, res) {
         }
         //  check if data is not empty
         let patientMap = {};
-        groupEncountersByPatient(patientMap, mainEncounters, "mainEncounters");
-       
-       // 2. Fetch Cross-Facility context
-        // This finds if these patients went elsewhere during the same date range
-        const patientIds = Object.keys(patientMap);
-        await fetchInBatches(patientIds, BATCH_SIZE, async (batchIds) => {
-            const crossResponse = await fetchResource("Encounter", {
-                type: MAIN_ENCOUNTER_TYPE,
-                "subject": batchIds.join(","),
-                "status": "finished,in-progress",
-                "appointment.slot.start:0": `ge${queryParams.startDate}`,
-                "appointment.slot.start:1": `le${queryParams.endDate}`,
-                "_count": TOTAL_COUNT
-            }, token);
+        const mainEncounterIds = mainEncounters.entry ? mainEncounters.entry.map(e => e.resource.id) : [];
+        patientMap = groupEncountersByPatient(patientMap, mainEncounters, "mainEncounters");
+         const patientArray = await buildPatientArray(patientMap, mainEncounterIds, token);
 
-            if (crossResponse?.entry) {
-                // Add these "other" encounters to the same patientMap for comparison
-                groupEncountersByPatient(patientMap, crossResponse, "mainEncounters");
-            }
-        });
+        await getPatientDetails(
+                    Object.fromEntries(patientArray.map(p => [p.patientId, p])),
+                    token
+                );
 
-        // 3. Populate appointmentDate for EVERY encounter in the map
-        await fetchAppointmentDates(patientMap, token);
+        await getPatientLocationDetails(patientArray, token)
 
-        // --- STAGE 2: The Cleanup (The Call Site) ---
-        // We call it here so we only fetch clinical data for "Daily Winners"
-        cleanPatientMapToDailyFirst(patientMap, requestedFacilityId);
-
-        // --- STAGE 3: Clinical Fetching ---
-        const validMainEncounterIds = [];
-        Object.values(patientMap).forEach(p => {
-            p.mainEncounters.forEach(e => validMainEncounterIds.push(e.encounterId));
-        });
-
-        if (validMainEncounterIds.length > 0) {
-            await Promise.all([
-                fetchCvdData(validMainEncounterIds, patientMap, token),
-                fetchVitalData(validMainEncounterIds, patientMap, token)
-            ]);
-        }
-        console.log("Completed clinical data fetch. Now deriving final data. Patient count: ", Object.keys(patientMap).length);
-        // --- STAGE 4: Derivation & Final Response ---
-        const derivedData = deriveFinalVtialCvdData(patientMap);
-        const patientArray = Object.entries(derivedData).map(([patientId, data]) => ({ patientId, ...data }));
-        console.log
-        await getPatientDetails(Object.fromEntries(patientArray.map(p => [p.patientId, p])), token);
-        await getPatientLocationDetails(patientArray, token);
-
-        const finalData = finalResponseStructure(patientArray);
-
+        const finalData = finalResponseStructure(patientArray); 
         return res.status(200).json({
             status: 1,
             message: "Facility dashboard data fetched",
@@ -692,75 +612,16 @@ const filterPatientsByDivision = (patientMap, divisionType, divisionIds) => {
     return patientMap;
 };
 
-const buildPatientArray = async (patientMap, queryParams, token) => {
-    // 1. Resolve all Slot dates first (Mandatory for the rule)
+const buildPatientArray = async (patientMap, mainEncounterIds, token) => {
+    await Promise.all([
+        fetchCvdData(mainEncounterIds, patientMap, token),
+        fetchVitalData(mainEncounterIds, patientMap, token)
+    ]);
+
     await fetchAppointmentDates(patientMap, token);
-
-   // 2. Resolve Cross-Facility/Same-Facility conflicts
-    // We fetch every appointment for these patients in this date range
-    const patientIds = Object.keys(patientMap);
-    await fetchInBatches(patientIds, BATCH_SIZE, async (batchIds) => {
-        const crossRes = await fetchResource("Encounter", {
-            type: MAIN_ENCOUNTER_TYPE,
-            "subject": batchIds.join(","),
-            "status": "finished,in-progress",
-            "appointment.slot.start:0": `ge${queryParams.startDate}`,
-            "appointment.slot.start:1": `le${queryParams.endDate}`
-        }, token);
-        if (crossRes?.entry) groupEncountersByPatient(patientMap, crossRes, "mainEncounters");
-    });
-
-    // 3. Resolve dates for the new encounters we just added
-    await fetchAppointmentDates(patientMap, token);
-
-    // 4. Enforce "One Appointment Per Day" (Earliest Wins)
-    // Note: In Division API, we don't filter by a single Facility ID,
-    // we just want the earliest one for that day to be the representative.
-    cleanPatientMapToDailyFirstInDivision(patientMap);
-
-    // 5. Fetch clinical data only for the survivors
-    const validMainEncounterIds = [];
-    Object.values(patientMap).forEach(p => {
-        p.mainEncounters.forEach(e => validMainEncounterIds.push(e.encounterId));
-    });
-
-    if (validMainEncounterIds.length > 0) {
-        await Promise.all([
-            fetchCvdData(validMainEncounterIds, patientMap, token),
-            fetchVitalData(validMainEncounterIds, patientMap, token)
-        ]);
-    }
-
-    // 6. Derive final data (Historical Look-back)
-    const result = deriveFinalVtialCvdData(patientMap);
+    const result        = deriveFinalVtialCvdData(patientMap);
    
     return Object.entries(result).map(([patientId, data]) => ({ patientId, ...data }));
-};
-
-const cleanPatientMapToDailyFirstInDivision = (patientMap) => {
-    Object.keys(patientMap).forEach(patientId => {
-        const patient = patientMap[patientId];
-        const dailyGroups = {};
-
-        patient.mainEncounters.forEach(enc => {
-            if (!enc.appointmentDate) return;
-            const dateKey = enc.appointmentDate.slice(0, 10);
-            if (!dailyGroups[dateKey]) dailyGroups[dateKey] = [];
-            dailyGroups[dateKey].push(enc);
-        });
-
-        const validEncounters = [];
-
-        Object.values(dailyGroups).forEach(dayEncounters => {
-            // Sort by full Slot time ASC (Earliest first)
-            dayEncounters.sort((a, b) => new Date(a.appointmentDate) - new Date(b.appointmentDate));
-            
-            // Keep the absolute earliest one, discard the rest for that day
-            validEncounters.push(dayEncounters[0]);
-        });
-
-        patient.mainEncounters = validEncounters;
-    });
 };
 
 const getDivisionDashboard = async function (req, res) {
@@ -791,7 +652,7 @@ const getDivisionDashboard = async function (req, res) {
             filterPatientsByDivision(patientMap, queryParams.divisionType, queryParams.divisionIds);
         }
         
-        const patientArray = await buildPatientArray(patientMap, queryParams, token);
+        const patientArray = await buildPatientArray(patientMap, mainEncounterIds, token);
 
         await getPatientLocationDetails(patientArray, token)
         
