@@ -357,7 +357,6 @@ const getPatientLocationDetails = async (patients, token) => {
             _id: facilityIds.join(","),
             "_sort": "-_id"
         }, token);        
-        console.log(patients[0])
         const facilitiesList = orgResources.entry ? orgResources.entry.map(e => e.resource) : [];
         patients.forEach(patient => {
             
@@ -373,12 +372,7 @@ const getPatientLocationDetails = async (patients, token) => {
             const village = villageList.find(e => e.id === patient.patientDetails.permanentAddress?.addressLine1)
             patient.village = village?.name || null;
 
-            const facility = facilitiesList.find(e => {
-                const locationExt = e.extension?.find(
-                    ext => ext.url == urlList.locationReferenceUrl
-                );
-                return island.id === locationExt?.valueReference?.reference.split("/")[1];
-            });
+            const facility = facilitiesList.find(e => patient.facilityId && e.id === patient.facilityId);
             patient.healthFacility = facility?.name || null;
 
             // patient.bmiClass = classification.bmiClassification(patient.bmi);
