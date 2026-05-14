@@ -167,6 +167,7 @@ const fetchMainResourcesParallel = async function(resourceName, queryParams, tok
         const pagePromises = Array.from({ length: totalPages - 1 }, (_, i) =>
             fetchResource(resourceName, { ...queryParams, "_offset": (i + 1) * queryParams._count }, token)
         );
+        console.log("pagePromises: ", pagePromises)
         const remainingPages = await Promise.all(pagePromises);
         const allEntries = [
             ...firstPage.entry,

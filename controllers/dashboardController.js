@@ -2,7 +2,8 @@ const { fetchResource,  getTransformedResult, fetchMainResourcesParallel, fetchI
 
 const classification = require("../services/dashboardClassification");
 let Patient = require("../class/patient");
-const urlList = require("../utils/heartcareSystemUrl")
+const urlList = require("../utils/heartcareSystemUrl");
+const { query } = require("express-validator");
 // constants
 const MAIN_ENCOUNTER_TYPE = "facility-main-encounter";
 const TOTAL_COUNT = 500;
@@ -53,7 +54,6 @@ const groupEncountersByPatient = (patientMap, encounters, type) => {
                     mainEncounters: []
                 };
             }
-            console.log("encounterId: ", encounterId, " patientId: ", patientId, " facilityId: ", resource.serviceProvider.reference)
 
              patientMap[patientId][type].push({encounterId, facilityId: resource.serviceProvider.reference.split("/")[1]});
         });
@@ -350,7 +350,6 @@ const getPatientLocationDetails = async (patients, token) => {
         const villageList = await fetchLocationList(villageIds, token, "village");
 
         const facilityIds = [...new Set(patients.map(e => e.facilityId))]
-        console.log("facilityIds: ", facilityIds)
         const orgResources = await fetchResource("Organization", {
             type: "health-facility",
             _count: 2000,
@@ -433,8 +432,18 @@ const getFacilityDashboard = async function (req, res) {
     try {
         const token = req.accessToken;        
         const queryParams = req.query;
+        queryParams._sort = queryParams._sort || "-_id";
+        queryParams._count = TOTAL_COUNT;
         const mainEncounterQuery = facilityMainEncounterQuery(queryParams);
         const mainEncounters = await fetchMainResourcesParallel("Encounter", mainEncounterQuery, token);
+        if(!mainEncounters.entry) {
+            return res.status(200).json({
+                status: 1,
+                message: "Data not found",
+                total: 0,
+                data: []
+            })
+        }
         //  check if data is not empty
         let patientMap = {};
         const mainEncounterIds = mainEncounters.entry ? mainEncounters.entry.map(e => e.resource.id) : []
@@ -543,6 +552,8 @@ const getDivisionDashboard = async function (req, res) {
         
         const token = req.accessToken;        
         const queryParams = req.query;
+        queryParams._sort = queryParams._sort || "-_id";
+        queryParams._count = TOTAL_COUNT;
         const mainEncounterQuery = facilityDivisionMainEncounterQuery(queryParams);
         const mainEncounters = await fetchMainResourcesParallel("Encounter", mainEncounterQuery, token);
         if(!mainEncounters.entry) {
