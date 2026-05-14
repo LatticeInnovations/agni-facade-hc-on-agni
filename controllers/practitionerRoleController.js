@@ -12,7 +12,8 @@ let getPractitionerRoleData = async function (req, res) {
         const queryParams = {
             "practitioner" : req.query.practitionerId,
             "_include": "*",
-            "_total": "accurate"
+            "_total": "accurate",
+            "_sort": "_id"
         }
         const token = req.accessToken;
         let resourceResult = [];
@@ -26,14 +27,16 @@ let getPractitionerRoleData = async function (req, res) {
             let practitioner = FHIRData.find(e => e.resource.resourceType == "Practitioner");
             let practitionerData = getTransformedResult(Practitioner, practitioner.resource);
             let roleArray = FHIRData.filter(e => e.resource.resourceType == "PractitionerRole");
-            for (let i = 0; i < roleArray.length; i++) {                        
+            for (let i = 0; i < roleArray.length; i++) {                     
                 const roleObj =getTransformedResult(PractitionerRole, roleArray[i].resource);
-                let orgResource = FHIRData.find(e => e.resource.resourceType == "Organization" && e.fullUrl.includes(roleArray[i].resource.organization.reference));
-                const orgData = getTransformedResult(Organization, orgResource.resource);
-                roleObj.orgId = orgData.orgId;
-                roleObj.orgName = orgData.orgName,
-                roleObj.orgType = orgData.orgType;
-                role.push(roleObj);
+                let orgResource = FHIRData.find(e => e.resource.resourceType == "Organization" && roleArray[i].resource.organization && e.fullUrl.includes(roleArray[i].resource.organization.reference));
+                if(orgResource) {
+                    const orgData = getTransformedResult(Organization, orgResource.resource);
+                    roleObj.orgId = orgData.orgId;
+                    roleObj.orgName = orgData.orgName,
+                    roleObj.orgType = orgData.orgType;
+                    role.push(roleObj);
+                }
             }
             let data = {
                 "practitionerId": practitionerData.fhirId,

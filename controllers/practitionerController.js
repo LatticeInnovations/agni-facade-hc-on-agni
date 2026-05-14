@@ -98,7 +98,7 @@ let updatePractitionerData = async function (req, res) {
         const token = req.accessToken;
         let resourceResult = [];
         const practitionerIds = req.body.map(e=>e.fhirId).join(",");
-        const practitionerRoleData = await fetchResource("PractitionerRole", {practitioner: practitionerIds, active: true}, token);
+        const practitionerRoleData = await fetchResource("PractitionerRole", {practitioner: practitionerIds, active: true, _sort: "_id"}, token);
         for (let practitionerData of req.body) {
             // Check if practitioner    
             let queryParam ={email: practitionerData.email, phone: practitionerData.mobileNumber, "_total": "accurate"};
@@ -211,7 +211,7 @@ let getPractitionerData = async function (req, res) {
             // get practitionerRole
             const practitionerIds = responseData.entry.map(e=>e.resource.id).join(",");
             console.log("practitionerIds: ", practitionerIds)
-            const practitionerRoleData = await fetchResource("PractitionerRole", {practitioner: practitionerIds, active:true, _total: "accurate", _count: 5000}, token);
+            const practitionerRoleData = await fetchResource("PractitionerRole", {practitioner: practitionerIds, active:true, _total: "accurate", _count: 5000, _sort: "_id"}, token);
             console.log("practitionerRoleData: ",  practitionerRoleData.entry.length, practitionerRoleData.total)
             for (let i = 0; i < responseData.entry.length; i++) {
                 let practitioner = getTransformedResult(Practitioner, responseData.entry[i].resource);
