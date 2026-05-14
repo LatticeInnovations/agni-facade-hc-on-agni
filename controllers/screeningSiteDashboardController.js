@@ -113,7 +113,25 @@ function getCvdRiskValue(resource) {
 }
 
 function getExtensionValue(encounter, urlPart) {
-    return encounter.extension?.find(e => e.url?.includes(urlPart))?.valueDateTime || null;
+    if (!encounter.extension) return null;
+
+    for (const ext of encounter.extension) {
+
+        // direct match
+        if (ext.url?.includes(urlPart)) {
+            return ext.valueDateTime || ext.valueDate || ext.valueInstant || ext.valueString || null;
+        }
+
+        // 🔥 nested extension support
+        if (ext.extension) {
+            const nested = ext.extension.find(e => e.url?.includes(urlPart));
+            if (nested) {
+                return nested.valueDateTime || nested.valueDate || nested.valueInstant || nested.valueString || null;
+            }
+        }
+    }
+
+    return null;
 }
 
 function findLocationByType(encounter, locationMap, typeCode) {
@@ -145,29 +163,57 @@ function buildRecord(patient, obs, locationMap, encounter, facilityName) {
         glucoseUnit: obs.glucoseUnit ?? null,
         cholesterol: obs.cholesterol ?? null,
         cholesterolUnit: obs.cholesterolUnit ?? null,
-        smoker: obs.smoker ?? 0,
+        smoker: obs.smoker ?? null,
         cvdRisk: obs.cvdRisk ?? null,
         healthFacility: facilityName,
         screeningSite: findLocationByType(encounter, locationMap, "SCREENING_SITE")?.name || null,
-        screeningDate: getExtensionValue(encounter, "screening-date"),
     };
 }
 
 async function fetchAllEncounters(token, screeningSiteIds) {
-    const [screening, facility] = await Promise.all([
-        fetchMainResourcesParallel("Encounter", { type: ENCOUNTER_CODES.SCREENING, location: screeningSiteIds, _sort: "-date", _count: 1000, _total: "accurate" }, token),
-        fetchMainResourcesParallel("Encounter", { type: ENCOUNTER_CODES.FACILITY, _sort: "-date", _count: 1000, _total: "accurate" }, token)
+    const [screeningMain, screeningCvd, facility] = await Promise.all([
+        fetchMainResourcesParallel("Encounter", {
+            type: "screening-site-main-encounter",
+            location: screeningSiteIds,
+            _count: 1000
+        }, token),
+
+        fetchMainResourcesParallel("Encounter", {
+            type: "screening-site-cvd-encounter",
+            location: screeningSiteIds,
+            _count: 1000
+        }, token),
+
+        fetchMainResourcesParallel("Encounter", {
+            type: "facility-main-encounter",
+            _count: 1000
+        }, token)
     ]);
+
     return {
-        screening: (screening.entry || []).map(e => e.resource),
+        screeningMain: (screeningMain.entry || []).map(e => e.resource),
+        screeningCvd: (screeningCvd.entry || []).map(e => e.resource),
         facility: (facility.entry || []).map(e => e.resource)
     };
+}
+function mapCvdToMain(screeningCvdEncounters) {
+    const map = new Map();
+
+    for (const enc of screeningCvdEncounters) {
+        const mainId = enc.partOf?.reference?.split("/")[1];
+
+        if (mainId) {
+            map.set(mainId, enc);
+        }
+    }
+
+    return map;
 }
 
 async function fetchObservationsByPatient(patientIds, token) {
     if (!patientIds.length) return new Map();
     const map = new Map();
-    const batchResults = await fetchInBatches(patientIds, 10, async(batch) => {
+    const batchResults = await fetchInBatches(patientIds, 10, async (batch) => {
         const firstPage = await fetchResource("Observation", { patient: batch.join(","), _count: 500, _total: "accurate" }, token);
         const total = firstPage.total || 0;
         const firstEntries = firstPage.entry || [];
@@ -301,51 +347,248 @@ function buildFacilityMap(facilityEncounters, locationMap) {
     return map;
 }
 
-function processScreeningEncounters(screeningEncounters, patientMap, obsMap, locationMap, facilityMap) {
-    const records = [];
-    for (const enc of screeningEncounters) {
-        const patientId = getIdFromRef(enc.subject);
-        if (!patientId) continue;
-        const patient = patientMap.get(patientId);
-        if (!patient) continue;
+async function fetchGlucoseByPatient(patientIds, token) {
+    const map = new Map();
 
-        const obs = obsMap.get(patientId) || {};
-        const facility = facilityMap.get(patientId);
-        const record = buildRecord(patient, obs, locationMap, enc, facility);
-        records.push(record);
+    const batchResults = await fetchInBatches(patientIds, 10, (batch) =>
+        fetchResource("Observation", {
+            subject: batch.join(","),
+            _count: 500
+        }, token)
+    );
+
+    for (const res of batchResults) {
+        for (const entry of res.entry || []) {
+            const r = entry.resource;
+
+            const patId = getIdFromRef(r.subject);
+            if (!patId) continue;
+
+            // 🔥 Only glucose
+            if (r.code?.coding?.[0]?.code !== "36048009") continue;
+
+            if (!map.has(patId)) map.set(patId, {});
+            const obs = map.get(patId);
+
+            const obsDate = r.effectiveDateTime || r.meta?.lastUpdated || null;
+
+            const comp = r.component?.find(c =>
+                c.code?.coding?.[0]?.code === "36048009"
+            )?.valueQuantity;
+
+            const val = comp?.value ?? r.valueQuantity?.value ?? null;
+
+            if (!obs.glucose || (obsDate && obsDate > (obs._glucoseDate || ""))) {
+                obs.glucose = val;
+                obs.glucoseUnit = comp?.unit ?? null;
+                obs.glucoseType = r.code?.coding?.[0]?.display || null;
+                obs._glucoseDate = obsDate;
+            }
+        }
     }
-    return records;
+
+    for (const [, obs] of map) {
+        delete obs._glucoseDate;
+    }
+
+    return map;
 }
 
+async function fetchObservationsByEncounter(encounterIds, token) {
+    const map = new Map();
+
+    const batchResults = await fetchInBatches(encounterIds, 20, (batch) =>
+        fetchResource("Observation", {
+            encounter: batch.join(","),
+            _count: 500
+        }, token)
+    );
+
+    for (const res of batchResults) {
+        for (const entry of res.entry || []) {
+            const r = entry.resource;
+            const encId = getIdFromRef(r.encounter);
+            if (!encId) continue;
+
+            if (!map.has(encId)) map.set(encId, {});
+            const obs = map.get(encId);
+
+            const obsDate = r.effectiveDateTime || r.meta?.lastUpdated || null;
+
+            const codeText = r.code?.text?.toLowerCase() || "";
+            const firstCod = r.code?.coding?.[0]?.display?.toLowerCase() || "";
+
+            // BP
+            if (codeText === "blood pressure" || firstCod === "blood pressure") {
+                const systolic = r.component?.find(c => (c.code?.text || "").toLowerCase().includes("systolic"))?.valueQuantity?.value ?? null;
+                const diastolic = r.component?.find(c => (c.code?.text || "").toLowerCase().includes("diastolic"))?.valueQuantity?.value ?? null;
+
+                if (!obs.bpSystolic || obsDate > (obs._bpDate || "")) {
+                    obs.bpSystolic = systolic;
+                    obs.bpDiastolic = diastolic;
+                    obs._bpDate = obsDate;
+                }
+            }
+
+            // BMI
+            else if (codeText === "bmi" || firstCod.includes("bmi")) {
+                const bmi = r.component?.[0]?.valueQuantity?.value ?? r.valueQuantity?.value ?? null;
+
+                if (!obs.bmi || obsDate > (obs._bmiDate || "")) {
+                    obs.bmi = bmi;
+                    obs._bmiDate = obsDate;
+                }
+            }
+
+            // Cholesterol
+            else if (codeText === "cholesterol" || firstCod.includes("cholesterol")) {
+                const val = r.component?.[0]?.valueQuantity?.value ?? r.valueQuantity?.value ?? null;
+
+                if (!obs.cholesterol || obsDate > (obs._cholDate || "")) {
+                    obs.cholesterol = val;
+                    obs._cholDate = obsDate;
+                }
+            }
+
+            // Smoking
+            else if (codeText === "smoking status" || firstCod.includes("smoking")) {
+                const val = r.component?.[0]?.valueQuantity?.value ?? r.valueQuantity?.value ?? null;
+
+                if (val !== null && (!obs.smoker || obsDate > (obs._smokeDate || ""))) {
+                    obs.smoker = val >= 1 ? 1 : 0;
+                    obs._smokeDate = obsDate;
+                }
+            }
+
+            // CVD Risk
+            else if (codeText.includes("cvd risk") || firstCod.includes("cardiovascular")) {
+                const val = r.component?.[0]?.valueQuantity?.value ?? r.valueQuantity?.value ?? null;
+
+                if (!obs.cvdRisk || obsDate > (obs._riskDate || "")) {
+                    obs.cvdRisk = val;
+                    obs._riskDate = obsDate;
+                }
+            }
+        }
+    }
+
+    // cleanup
+    for (const [, obs] of map) {
+        delete obs._bpDate;
+        delete obs._bmiDate;
+        delete obs._cholDate;
+        delete obs._smokeDate;
+        delete obs._riskDate;
+    }
+
+    return map;
+}
+function buildScreeningDateMap(screeningCvdEncounters) {
+    const map = new Map();
+
+    for (const enc of screeningCvdEncounters) {
+        const mainId = enc.partOf?.reference?.split("/")[1];
+        if (!mainId) continue;
+
+        const date = getExtensionValue(enc, "screening-date");
+
+        if (date) {
+            map.set(mainId, date);
+        }
+    }
+
+    return map;
+}
 async function getScreeningSiteDashboard(req, res) {
     try {
         const token = req.accessToken;
         const screeningSiteIds = req.query.screeningSiteIds;
 
-        const { screening: screeningEncounters, facility: facilityEncounters } = await fetchAllEncounters(token, screeningSiteIds);
-        const allEncounters = [...screeningEncounters, ...facilityEncounters];
-        if (!allEncounters.length) return res.json({ status: 1, data: [], total: 0 });
+        const {
+            screeningMain,
+            screeningCvd,
+            facility
+        } = await fetchAllEncounters(token, screeningSiteIds);
+        const screeningDateMap = buildScreeningDateMap(screeningCvd);
+        if (!screeningMain.length) {
+            return res.json({ status: 1, data: [], total: 0 });
+        }
 
+        // 🔥 Map CVD → MAIN
+        const cvdToMainMap = mapCvdToMain(screeningCvd);
+
+        // Collect IDs
+        const allEncounters = [...screeningMain, ...facility];
         const { patientIds, locationIds } = collectIds(allEncounters);
-        console.log("Total patients:", patientIds.size, "locations:", locationIds.size);
 
-        const [patientMap, locationMap, obsMap] = await Promise.all([
+        const [patientMap, locationMap] = await Promise.all([
             fetchPatientsById([...patientIds], token),
-            fetchLocationsById([...locationIds], token),
-            fetchObservationsByPatient([...patientIds], token)
+            fetchLocationsById([...locationIds], token)
         ]);
 
-        console.log("Patient map size:", patientMap.size, "Obs map size:", obsMap.size);
+        // Add patient address locations
         const patientAddressLocationMap = await fetchPatientAddressLocations(patientMap, token);
         for (const [id, loc] of patientAddressLocationMap) {
             locationMap.set(id, loc);
         }
 
         enrichPatientLocations(patientMap, locationMap);
-        const facilityMap = buildFacilityMap(facilityEncounters, locationMap);
-        const dedupMap = processScreeningEncounters(screeningEncounters, patientMap, obsMap, locationMap, facilityMap);
 
-        return res.json({ status: 1, data: dedupMap, total: dedupMap.length });
+        const facilityMap = buildFacilityMap(facility, locationMap);
+
+        const records = [];
+        const cvdEncounterIds = screeningCvd.map(e => e.id);
+        const [obsMap, glucoseMap] = await Promise.all([
+            fetchObservationsByEncounter(cvdEncounterIds, token),
+            fetchGlucoseByPatient([...patientIds], token)
+        ]);
+        // 🔥 MAIN LOOP (use MAIN encounters)
+        for (const enc of screeningMain) {
+            const patientId = getIdFromRef(enc.subject);
+            if (!patientId) continue;
+
+            const patient = patientMap.get(patientId);
+            if (!patient) continue;
+
+            // 🔥 Observations come from patient (already grouped)
+            const cvdEncounter = cvdToMainMap.get(enc.id);
+            const encounterObs = cvdEncounter
+                ? (obsMap.get(cvdEncounter.id) || {})
+                : {};
+
+            const patientObs = glucoseMap.get(patientId) || {};
+
+            // 🔥 Merge
+            const obs = {
+                ...encounterObs,
+                ...patientObs
+            };
+
+            const facilityName = facilityMap.get(patientId);
+            const screeningDate =
+                screeningDateMap.get(enc.id) ||
+                enc.period?.start ||
+                null;
+            const record = {
+                ...buildRecord(
+                    patient,
+                    obs,
+                    locationMap,
+                    enc,
+                    facilityName
+                ),
+                screeningDate
+            };
+
+            records.push(record);
+        }
+
+        return res.json({
+            status: 1,
+            data: records,
+            total: records.length
+        });
+
     } catch (error) {
         console.error("Dashboard Error:", error);
         return handleError(res, error);

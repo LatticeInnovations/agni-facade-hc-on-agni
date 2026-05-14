@@ -194,8 +194,8 @@ const fetchInBatches = async (ids, batchSize, fetchFn, concurrency = 10) => {
     const results = [];
     for (let i = 0; i < batches.length; i += concurrency) {
         const chunk = batches.slice(i, i + concurrency);
-        await Promise.all(chunk.map(batch => fetchFn(batch)));
-        // fetchFn mutates patientMap directly, so no need to collect return values
+        const batchResults = await Promise.all(chunk.map(batch => fetchFn(batch)));
+        results.push(...batchResults);
     }
     return results;
 };
