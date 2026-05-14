@@ -149,6 +149,7 @@ let getMedicationHistoryData = async function (req, res) {
         let specialOffset = 1;
         const queryParams = req.query
         queryParams._total = "accurate";
+        queryParams._sort = queryParams?._sort || "-_id";
         queryParams.questionnaire = "Questionnaire/" + questionnaireResource.entry[0].resource.id
         let resourceResult = []
         let resourceUrlData = { link: link, reqQuery: queryParams, allowNesting: 0, specialOffset: specialOffset }

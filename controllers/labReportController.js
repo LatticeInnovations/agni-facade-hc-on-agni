@@ -65,7 +65,8 @@ let getLabReport = async function (req, res) {
             type :  "lab-report-encounter",
             "service-provider" :  req.decoded.orgId,
             "_count": req.query.count,
-            "_offset": req.query.offset
+            "_offset": req.query.offset,
+            "_sort": req.query._sort  || "-_id"
         }
         const token = req.accessToken;
         let resourceResult = []

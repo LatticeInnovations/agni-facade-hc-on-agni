@@ -35,7 +35,8 @@ return {
             "appointment.slot.start:1": `le${queryParams.endDate}`,
             "_total": "accurate",
             "_count": TOTAL_COUNT,
-            "_offset" : 0
+            "_offset" : 0,
+            "_sort": "-_id"
         };
 }
 
@@ -161,7 +162,8 @@ const fetchVitalData = async (mainEncounterIds, patientMap, token) => {
                 "encounter.part-of": batchIds.join(","),
                 "code": Object.keys(VITAL_OBS_CODES).join(","),
                 "_include": "Observation:encounter",
-                "_count": (BATCH_SIZE * 20) + batchIds.length
+                "_count": (BATCH_SIZE * 20) + batchIds.length,
+                "_sort": "-_id"
             }, token);
 
             if (!response?.entry?.length) return;
@@ -197,7 +199,8 @@ const fetchCvdData = async (mainEncounterIds, patientMap, token) => {
                 "encounter.part-of": batchIds.join(","),
                 "code": Object.keys(CVD_OBS_CODES).join(","),
                 "_include": "Observation:encounter",
-                "_count": (BATCH_SIZE * 20) + batchIds.length
+                "_count": (BATCH_SIZE * 20) + batchIds.length,
+                "_sort": "-_id"
             }, token);
 
             if (!response?.entry?.length) return;
@@ -294,7 +297,8 @@ const fetchLocationList = async (ids, token, type) => {
         const resources = await fetchResource("Location", {
             type: type,
             _id: ids.join(","),
-            _count: 100
+            _count: 300,
+            "_sort": "-_id"
         }, token)
 
         return resources.entry ? resources.entry.map(e => e.resource) : []
@@ -314,7 +318,8 @@ const getPatientDetails = async (patients, token) => {
             const patientResources = await fetchResource("Patient", {
                 
                 "_id": batchIds.join(","),
-                "_count": batchIds.length
+                "_count": batchIds.length,
+                "_sort": "-_id"
             }, token);
 
             // if (!patientResources?.entry?.length) return;
@@ -353,7 +358,8 @@ const getPatientLocationDetails = async (patients, token) => {
         const orgResources = await fetchResource("Organization", {
             type: "health-facility",
             _count: 2000,
-            _id: facilityIds.join(",")
+            _id: facilityIds.join(","),
+            "_sort": "-_id"
         }, token);        
         const facilitiesList = orgResources.entry ? orgResources.entry.map(e => e.resource) : [];
         patients.forEach(patient => {
@@ -491,7 +497,8 @@ const facilityDivisionMainEncounterQuery = (queryParams) => {
             "appointment.slot.start:1": `le${queryParams.endDate}`,
             "_total": "accurate",
             "_count": TOTAL_COUNT,
-            "_offset" : 0
+            "_offset" : 0,
+            "_sort": "-_id"
         };
         if(queryParams.divisionType == 1)
                 query["patient.address-state"] = queryParams.divisionIds;

@@ -36,7 +36,7 @@ let saveReferralData = async function (req, res) {
           };
         const token = req.accessToken;
         let resourceResult = [];
-        const practitionerRoleData = await fetchResource("PractitionerRole", {practitioner: req.decoded.userId, active: true}, token);
+        const practitionerRoleData = await fetchResource("PractitionerRole", {practitioner: req.decoded.userId, active: true, _sort: "_id"}, token);
         for (let referralData of req.body) {
             //  fetch appointment encounter
             const encounterData = await fetchMainEncounter(referralData, token)
