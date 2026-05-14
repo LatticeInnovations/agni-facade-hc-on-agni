@@ -450,8 +450,7 @@ const getFacilityDashboard = async function (req, res) {
         const mainEncounterIds = mainEncounters.entry ? mainEncounters.entry.map(e => e.resource.id) : [];
         patientMap = groupEncountersByPatient(patientMap, mainEncounters, "mainEncounters");
          const patientArray = await buildPatientArray(patientMap, mainEncounterIds, token);
-        // fetch cvd data for every encounter
-        patientMap = await fetchCvdData(mainEncounterIds, patientMap, token);
+
         await getPatientDetails(
                     Object.fromEntries(patientArray.map(p => [p.patientId, p])),
                     token
