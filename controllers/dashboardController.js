@@ -59,7 +59,9 @@ const groupEncountersByPatient = (patientMap, encounters, type) => {
                 };
             }
 
-             patientMap[patientId][type].push({encounterId, facilityId: resource.serviceProvider.reference.split("/")[1]});
+             patientMap[patientId][type].push({encounterId, facilityId: resource.serviceProvider.reference.split("/")[1],  appointmentId:   resource.appointment?.[0]?.reference?.split("/")?.[1] || null,
+             appointmentDate: null  // filled after fetch 
+    });
              });
         return patientMap;
 }
@@ -158,6 +160,79 @@ const mapVitalObservationsToEncounter = (observations, subEncounterLookup, patie
     });
 }
 
+const fetchAppointmentDates = async (patientMap, token) => {
+    try {
+        const appointmentIdToEncounters = {};
+
+        Object.values(patientMap).forEach(patient => {
+            patient.mainEncounters.forEach(enc => {
+                const hasDate = enc.cvd?.screeningDate;
+                if (!hasDate && enc.appointmentId) {
+                    if (!appointmentIdToEncounters[enc.appointmentId]) {
+                        appointmentIdToEncounters[enc.appointmentId] = [];
+                    }
+                    appointmentIdToEncounters[enc.appointmentId].push(enc);
+                }
+            });
+        });
+
+        const appointmentIds = Object.keys(appointmentIdToEncounters);
+        console.log("Fetching appointment dates for: ", appointmentIds.length, " appointments");
+        if (!appointmentIds.length) return;
+
+        // Step 1: fetch appointments to get slot references
+        const slotIdToAppointmentId = {};
+        await fetchInBatches(appointmentIds, BATCH_SIZE, async (batchIds) => {
+            const response = await fetchResource("Appointment", {
+                "_id":    batchIds.join(","),
+                "_count": batchIds.length,
+                "_sort":  "-_id"
+            }, token);
+
+            if (!response?.entry?.length) return;
+
+            response.entry.forEach(e => {
+                const appointment   = e.resource;
+                const appointmentId = appointment.id;
+                const slotId        = appointment.slot?.[0]?.reference?.split("/")?.[1];
+                if (slotId) {
+                    slotIdToAppointmentId[slotId] = appointmentId;
+                }
+            });
+        });
+
+        const slotIds = Object.keys(slotIdToAppointmentId);
+        console.log("Fetching slots for: ", slotIds.length, " slots");
+        if (!slotIds.length) return;
+
+        // Step 2: fetch slots to get start date
+        await fetchInBatches(slotIds, BATCH_SIZE, async (batchIds) => {
+            const response = await fetchResource("Slot", {
+                "_id":    batchIds.join(","),
+                "_count": batchIds.length,
+                "_sort":  "-_id"
+            }, token);
+
+            if (!response?.entry?.length) return;
+
+            response.entry.forEach(e => {
+                const slot          = e.resource;
+                const slotId        = slot.id;
+                const slotDate      = slot.start ?? null;
+                const appointmentId = slotIdToAppointmentId[slotId];
+
+                const encounters = appointmentIdToEncounters[appointmentId];
+                if (encounters && slotDate) {
+                    encounters.forEach(enc => enc.appointmentDate = slotDate);
+                }
+            });
+        });
+
+    } catch (error) {
+        console.error("fetchAppointmentDates error: ", error);
+        return Promise.reject(error);
+    }
+};
 
 
 const fetchVitalData = async (mainEncounterIds, patientMap, token) => {
@@ -250,24 +325,23 @@ const filterFinalData = (finalData) => {
 
 const deriveFinalVtialCvdData = (patientMap) => {
     const result = {};
+    console.log("Deriving final data from patient map with size: ", Object.keys(patientMap).length);
 
     Object.entries(patientMap).forEach(([patientId, patient]) => {
+
+         const getEncounterDate = (enc) => new Date(
+            enc.cvd?.screeningDate ??
+            enc.appointmentDate    ??
+            0
+        );
+
         // Sort by encounterId descending (higher = newer)
         const sortedEncounters = [...patient.mainEncounters]
-    .sort((a, b) => {
-        const dateA = new Date(a.cvd?.screeningDate ?? 0);
-        const dateB = new Date(b.cvd?.screeningDate ?? 0);
-        return dateB - dateA; // descending (latest first)
-    });
-        const getLatestValue = (field, type) => {
+            .sort((a, b) => getEncounterDate(b) - getEncounterDate(a));
+
+    const getLatestValue = (field, type) => {
             for (const enc of sortedEncounters) {
-                let val = null
-                if(type == null) {
-                    val = enc[field];
-                }
-                else {
-                    val = enc[type]?.[field];
-                }
+                const val = type == null ? enc[field] : enc[type]?.[field];
                 if (val !== null && val !== undefined) return val;
             }
             return null;
@@ -281,7 +355,9 @@ const deriveFinalVtialCvdData = (patientMap) => {
             diaBP:           getLatestValue("diaBP", "cvd"),
             bmi:             getLatestValue("bmi", "cvd"),
             smoker:          getLatestValue("smoker", "cvd"),
-            screeningDate:   getLatestValue("screeningDate", "cvd"),
+            screeningDate:   getLatestValue("screeningDate", "cvd") ??
+                getLatestValue("appointmentDate", null) ??
+                null,
             cholesterol:     getLatestValue("cholesterol", "cvd"),
             cholesterolUnit: getLatestValue("cholesterolUnit", "cvd"),
             cvdRisk:            getLatestValue("cvdRisk", "cvd"),
@@ -541,10 +617,11 @@ const buildPatientArray = async (patientMap, mainEncounterIds, token) => {
         fetchCvdData(mainEncounterIds, patientMap, token),
         fetchVitalData(mainEncounterIds, patientMap, token)
     ]);
-    const filteredMap   = filterPatientsWithData(patientMap);
-    const result        = deriveFinalVtialCvdData(filteredMap);
-    const filteredFinal = filterFinalData(result);
-    return Object.entries(filteredFinal).map(([patientId, data]) => ({ patientId, ...data }));
+
+    await fetchAppointmentDates(patientMap, token);
+    const result        = deriveFinalVtialCvdData(patientMap);
+   
+    return Object.entries(result).map(([patientId, data]) => ({ patientId, ...data }));
 };
 
 const getDivisionDashboard = async function (req, res) {
