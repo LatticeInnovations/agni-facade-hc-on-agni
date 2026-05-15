@@ -176,8 +176,6 @@ const fetchAppointmentDates = async (patientMap, token) => {
 
         Object.values(patientMap).forEach(patient => {
             patient.mainEncounters.forEach(enc => {
-                // We ALWAYS fetch the date now, 
-                // regardless of whether clinical data exists
                 if (enc.appointmentId) {
                     if (!appointmentIdToEncounters[enc.appointmentId]) {
                         appointmentIdToEncounters[enc.appointmentId] = [];
@@ -191,49 +189,40 @@ const fetchAppointmentDates = async (patientMap, token) => {
         console.log("Fetching appointment dates for: ", appointmentIds.length, " appointments");
         if (!appointmentIds.length) return;
 
-        // Step 1: fetch appointments to get slot references
-        const slotIdToAppointmentId = {};
         await fetchInBatches(appointmentIds, BATCH_SIZE, async (batchIds) => {
             const response = await fetchResource("Appointment", {
-                "_id":    batchIds.join(","),
-                "_count": batchIds.length,
-                "_sort":  "-_id"
+                "_id":      batchIds.join(","),
+                "_include": "Appointment:slot",        // pulls slot in same response
+                "_count":   batchIds.length * 3,       // appointments + slots
+                "_sort":    "-_id"
             }, token);
 
             if (!response?.entry?.length) return;
 
-            response.entry.forEach(e => {
+            // Separate appointments and included slots
+            const appointments = response.entry.filter(e => e.search?.mode === "match");
+            const slots        = response.entry.filter(e => e.search?.mode === "include");
+
+            // Build slot lookup map
+            const slotMap = {};
+            slots.forEach(e => {
+                slotMap[e.resource.id] = e.resource.start ?? null;
+            });
+
+            // Map slot date back to encounters via appointment
+            appointments.forEach(e => {
                 const appointment   = e.resource;
                 const appointmentId = appointment.id;
                 const slotId        = appointment.slot?.[0]?.reference?.split("/")?.[1];
-                if (slotId) {
-                    slotIdToAppointmentId[slotId] = appointmentId;
-                }
-            });
-        });
 
-        const slotIds = Object.keys(slotIdToAppointmentId);
-        if (!slotIds.length) return;
-
-        // Step 2: fetch slots to get start date
-        await fetchInBatches(slotIds, BATCH_SIZE, async (batchIds) => {
-            const response = await fetchResource("Slot", {
-                "_id":    batchIds.join(","),
-                "_count": batchIds.length,
-                "_sort":  "-_id"
-            }, token);
-
-            if (!response?.entry?.length) return;
-
-            response.entry.forEach(e => {
-                const slot          = e.resource;
-                const slotId        = slot.id;
-                const slotDate      = slot.start ?? null;
-                const appointmentId = slotIdToAppointmentId[slotId];
+                // FIX: appointment might have no slot — appointmentDate stays null
+                const slotDate = slotId ? (slotMap[slotId] ?? null) : null;
 
                 const encounters = appointmentIdToEncounters[appointmentId];
-                if (encounters && slotDate) {
+                if (encounters) {
                     encounters.forEach(enc => enc.appointmentDate = slotDate);
+                    // null appointmentDate → encounter dropped by cleanPatientMapToDailyFirst
+                    // which is correct — no slot = no valid date = not included
                 }
             });
         });
@@ -418,42 +407,42 @@ const getPatientLocationDetails = async (patients, token) => {
         const facilityIds = [...new Set(patients.map(e => e.facilityId))];
 
         const [provinceList, areaCouncilList, islandList, villageList, orgResources] = await Promise.all([
-        fetchLocationList(provinceIds, token, "province"),
-        fetchLocationList(areaCouncilIds, token, "area-council"),
-        fetchLocationList(islandIds, token, "island"),
-        fetchLocationList(villageIds, token, "village"),
-        fetchResource("Organization", {
-            type: "health-facility",
-            _count: 2000,
-            _id: facilityIds.join(","),
-            "_sort": "-_id"
-        }, token)
-    ]);
-     
-        const facilitiesList = orgResources.entry ? orgResources.entry.map(e => e.resource) : [];
+            fetchLocationList(provinceIds, token, "province"),
+            fetchLocationList(areaCouncilIds, token, "area-council"),
+            fetchLocationList(islandIds, token, "island"),
+            fetchLocationList(villageIds, token, "village"),
+            fetchResource("Organization", {
+                type: "health-facility",
+                _count: 2000,
+                _id: facilityIds.join(","),
+                "_sort": "-_id"
+            }, token)
+        ]);
+
+        // Build Lookup Maps (Objects) O(1)
+        const provinceMap    = Object.fromEntries(provinceList.map(e => [e.id, e.name]));
+        const councilMap     = Object.fromEntries(areaCouncilList.map(e => [e.id, e.name]));
+        const islandMap      = Object.fromEntries(islandList.map(e => [e.id, e.name]));
+        const villageMap     = Object.fromEntries(villageList.map(e => [e.id, e.name]));
+        const facilityMap    = Object.fromEntries((orgResources.entry || []).map(e => [e.resource.id, e.resource.name]));
+
+        // Optimized Mapping Loop
         patients.forEach(patient => {
+            const addr = patient.patientDetails.permanentAddress;
             
-            const province = provinceList.find(e => e.id === patient.patientDetails.permanentAddress.state)
-            patient.province    = province?.name    || null;
-            const areaCouncil = areaCouncilList.find(e => e.id === patient.patientDetails.permanentAddress.city)
-           patient.areaCouncil = areaCouncil?.name || null;
-
-            const island = islandList.find(e => e.id === patient.patientDetails.permanentAddress.district)
-            patient.island = island?.name || null;
-
-            const village = villageList.find(e => e.id === patient.patientDetails.permanentAddress?.addressLine1)
-            patient.village = village?.name || null;
-
-            const facility = facilitiesList.find(e => patient.facilityId && e.id === patient.facilityId);
-            patient.healthFacility = facility?.name || null;
-        })
+            patient.province       = provinceMap[addr.state] || null;
+            patient.areaCouncil    = councilMap[addr.city] || null;
+            patient.island         = islandMap[addr.district] || null;
+            patient.village        = villageMap[addr.addressLine1] || null;
+            patient.healthFacility = facilityMap[patient.facilityId] || null;
+        });
 
         return patients;
+    } catch (error) {
+        console.error("Error in getPatientLocationDetails:", error);
+        return Promise.reject(error);
     }
-    catch(error) {
-        return Promise.reject(error)
-    }
-}
+};
 
 const finalResponseStructure = (patients) => {
     return patients.map(e => ({
