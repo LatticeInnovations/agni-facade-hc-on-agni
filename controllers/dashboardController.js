@@ -428,7 +428,7 @@ const getPatientLocationDetails = async (patients, token) => {
 
         // Optimized Mapping Loop
         patients.forEach(patient => {
-            const addr = patient.patientDetails.permanentAddress;
+            const addr = patient.patientDetails?.permanentAddress || {};
             
             patient.province       = provinceMap[addr.state] || null;
             patient.areaCouncil    = councilMap[addr.city] || null;
