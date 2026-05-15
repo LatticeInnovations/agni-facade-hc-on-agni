@@ -483,34 +483,43 @@ const finalResponseStructure = (patients) => {
     }))
 }
 
-const cleanPatientMapToDailyFirst = (patientMap, requestedFacilityIds) => {
+const cleanDailyDuplicates = (patientMap) => {
     Object.keys(patientMap).forEach(patientId => {
         const patient = patientMap[patientId];
         const dailyGroups = {};
 
-        // Group all encounters by the YYYY-MM-DD of the Slot
+        // 1. Group encounters by their YYYY-MM-DD date string
         patient.mainEncounters.forEach(enc => {
             if (!enc.appointmentDate) return;
+            
+            // Extract just the date part (e.g., "2026-05-10")
             const dateKey = enc.appointmentDate.slice(0, 10);
-            if (!dailyGroups[dateKey]) dailyGroups[dateKey] = [];
+            
+            if (!dailyGroups[dateKey]) {
+                dailyGroups[dateKey] = [];
+            }
             dailyGroups[dateKey].push(enc);
         });
 
-        const validEncounters = [];
+        const cleanedEncounters = [];
 
+        // 2. Process each day's group to find the "Official" visit
         Object.values(dailyGroups).forEach(dayEncounters => {
-            // Sort Earliest to Latest
-            dayEncounters.sort((a, b) => new Date(a.appointmentDate) - new Date(b.appointmentDate));
-            const earliestEncounter = dayEncounters[0];
-
-            // Fix for Issue #5: Check if the earliest facility is in the allowed list
-            if (requestedFacilityIds.includes(String(earliestEncounter.facilityId))) {
-                validEncounters.push(earliestEncounter);
+            // If there's more than one visit on this day...
+            if (dayEncounters.length > 1) {
+                // Sort by time: Ascending (08:00 AM comes before 11:00 AM)
+                dayEncounters.sort((a, b) => 
+                    new Date(a.appointmentDate) - new Date(b.appointmentDate)
+                );
             }
+
+            // Keep the absolute earliest one (Index 0)
+            // This effectively treats the 11:00 AM visit as "Noise" and ignores it
+            cleanedEncounters.push(dayEncounters[0]); 
         });
 
-        patient.mainEncounters = validEncounters;
-        if (patient.mainEncounters.length === 0) delete patientMap[patientId];
+        // 3. Replace the patient's history with only the "Official" daily visits
+        patient.mainEncounters = cleanedEncounters;
     });
 };
 
@@ -535,31 +544,13 @@ const getFacilityDashboard = async function (req, res) {
         let patientMap = {};
         groupEncountersByPatient(patientMap, mainEncounters, "mainEncounters");
        
-       // 2. Fetch Cross-Facility context
-        // This finds if these patients went elsewhere during the same date range
-        const patientIds = Object.keys(patientMap);
-        await fetchInBatches(patientIds, BATCH_SIZE, async (batchIds) => {
-            const crossResponse = await fetchResource("Encounter", {
-                type: MAIN_ENCOUNTER_TYPE,
-                "subject": batchIds.join(","),
-                "status": "finished,in-progress",
-                "appointment.slot.start:0": `ge${queryParams.startDate}`,
-                "appointment.slot.start:1": `le${queryParams.endDate}`,
-                "_count": TOTAL_COUNT * 2
-            }, token);
-
-            if (crossResponse?.entry) {
-                // Add these "other" encounters to the same patientMap for comparison
-                groupEncountersByPatient(patientMap, crossResponse, "mainEncounters");
-            }
-        });
-
-        // 3. Populate appointmentDate for EVERY encounter in the map
+        // 1. Populate appointmentDate for EVERY encounter in the map
         await fetchAppointmentDates(patientMap, token);
 
-        // --- STAGE 2: The Cleanup (The Call Site) ---
-        // We call it here so we only fetch clinical data for "Daily Winners"
-        cleanPatientMapToDailyFirst(patientMap, requestedFacilityIds);
+        
+
+        // --- STAGE 2: The Cleanup in case of same day appointments conflicts
+        cleanDailyDuplicates(patientMap);
 
         // --- STAGE 3: Clinical Fetching ---
         const validMainEncounterIds = [];
@@ -661,27 +652,12 @@ const filterPatientsByDivision = (patientMap, divisionType, divisionIds) => {
 
 const buildPatientArray = async (patientMap, queryParams, token) => {
 
-    // We fetch every appointment for these patients in this date range
-    const patientIds = Object.keys(patientMap);
-    await fetchInBatches(patientIds, BATCH_SIZE, async (batchIds) => {
-        const crossRes = await fetchResource("Encounter", {
-            type: MAIN_ENCOUNTER_TYPE,
-            "subject": batchIds.join(","),
-            "status": "finished,in-progress",
-            "appointment.slot.start:0": `ge${queryParams.startDate}`,
-            "appointment.slot.start:1": `le${queryParams.endDate}`,
-            _count: TOTAL_COUNT * 2
-        }, token);
-        if (crossRes?.entry) groupEncountersByPatient(patientMap, crossRes, "mainEncounters");
-    });
-
-    // 3. Resolve dates for the new encounters we just added
+     // 1. Resolve dates for the new encounters we just added
     await fetchAppointmentDates(patientMap, token);
 
-    // 4. Enforce "One Appointment Per Day" (Earliest Wins)
-    // Note: In Division API, we don't filter by a single Facility ID,
-    // we just want the earliest one for that day to be the representative.
-    cleanPatientMapToDailyFirstInDivision(patientMap);
+    // 2. Apply the Noise Filter (8 AM vs 11 AM) for same day multipe appointments
+    // This ensures only the earliest encounter of each day is kept
+    cleanDailyDuplicates(patientMap);
 
     // 4. Fetch clinical data for survivors only
     const validMainEncounterIds = [];
@@ -697,6 +673,7 @@ const buildPatientArray = async (patientMap, queryParams, token) => {
     }
 
     const result = deriveFinalVtialCvdData(patientMap);
+    
     return Object.entries(result).map(([patientId, data]) => ({ patientId, ...data }));
 };
 
