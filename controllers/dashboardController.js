@@ -213,7 +213,6 @@ const fetchAppointmentDates = async (patientMap, token) => {
         });
 
         const slotIds = Object.keys(slotIdToAppointmentId);
-        console.log("Fetching slots for: ", slotIds.length, " slots");
         if (!slotIds.length) return;
 
         // Step 2: fetch slots to get start date
@@ -557,7 +556,7 @@ const getFacilityDashboard = async function (req, res) {
                 "status": "finished,in-progress",
                 "appointment.slot.start:0": `ge${queryParams.startDate}`,
                 "appointment.slot.start:1": `le${queryParams.endDate}`,
-                "_count": TOTAL_COUNT
+                "_count": TOTAL_COUNT * 2
             }, token);
 
             if (crossResponse?.entry) {
@@ -589,7 +588,6 @@ const getFacilityDashboard = async function (req, res) {
         // --- STAGE 4: Derivation & Final Response ---
         const derivedData = deriveFinalVtialCvdData(patientMap);
         const patientArray = Object.entries(derivedData).map(([patientId, data]) => ({ patientId, ...data }));
-        console.log
         await getPatientDetails(Object.fromEntries(patientArray.map(p => [p.patientId, p])), token);
         await getPatientLocationDetails(patientArray, token);
 
@@ -682,7 +680,8 @@ const buildPatientArray = async (patientMap, queryParams, token) => {
             "subject": batchIds.join(","),
             "status": "finished,in-progress",
             "appointment.slot.start:0": `ge${queryParams.startDate}`,
-            "appointment.slot.start:1": `le${queryParams.endDate}`
+            "appointment.slot.start:1": `le${queryParams.endDate}`,
+            _count: TOTAL_COUNT * 2
         }, token);
         if (crossRes?.entry) groupEncountersByPatient(patientMap, crossRes, "mainEncounters");
     });
