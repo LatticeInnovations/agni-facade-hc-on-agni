@@ -1,6 +1,15 @@
 require("./fhirAxiosClient");
 const { reverseCodeMap } = require("../../controllers/priorDxController");
 const { buildWHOGuidance, buildPersonalSummary } = require("./helperService");
+const QUESTIONNAIRE_MAPPING = require("./questionnaireMapping.json");
+const heartCareIdUrl = require("../../utils/heartcareSystemUrl").heartCareIdUrl;
+
+const SECTION_ID_MAP = Object.freeze({
+  fruitsVegetables: "fruitVegetable",
+  fatAndOil: "fatsOils",
+  sugar: "sugars",
+  mealsOutsideHome: "mealsNotFromHomeGroup"
+});
 
 function val(v) {
   return v ?? "--";
@@ -63,30 +72,139 @@ function buildEncounterRefs(encounters) {
   };
 }
 
-function filterByEncounterType(encounters, typeCode, isIncludes = false) {
+function filterByEncounterType(encounters, typeCode, isExact = false) {
   return encounters.filter(e =>
     e.type?.[0]?.coding?.some(c =>
-      isIncludes ? c.code?.includes(typeCode) : ENCOUNTER_TYPES.FACILITY.has(c.code)
+      isExact ? c.code === typeCode : ENCOUNTER_TYPES.FACILITY.has(c.code)
     )
   ).map(e => `Encounter/${e.id}`);
 }
 
-function buildQuestionnaireMaps(questionnaires) {
-  const maps = {};
-  questionnaires.forEach(q => {
-    q.item?.forEach(item => {
-      if (!item.linkId || !item.answerOption) return;
-      const map = {};
-      item.answerOption.forEach(opt => {
-        const coding = opt.valueCoding || opt.valueInteger;
-        if (!coding) return;
-        const code = coding.code === undefined ? code : coding.code;
-        map[code] = coding.display === undefined ? code : coding.display;
-      });
-      if (Object.keys(map).length > 0) maps[item.linkId] = map;
-    });
-  });
-  return maps;
+function normalizeSectionId(sectionId) {
+  return SECTION_ID_MAP[sectionId] || sectionId;
+}
+
+function lookupAnswer(sectionId, questionId, answer) {
+  if (!answer) return "--";
+  
+  const normalizedSection = normalizeSectionId(sectionId);
+  const mapping = QUESTIONNAIRE_MAPPING[normalizedSection];
+  if (!mapping) return "--";
+  
+  const fieldMapping = mapping[questionId];
+  
+  if (answer.valueBoolean !== undefined) {
+    if (fieldMapping && Object.keys(fieldMapping).length > 0) {
+      return fieldMapping[String(answer.valueBoolean)] ?? (answer.valueBoolean ? "Yes" : "No");
+    }
+    return answer.valueBoolean ? "Yes" : "No";
+  }
+  if (answer.valueString !== undefined) {
+    if (fieldMapping && Object.keys(fieldMapping).length > 0) {
+      return fieldMapping[answer.valueString] ?? answer.valueString;
+    }
+    return answer.valueString;
+  }
+  if (answer.valueInteger !== undefined) {
+    if (fieldMapping && Object.keys(fieldMapping).length > 0) {
+      return fieldMapping[String(answer.valueInteger)] ?? fieldMapping[answer.valueInteger] ?? String(answer.valueInteger);
+    }
+    return String(answer.valueInteger);
+  }
+  if (answer.valueCoding?.code) {
+    if (fieldMapping && Object.keys(fieldMapping).length > 0) {
+      return fieldMapping[answer.valueCoding.code] ?? answer.valueCoding.display ?? answer.valueCoding.code;
+    }
+    return answer.valueCoding.display ?? answer.valueCoding.code;
+  }
+  
+  return "--";
+}
+
+function findQuestionInResponse(response, sectionId, questionId) {
+  if (!response?.item) return null;
+  
+  const section = response.item.find(i => i.linkId === sectionId);
+  if (section) {
+    if (section.item?.length) {
+      return section.item.find(i => i.linkId === questionId);
+    }
+    return section;
+  }
+  
+  return response.item.find(i => i.linkId === questionId);
+}
+
+function getRiskAnswer(responses, sectionId, questionId, ctx) {
+  const targetRefs = new Set(ctx.encounterRefs || []);
+  const facilityRefs = new Set(ctx.facilityEncounterRefs || []);
+  const combinedRefs = new Set([...targetRefs, ...facilityRefs]);
+  
+  const allResponses = (responses || []).filter(r => 
+    r.encounter?.reference && combinedRefs.has(r.encounter.reference)
+  );
+  
+  const response = allResponses.find(r => r.item?.some(i => i.linkId === sectionId));
+  if (!response) return "--";
+  
+  const question = findQuestionInResponse(response, sectionId, questionId);
+  if (!question?.answer?.length) return "--";
+  
+  return lookupAnswer(sectionId, questionId, question.answer[0]);
+}
+
+function getRiskFactors(entries, ctx) {
+  const result = {
+    tobacco: {
+      tobaccoUser: getRiskAnswer(ctx.questionnaireResponses, "tobacco", "tobaccoUser", ctx),
+      productUsed: getRiskAnswer(ctx.questionnaireResponses, "tobacco", "tobaccoItemType", ctx),
+      startAge: getRiskAnswer(ctx.questionnaireResponses, "tobacco", "startAge", ctx),
+      dailyUse: getRiskAnswer(ctx.questionnaireResponses, "tobacco", "consumptionAmount", ctx),
+      consumptionUnit: getRiskAnswer(ctx.questionnaireResponses, "tobacco", "consumptionUnit", ctx),
+      willingToQuit: getRiskAnswer(ctx.questionnaireResponses, "tobacco", "willingToQuit", ctx),
+    },
+    alcohol: {
+      consumedWithin30Days: getRiskAnswer(ctx.questionnaireResponses, "alcohol", "consumedWithin30Days", ctx),
+      drinkOccasion: getRiskAnswer(ctx.questionnaireResponses, "alcohol", "alcoholQ1", ctx),
+      drinksPerOccasion: getRiskAnswer(ctx.questionnaireResponses, "alcohol", "alcoholQ2", ctx),
+      sixOrMoreDrinks: getRiskAnswer(ctx.questionnaireResponses, "alcohol", "alcoholQ3", ctx)
+    },
+    fruitsVegetables: {
+      eatWeekly: getRiskAnswer(ctx.questionnaireResponses, "fruitsVegetables", "consumptionInWeek", ctx),
+      fruitsDays: getRiskAnswer(ctx.questionnaireResponses, "fruitsVegetables", "fruitsDays", ctx),
+      fruitServings: getRiskAnswer(ctx.questionnaireResponses, "fruitsVegetables", "fruitServings", ctx),
+      vegDays: getRiskAnswer(ctx.questionnaireResponses, "fruitsVegetables", "vegetableDays", ctx),
+      vegServings: getRiskAnswer(ctx.questionnaireResponses, "fruitsVegetables", "vegetableServings", ctx)
+    },
+    physicalActivity: {
+      weeklyEngagement: getRiskAnswer(ctx.questionnaireResponses, "physicalActivity", "weeklyEngagement", ctx),
+      vigorousDays: getRiskAnswer(ctx.questionnaireResponses, "physicalActivity", "vigorousDays", ctx),
+      vigorousTime: getRiskAnswer(ctx.questionnaireResponses, "physicalActivity", "vigorousTime", ctx),
+      moderateDays: getRiskAnswer(ctx.questionnaireResponses, "physicalActivity", "moderateDays", ctx),
+      moderateTime: getRiskAnswer(ctx.questionnaireResponses, "physicalActivity", "moderateTime", ctx),
+    },
+    salt: {
+      saltAmount: getRiskAnswer(ctx.questionnaireResponses, "salt", "saltAmount", ctx),
+      saltAddMeal: getRiskAnswer(ctx.questionnaireResponses, "salt", "saltAddMeal", ctx),
+      saltAddCooking: getRiskAnswer(ctx.questionnaireResponses, "salt", "saltAddCooking", ctx),
+      processedFood: getRiskAnswer(ctx.questionnaireResponses, "salt", "saltProcessedFood", ctx)
+    },
+    fats: {
+      oilUsed: getRiskAnswer(ctx.questionnaireResponses, "fatAndOil", "oilUsed", ctx),
+      fatFoodFrequency: getRiskAnswer(ctx.questionnaireResponses, "fatAndOil", "fatFoodFrequency", ctx),
+      otherFat: getRiskAnswer(ctx.questionnaireResponses, "fatAndOil", "otherFatAndOils", ctx)
+    },
+    sugar: {
+      softDrink: getRiskAnswer(ctx.questionnaireResponses, "sugar", "softDrinkFrequency", ctx),
+      juice: getRiskAnswer(ctx.questionnaireResponses, "sugar", "juiceFrequency", ctx)
+    },
+    mealsOutside: {
+      eatsOut: getRiskAnswer(ctx.questionnaireResponses, "mealsOutsideHome", "eatsOut", ctx),
+      mealsPerWeek: getRiskAnswer(ctx.questionnaireResponses, "mealsOutsideHome", "mealsPerWeek", ctx),
+    }
+  };
+  
+return result;
 }
 
 function buildActivityMap(activityDefs) {
@@ -101,6 +219,12 @@ function buildOrgMap(orgs) {
   return map;
 }
 
+function filterScreeningSiteEncounters(encounters) {
+  return encounters.filter(e =>
+    e.type?.[0]?.coding?.some(c => c.code && c.code.includes(ENCOUNTER_TYPES.SCREENING_SITE))
+  ).map(e => `Encounter/${e.id}`);
+}
+
 function buildEntryIndex(entries) {
   if (!entries || !Array.isArray(entries)) {
     return {
@@ -111,14 +235,14 @@ function buildEntryIndex(entries) {
     };
   }
 
-  const { enc, obs, cond, qr, mr, sr, questionnaire, activity, org } = categorizeEntries(entries);
+  const { enc, obs, cond, qr, mr, sr, activity, org } = categorizeEntries(entries);
   const { allIds, allIdSet, refs } = buildEncounterRefs(enc);
 
   return {
     byType: {}, encounterRefs: refs, allEncounterIds: allIds, allEncounterIdSet: allIdSet,
-    screeningSiteEncounterRefs: filterByEncounterType(enc, ENCOUNTER_TYPES.SCREENING_SITE, true),
+    screeningSiteEncounterRefs: filterScreeningSiteEncounters(enc),
     facilityEncounterRefs: filterByEncounterType(enc, null, false),
-    questionnaireCodeMaps: buildQuestionnaireMaps(questionnaire),
+    questionnaireCodeMaps: {},
     activityDefinitionMap: buildActivityMap(activity),
     organizationMap: buildOrgMap(org),
     observations: obs, conditions: cond, questionnaireResponses: qr,
@@ -237,7 +361,7 @@ function getVital(entries, text, ctx) {
   if (!ctx.observations) return "--";
   const filtered = filterByEncounter(ctx.observations, ctx.encounterRefs);
   const obs = filtered.find(o =>
-    o.category?.some(c => c.coding?.some(cd => cd.code === "vital-signs")) &&
+    o.category?.some(c => c.coding?.some(cd => cd.code === "vital-signs" || cd.code === "Vital")) &&
     o.component?.some(c => c.code?.text === text)
   );
   if (!obs) return "--";
@@ -304,20 +428,19 @@ function getSideEffects(entries, ctx) {
 function getAdherence(entries, ctx) {
   const response = getLatestQuestionnaireResponse(ctx.questionnaireResponses, "Adherence", ctx);
   if (!response) return "--";
-  const codeMap = ctx.questionnaireCodeMaps["Adherence"] || {};
-  const code = response.item.find(i => i.linkId === "Adherence")?.answer?.[0]?.valueCoding?.code;
-  return codeMap[String(code)] || codeMap[code] || "--";
+  const ans = response.item.find(i => i.linkId === "Adherence")?.answer?.[0];
+  return lookupAnswer("Adherence", "Adherence", ans);
 }
 
 function getFamilyHistory(entries, ctx) {
   const response = getLatestQuestionnaireResponse(ctx.questionnaireResponses, "familyDiseaseDetail", ctx);
   if (!response) return "--";
-  const codeMap = ctx.questionnaireCodeMaps["familyDiseaseDetail"] || {};
   const codes = response.item.find(i => i.linkId === "familyDiseaseDetail")?.answer?.map(a => a.valueCoding?.code) || [];
-  const diseases = codes.map(code => codeMap[code] || code);
-  const earlyAge = response.item.find(i => i.linkId === "occurrenceAgeBoolean")?.answer?.[0]?.valueCoding?.code;
-  let text = diseases.join(", ");
-  if (earlyAge === "yes") text += " (before age 50)";
+  const diseases = codes.map(code => lookupAnswer("familyDiseaseDetail", "familyDiseaseDetail", { valueCoding: { code } }));
+  const earlyAgeAns = response.item.find(i => i.linkId === "occurrenceAgeBoolean")?.answer?.[0];
+  const earlyAge = lookupAnswer("occurrenceAgeBoolean", "occurrenceAgeBoolean", earlyAgeAns);
+  let text = diseases.filter(d => d !== "--").join(", ");
+  if (earlyAge === "Yes") text += " (before age 55/65)";
   return text || "--";
 }
 
@@ -330,76 +453,9 @@ function getAllergies(entries, ctx) {
   return texts.length ? texts.join(", ") : "--";
 }
 
-function getRiskAnswer(responses, sectionId, questionId, ctx) {
-  const targetRefs = new Set(ctx.encounterRefs || ctx.facilityEncounterRefs || []);
-  const allResponses = (responses || []).filter(r => 
-    r.encounter?.reference && targetRefs.has(r.encounter.reference)
-  );
-  const response = allResponses.find(r => r.item?.some(i => i.linkId === sectionId));
-  if (!response) return "--";
-  const section = response.item.find(i => i.linkId === sectionId);
-  if (!section?.item) return "--";
-  const question = section.item.find(i => i.linkId === questionId);
-  if (!question?.answer?.length) return "--";
-  const ans = question.answer[0];
-  if (ans.valueBoolean !== undefined) return ans.valueBoolean ? "Yes" : "No";
-  return ans.valueString ?? ans.valueInteger ?? ans.valueCoding?.display ?? ans.valueCoding?.code ?? "--";
-}
-
-function getRiskFactors(entries, ctx) {
-  return {
-    tobacco: {
-      tobaccoUser: getRiskAnswer(ctx.questionnaireResponses, "tobacco", "tobaccoUser", ctx),
-      productUsed: getRiskAnswer(ctx.questionnaireResponses, "tobacco", "tobaccoItemType", ctx),
-      startAge: getRiskAnswer(ctx.questionnaireResponses, "tobacco", "startAge", ctx),
-      dailyUse: getRiskAnswer(ctx.questionnaireResponses, "tobacco", "consumptionAmount", ctx),
-      consumptionUnit: getRiskAnswer(ctx.questionnaireResponses, "tobacco", "consumptionUnit", ctx),
-      willingToQuit: getRiskAnswer(ctx.questionnaireResponses, "tobacco", "willingToQuit", ctx),
-    },
-    alcohol: {
-      consumedWithin30Days: getRiskAnswer(ctx.questionnaireResponses, "alcohol", "consumedWithin30Days", ctx),
-      drinkOccasion: getRiskAnswer(ctx.questionnaireResponses, "alcohol", "alcoholQ1", ctx),
-      drinksPerOccasion: getRiskAnswer(ctx.questionnaireResponses, "alcohol", "alcoholQ2", ctx),
-      sixOrMoreDrinks: getRiskAnswer(ctx.questionnaireResponses, "alcohol", "alcoholQ3", ctx)
-    },
-    fruitsVegetables: {
-      eatWeekly: getRiskAnswer(ctx.questionnaireResponses, "fruitsVegetables", "consumptionInWeek", ctx),
-      fruitsDays: getRiskAnswer(ctx.questionnaireResponses, "fruitsVegetables", "fruitsDays", ctx),
-      fruitServings: getRiskAnswer(ctx.questionnaireResponses, "fruitsVegetables", "fruitServings", ctx),
-      vegDays: getRiskAnswer(ctx.questionnaireResponses, "fruitsVegetables", "vegetableDays", ctx),
-      vegServings: getRiskAnswer(ctx.questionnaireResponses, "fruitsVegetables", "vegetableServings", ctx)
-    },
-    physicalActivity: {
-      weeklyEngagement: getRiskAnswer(ctx.questionnaireResponses, "physicalActivity", "weeklyEngagement", ctx),
-      vigorousDays: getRiskAnswer(ctx.questionnaireResponses, "physicalActivity", "vigorousDays", ctx),
-      vigorousTime: getRiskAnswer(ctx.questionnaireResponses, "physicalActivity", "vigorousTime", ctx),
-      moderateDays: getRiskAnswer(ctx.questionnaireResponses, "physicalActivity", "moderateDays", ctx),
-      moderateTime: getRiskAnswer(ctx.questionnaireResponses, "physicalActivity", "moderateTime", ctx),
-    },
-    salt: {
-      saltAmount: getRiskAnswer(ctx.questionnaireResponses, "salt", "saltAmount", ctx),
-      saltAddMeal: getRiskAnswer(ctx.questionnaireResponses, "salt", "saltAddMeal", ctx),
-      saltAddCooking: getRiskAnswer(ctx.questionnaireResponses, "salt", "saltAddCooking", ctx),
-      processedFood: getRiskAnswer(ctx.questionnaireResponses, "salt", "saltProcessedFood", ctx)
-    },
-    fats: {
-      oilUsed: getRiskAnswer(ctx.questionnaireResponses, "fatAndOil", "oilUsed", ctx),
-      fatFoodFrequency: getRiskAnswer(ctx.questionnaireResponses, "fatAndOil", "fatFoodFrequency", ctx),
-      otherFat: getRiskAnswer(ctx.questionnaireResponses, "fatAndOil", "otherFatAndOils", ctx)
-    },
-    sugar: {
-      softDrink: getRiskAnswer(ctx.questionnaireResponses, "sugar", "softDrinkFrequency", ctx),
-      juice: getRiskAnswer(ctx.questionnaireResponses, "sugar", "juiceFrequency", ctx)
-    },
-    mealsOutside: {
-      eatsOut: getRiskAnswer(ctx.questionnaireResponses, "mealsOutsideHome", "eatsOut", ctx),
-      mealsPerWeek: getRiskAnswer(ctx.questionnaireResponses, "mealsOutsideHome", "mealsPerWeek", ctx),
-    }
-  };
-}
-
 function getTobaccoCessation(entries, ctx) {
-  const response = filterByEncounter(ctx.questionnaireResponses, ctx.encounterRefs).find(r => r.item?.some(i => i.linkId === "tobaccoUse"));
+  const allRefs = [...(ctx.screeningSiteEncounterRefs || []), ...(ctx.facilityEncounterRefs || [])];
+  const response = filterByEncounter(ctx.questionnaireResponses, allRefs).find(r => r.item?.some(i => i.linkId === "tobaccoUse"));
   if (!response) {
     return {
       tobaccoUse: "--",
@@ -414,14 +470,16 @@ function getTobaccoCessation(entries, ctx) {
   const getItem = (id) => response.item?.find(i => i.linkId === id)?.answer?.[0];
   const tobaccoCode = getItem("tobaccoUse")?.valueCoding?.code;
   const tobaccoUseMap = { "1": "Yes, every day", "2": "Yes, sometimes", "3": "No" };
-  const assistMap = { "1": "Yes", "2": "No" };
-  const planStatusMap = { "1": "Active", "2": "Not started", "3": "Completed" };
+  const assistMap = { "1": "Yes, brief quit plan", "2": "Yes, intensive quit plan", "3": "No", "4": "Refer to intensive counselling" };
+  const planStatusMap = { "1": "Active", "2": "Completed", "3": "Abandoned" };
+  const pharmaMap = { "1": "Nicotine Replacement Therapy", "2": "Other", "3": "No" };
+  const pharmaValue = getItem("pharmacotherapy")?.valueCoding?.code;
   return {
     tobaccoUse: tobaccoUseMap[tobaccoCode] || "--",
     briefAdvice: getItem("briefAdvice")?.valueBoolean === true ? "Yes" : "No",
     assessedStatus: getItem("assessedStatus")?.valueBoolean === true ? "Yes" : "No",
     assistQuit: assistMap[getItem("assistQuit")?.valueCoding?.code] || "--",
-    pharmacotherapy: getItem("pharmacotherapy")?.valueBoolean === true ? "Yes" : "--",
+    pharmacotherapy: pharmaValue ? (pharmaMap[pharmaValue] || "--") : "--",
     dateOfPlan: getItem("dateOfPlan")?.valueDate ? new Date(getItem("dateOfPlan").valueDate).toLocaleDateString("en-GB") : "--",
     planStatus: planStatusMap[getItem("planStatus")?.valueCoding?.code] || "--"
   };
@@ -577,16 +635,6 @@ function getRiskLevel(value) {
   return "Very High";
 }
 
-function findMainEncounter(encounters, targetIds) {
-  return encounters.find(e => targetIds.includes(String(e.id)));
-}
-
-function determineEncounterType(mainEncounter) {
-  const hasLocation = mainEncounter?.location && mainEncounter.location.length > 0;
-  const hasProvider = mainEncounter?.serviceProvider && (!mainEncounter.location || mainEncounter.location.length === 0);
-  return { isScreeningSite: hasLocation, isFacility: hasProvider };
-}
-
 function getPartOfId(enc) {
   return enc.partOf?.reference?.split("/")[1];
 }
@@ -661,7 +709,7 @@ function buildObservationFields(ctx, filteredObs) {
 
 function buildPatientFields(patient) {
   const name = [...(patient?.name?.[0]?.given || []), patient?.name?.[0]?.family || ""].join(" ").trim();
-  const heartcareId = patient?.identifier?.find(id => id.system === "https://heartcare.gov.vu/dashboard/patient-info" && id.value)?.value;
+  const heartcareId = patient?.identifier?.find(id => id.system === heartCareIdUrl.heartCareIdUrl && id.value)?.value;
   return { name, heartcareId };
 }
 
@@ -691,7 +739,7 @@ function buildFileDetails(patient, name, forceType, primaryEncounter) {
 function getScreeningSiteId(primaryEncounter) {
   const locationRef = primaryEncounter?.location?.[0]?.location?.reference;
 
-  if (!locationRef || !locationRef.includes('/')) {
+  if (!primaryEncounter?.location?.[0]?.location?.reference?.includes('/')) {
     throw new Error('Invalid or missing location reference in primaryEncounter');
   }
 
@@ -725,26 +773,49 @@ function getPrimaryEncounter(id, encounters) {
 function buildReport(entries, encounterIds, forceType = null) {
   const patient = findPatient(entries);
   const index = buildEntryIndex(entries);
-  const targetIds = (Array.isArray(encounterIds) ? encounterIds : [encounterIds]).map(String);
-  const mainEncounter = findMainEncounter(index.encounters, targetIds);
+  let targetIds = (Array.isArray(encounterIds) ? encounterIds : [encounterIds]).map(String);
   
-  let { isScreeningSite, isFacility } = determineEncounterType(mainEncounter);
-  if (forceType === "screening-site") { isScreeningSite = true; isFacility = false; }
-  else if (forceType === "facility") { isScreeningSite = false; isFacility = true; }
+  const encounterIdSet = new Set(index.encounters.map(e => e.id));
+  const qrMap = new Map();
+  index.questionnaireResponses.forEach(qr => {
+    const encRef = qr.encounter?.reference?.split("/")[1];
+    if (encRef) qrMap.set(qr.id, encRef);
+  });
+  
+  targetIds = targetIds.map(id => {
+    if (encounterIdSet.has(id)) return id;
+    return qrMap.get(id) || id;
+  }).filter((id, idx, arr) => arr.indexOf(id) === idx);
   
   const allEncounterIds = collectConnectedEncounters(targetIds, index.encounters);
-  const allEncounterIdsArr = [...allEncounterIds].sort((a, b) => Number(a) - Number(b));;
+  const allEncounterIdsArr = [...allEncounterIds].sort((a, b) => Number(a) - Number(b));
   const encounterRefs = allEncounterIdsArr.map(id => `Encounter/${id}`);
   
   const screeningSiteRefs = index.screeningSiteEncounterRefs.filter(ref => encounterRefs.includes(ref));
   const facilityRefs = index.facilityEncounterRefs.filter(ref => encounterRefs.includes(ref));
-  let effectiveRefs;
-  if (isScreeningSite) {
+  
+  const hasScreeningDirectly = targetIds.some(id => screeningSiteRefs.includes(`Encounter/${id}`));
+  const hasFacilityDirectly = targetIds.some(id => facilityRefs.includes(`Encounter/${id}`));
+  
+  let effectiveRefs = encounterRefs;
+  if (forceType === "screening-site" || (hasScreeningDirectly && !hasFacilityDirectly)) {
     effectiveRefs = screeningSiteRefs;
-  } else if (isFacility) {
+  } else if (forceType === "facility" || (hasFacilityDirectly && !hasScreeningDirectly)) {
     effectiveRefs = facilityRefs;
-  } else {
-    effectiveRefs = encounterRefs;
+  }
+  
+  if (effectiveRefs.length === 0) {
+    return {
+      report: { name: "--" },
+      fileName: "--",
+      filePassword: "--",
+      appointmentId: null,
+      encounterId: null,
+      dob: null,
+      hasData: false,
+      hasScreening: false,
+      hasFacility: false
+    };
   }
   
   const filteredObs = filterByEncounter(index.observations, effectiveRefs);
@@ -771,7 +842,7 @@ function buildReport(entries, encounterIds, forceType = null) {
     bp: getBloodPressure(entries, ctx),
     cholesterol: formatCholesterol(entries, ctx),
     bmi: formatBMI(getObservationByCode(ctx.observations, "9156-5", effectiveRefs)[0]?.value),
-    chiefComplaint: getChiefComplaintById(index.encounters, allEncounterIdsFiltered)?.reasonCode?.[0]?.text || "--",
+    chiefComplaint: getChiefComplaintById(index.encounters.filter(e => effectiveRefs.includes(`Encounter/${e.id}`)), allEncounterIdsFiltered)?.reasonCode?.[0]?.text || "--",
     glucose: getGlucose(entries, ctx),
     abdominal: getVital(entries, "Abdominal circumference", ctx),
     creatinine: getVital(entries, "Serum creatinine", ctx),
@@ -795,13 +866,21 @@ function buildReport(entries, encounterIds, forceType = null) {
     examination: buildServiceRequestHTML(services),
     intervention: buildInterventionHTML(interventions),
     facility: getHealthFacility(entries, ctx),
-    reportType: forceType || (isScreeningSite ? "screening-site" :"facility")
+    reportType: forceType || (effectiveRefs === screeningSiteRefs ? "screening-site" : "facility")
   };
   
   report.guidance = buildWHOGuidance(report);
   report.personalSummary = buildPersonalSummary(report);
 
-  const primaryEncounter = getPrimaryEncounter(allEncounterIdsFiltered[0], index.encounters)
+  const primaryEncounterId = allEncounterIdsFiltered[0];
+  let primaryEncounter = null;
+  if (primaryEncounterId) {
+    try {
+      primaryEncounter = getPrimaryEncounter(primaryEncounterId, index.encounters);
+    } catch (e) {
+      console.warn("Primary encounter not found:", primaryEncounterId, e.message);
+    }
+  }
   
   const { fileName, filePassword } = buildFileDetails(patient, name, forceType, primaryEncounter);
   

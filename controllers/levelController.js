@@ -26,7 +26,7 @@ let saveLevelData = async function (req, res) {
         let levelResource = null;
         for (let levelData of req.body) {
             if(levelData.levelType == "village") {
-                const islandData = await fetchResource("Organization", {_id: levelData.precedingLevelId, type: "health-facility"}, token);                
+                const islandData = await fetchResource("Organization", {_id: levelData.precedingLevelId, type: "health-facility", _count: 5000}, token);                
                 const locationData = islandData.entry[0].resource.extension.find(e => e.url == urlList.locationReferenceUrl)
                 levelData.orgId = levelData.precedingLevelId;
                 levelData.precedingLevelId = locationData?.valueReference?.reference?.split("/")[1] || null
@@ -86,7 +86,7 @@ let updateLevelData = async function (req, res) {
         const token = req.accessToken;
         for (let levelData of req.body) {
             if(levelData.levelType == "village") {
-                const islandData = await fetchResource("Organization", {_id: levelData.precedingLevelId, type: "health-facility"}, token);                
+                const islandData = await fetchResource("Organization", {_id: levelData.precedingLevelId, type: "health-facility", _count: 5000}, token);                
                 const locationData = islandData.entry[0].resource.extension.find(e => e.url == urlList.locationReferenceUrl)
                 levelData.orgId = levelData.precedingLevelId;
                 levelData.precedingLevelId = locationData?.valueReference?.reference?.split("/")[1] || null;
@@ -145,6 +145,7 @@ let getLevelData = async function (req, res) {
         let resStatus = 1;
         const token = req.accessToken;
         queryParams._total = "accurate"
+        queryParams._sort = queryParams._sort || "-_id";
         let resourceResult = [];
         const responseResult = await fetchResource("Location", queryParams, token);
         const responseData = responseResult.entry || []

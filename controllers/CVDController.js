@@ -36,7 +36,7 @@ const fetchMainEncounter = async (cvd, token, mainEncounterType) => {
 }
 
 const fetchCVDEncounter = async (baseEncounterId, token, type) => {
-    const result = await fetchResource("Encounter", { "part-of": baseEncounterId, type: type, _total: "accurate" }, token);
+    const result = await fetchResource("Encounter", { "part-of": baseEncounterId, type: type, _total: "accurate", _count: 1000 }, token);
     return result;
 }
 
@@ -273,7 +273,7 @@ const updateCVDData = async (req, res) => {
         const token = req.accessToken;
         let resourceResult = [];
         await Promise.all(req.body.map(async (cvd) => {
-            let observations = await fetchResource(RESOURCE_TYPES.OBSERVATION, { "encounter": cvd.cvdFhirId, "code:text": cvd.key }, token)
+            let observations = await fetchResource(RESOURCE_TYPES.OBSERVATION, { "encounter": cvd.cvdFhirId, "code:text": cvd.key, _count: 100 }, token)
             let observation = getPatchComponent(cvd.key, cvd.component, observations.entry[0].resource);
             const patchData = await patchToBundle(cvd.key, cvd, observation);
             let encounterPatchExist = resourceResult.find(e => e.fullUrl == "Encounter" + "/" + cvd.cvdFhirId);
@@ -329,6 +329,7 @@ async function handleExistingCVDEncounter({ cvd, cvdEncounter, baseEncounterId, 
     const existingEncounter = cvdEncounter.entry[0].resource;
     const observations = await fetchResource(RESOURCE_TYPES.OBSERVATION, {
         encounter: existingEncounter.id,
+        _count: 100
     }, token);
     const encounterBundle = await createEncounterBundle(Encounter, {
         encounterId: baseEncounterId,
