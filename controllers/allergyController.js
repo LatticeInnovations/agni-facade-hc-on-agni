@@ -144,6 +144,7 @@ let getAllergyData = async function (req, res) {
         const queryParams = req.query
         queryParams._total = "accurate";
         queryParams.code = isCampaignPath ? "screening-site-allergy": "facility-allergy" ; 
+        queryParams._sort = queryParams?._sort || "-_id";
         const token = req.accessToken;
         let resourceResult = []
         let resourceUrlData = { link: link, reqQuery: queryParams, allowNesting: 0, specialOffset: specialOffset }

@@ -2,7 +2,7 @@ require("dotenv").config();
 
 const amqp = require("amqplib");
 const redis = require("redis");
-const axios = require("axios");
+const { getToken } = require("../services/email/tokenStore");
 
 const redisClient = redis.createClient();
 const config = require("../config/nodeConfig");
@@ -11,10 +11,20 @@ const base = config.baseUrl;
 async function findMainEncounterId(fhirIds, patientId) {
   if (!fhirIds || !fhirIds.length) return fhirIds[0];
 
+  const axios = require("axios");
+  let token = null;
+  try {
+    token = await getToken();
+  } catch (err) {
+    console.warn("Redis token fetch failed:", err.message);
+  }
+  const authToken = token || config.token;
+  const headers = { Authorization: `Bearer ${authToken}`, "Content-Type": "application/fhir+json" };
+
   const encounters = [];
   for (const id of fhirIds) {
     try {
-      const res = await axios.get(`${base}Encounter/${id}`);
+      const res = await axios.get(`${base}Encounter/${id}`, { headers });
       encounters.push({ id, ...res.data });
     } catch (err) {
       continue;
@@ -67,10 +77,8 @@ async function startWorker() {
     console.log("Queue job received:", job);
 
     try {
-      // ✅ Step 1: only patientId store karo
       await redisClient.sAdd("pending_reports", job.patientId);
 
-      // ✅ Step 2: fhirIds ko patient-specific set me add karo
       await redisClient.sAdd(
         `pending_reports:${job.patientId}`,
         ...job.fhirIds

@@ -7,6 +7,7 @@ const { validateRequest } = require("../utils/validateRequest");
 const bundleStructure = require("../services/bundleOperation");
 const { fetchResource, buildFHIRResource } = require("../services/helperFunctions");
 const { v4: uuidv4 } = require("uuid");
+const { serviceModeSystemUrl } = require("../utils/heartcareSystemUrl");
 
 const validateBusinessRules = (data) => {
     if (!data.location?.type || !data.location?.value) {
@@ -118,11 +119,12 @@ const getAllServiceModes = async (token) => {
         const resource = entry.resource;
 
         const coding = resource.code?.coding?.find(
-            c => c.system === "http://example.org/service-mode"
+            c => c.system === serviceModeSystemUrl
         );
 
-        if (coding?.display) {
-            map[coding.display] = resource.id;
+        const storedName = coding?.display || resource.name || "";
+        if (storedName) {
+            map[storedName.toLowerCase()] = resource.id;
         }
     }
 
@@ -140,14 +142,17 @@ const getServiceModeId = async (serviceModeCode, token) => {
             token
         );
 
+        const searchName = serviceModeCode.toLowerCase();
+
         for (const entry of response.entry || []) {
             const resource = entry.resource;
 
             const coding = resource.code?.coding?.find(
-                c => c.system === "http://heartcare.vu/service-mode"
+                c => c.system === serviceModeSystemUrl
             );
 
-            if (coding?.display === serviceModeCode) {
+            const storedName = coding?.display?.toLowerCase();
+            if (storedName === searchName) {
                 return resource.id;
             }
         }
@@ -423,7 +428,7 @@ const listScreeningSites = async (req, res) => {
                 areaCouncil: areaCouncil,
                 areaCouncilId: areaCouncilId,
                 serviceMode: serviceMode,
-                serviceModeId: serviceModeMap[serviceMode] || "",
+                serviceModeId: serviceModeMap[serviceMode?.toLowerCase()] || "",
                 fromDate: fromDate || "",
                 toDate: toDate || "",
                 status: status,

@@ -85,9 +85,43 @@ exports.getAccessPage = async (req, res) => {
       <h4>Enter Your DOB to Download Report</h4>
       <form method="POST" action="${facadeUrl}api/v1/verify">
         <input type="hidden" name="token" value="${escapeHtml(token)}" />
-        <input name="dob" placeholder="YYYY-MM-DD" required />
+
+        <input
+          id="dob"
+          name="dob"
+          placeholder="YYYY-MM-DD"
+          maxlength="10"
+          autocomplete="bday"
+          pattern="\\d{4}-\\d{2}-\\d{2}"
+          required
+        />
+
         <button type="submit">Submit</button>
       </form>
+
+      <script>
+        const dobInput = document.getElementById("dob");
+
+        dobInput.addEventListener("input", (e) => {
+          let value = e.target.value.replace(/\\D/g, "");
+
+          if (value.length > 4 && value.length <= 6) {
+            value =
+              value.slice(0, 4) +
+              "-" +
+              value.slice(4);
+          } else if (value.length > 6) {
+            value =
+              value.slice(0, 4) +
+              "-" +
+              value.slice(4, 6) +
+              "-" +
+              value.slice(6, 8);
+          }
+
+          e.target.value = value;
+        });
+      </script>
     `
   });
 

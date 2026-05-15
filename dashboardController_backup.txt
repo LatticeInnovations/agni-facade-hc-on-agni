@@ -24,6 +24,10 @@ const VITAL_OBS_CODES = {
 
 const CVD_FIELDS = ["bp", "bmi", "smoker", "screeningDate", "cholesterol", "cholesterolUnit", "risk"];
 const VITAL_FIELDS = ["glucose", "glucoseUnit", "glucoseType"];
+const CLINICAL_FIELDS = [
+    "sysBP", "diaBP", "bmi", "smoker", "cholesterol",
+    "cvdRisk", "glucose", "screeningDate"
+];
 
 
 
@@ -42,16 +46,11 @@ return {
 }
 
 const groupEncountersByPatient = (patientMap, encounters, type) => {
-        if (!encounters || !encounters.entry) return patientMap;
-
+        if (!encounters || !encounters.entry) return;
         encounters.entry.forEach(entry => {
             const resource = entry.resource;
             const encounterId = resource.id;
             const patientId = resource.subject.reference.split("/")[1];
-
-            // Extract Facility ID (Service Provider)
-            const facilityId = resource.serviceProvider?.reference?.split("/")[1] || null;
-
             if (!patientMap[patientId]) {
                 
                  patientMap[patientId] = {
@@ -59,19 +58,10 @@ const groupEncountersByPatient = (patientMap, encounters, type) => {
                     mainEncounters: []
                 };
             }
-            
-            // We MUST check if this encounterId is already in the list 
-            // (to prevent duplicates if an encounter shows up in both queries)
-            const alreadyExists = patientMap[patientId][type].some(e => e.encounterId === encounterId);
 
-            if (!alreadyExists) {
-                patientMap[patientId][type].push({
-                    encounterId,
-                    facilityId, // <--- CRITICAL: Store this for the "Daily First" check
-                    appointmentId: resource.appointment?.[0]?.reference?.split("/")?.[1] || null,
-                    appointmentDate: null // Filled later by fetchAppointmentDates
-                });
-            }
+             patientMap[patientId][type].push({encounterId, facilityId: resource.serviceProvider.reference.split("/")[1],  appointmentId:   resource.appointment?.[0]?.reference?.split("/")?.[1] || null,
+             appointmentDate: null  // filled after fetch 
+    });
              });
         return patientMap;
 }
@@ -176,7 +166,8 @@ const fetchAppointmentDates = async (patientMap, token) => {
 
         Object.values(patientMap).forEach(patient => {
             patient.mainEncounters.forEach(enc => {
-                if (enc.appointmentId) {
+                const hasDate = enc.cvd?.screeningDate;
+                if (!hasDate && enc.appointmentId) {
                     if (!appointmentIdToEncounters[enc.appointmentId]) {
                         appointmentIdToEncounters[enc.appointmentId] = [];
                     }
@@ -189,40 +180,50 @@ const fetchAppointmentDates = async (patientMap, token) => {
         console.log("Fetching appointment dates for: ", appointmentIds.length, " appointments");
         if (!appointmentIds.length) return;
 
+        // Step 1: fetch appointments to get slot references
+        const slotIdToAppointmentId = {};
         await fetchInBatches(appointmentIds, BATCH_SIZE, async (batchIds) => {
             const response = await fetchResource("Appointment", {
-                "_id":      batchIds.join(","),
-                "_include": "Appointment:slot",        // pulls slot in same response
-                "_count":   batchIds.length * 3,       // appointments + slots
-                "_sort":    "-_id"
+                "_id":    batchIds.join(","),
+                "_count": batchIds.length,
+                "_sort":  "-_id"
             }, token);
 
             if (!response?.entry?.length) return;
 
-            // Separate appointments and included slots
-            const appointments = response.entry.filter(e => e.search?.mode === "match");
-            const slots        = response.entry.filter(e => e.search?.mode === "include");
-
-            // Build slot lookup map
-            const slotMap = {};
-            slots.forEach(e => {
-                slotMap[e.resource.id] = e.resource.start ?? null;
-            });
-
-            // Map slot date back to encounters via appointment
-            appointments.forEach(e => {
+            response.entry.forEach(e => {
                 const appointment   = e.resource;
                 const appointmentId = appointment.id;
                 const slotId        = appointment.slot?.[0]?.reference?.split("/")?.[1];
+                if (slotId) {
+                    slotIdToAppointmentId[slotId] = appointmentId;
+                }
+            });
+        });
 
-                // FIX: appointment might have no slot — appointmentDate stays null
-                const slotDate = slotId ? (slotMap[slotId] ?? null) : null;
+        const slotIds = Object.keys(slotIdToAppointmentId);
+        console.log("Fetching slots for: ", slotIds.length, " slots");
+        if (!slotIds.length) return;
+
+        // Step 2: fetch slots to get start date
+        await fetchInBatches(slotIds, BATCH_SIZE, async (batchIds) => {
+            const response = await fetchResource("Slot", {
+                "_id":    batchIds.join(","),
+                "_count": batchIds.length,
+                "_sort":  "-_id"
+            }, token);
+
+            if (!response?.entry?.length) return;
+
+            response.entry.forEach(e => {
+                const slot          = e.resource;
+                const slotId        = slot.id;
+                const slotDate      = slot.start ?? null;
+                const appointmentId = slotIdToAppointmentId[slotId];
 
                 const encounters = appointmentIdToEncounters[appointmentId];
-                if (encounters) {
+                if (encounters && slotDate) {
                     encounters.forEach(enc => enc.appointmentDate = slotDate);
-                    // null appointmentDate → encounter dropped by cleanPatientMapToDailyFirst
-                    // which is correct — no slot = no valid date = not included
                 }
             });
         });
@@ -305,51 +306,71 @@ const fetchCvdData = async (mainEncounterIds, patientMap, token) => {
     }
 }
 
+const filterPatientsWithData = (patientMap) => {
+            return Object.fromEntries(
+                Object.entries(patientMap).filter(([patientId, patient]) =>
+                    patient.mainEncounters.some(enc => enc.cvd || enc.vitals)
+                )
+            );
+        };
 
+
+const filterFinalData = (finalData) => {
+    return Object.fromEntries(
+        Object.entries(finalData).filter(([patientId, data]) =>
+            CLINICAL_FIELDS.some(field => data[field] !== null && data[field] !== undefined)
+        )
+    );
+};
 
 const deriveFinalVtialCvdData = (patientMap) => {
     const result = {};
+    console.log("Deriving final data from patient map with size: ", Object.keys(patientMap).length);
 
     Object.entries(patientMap).forEach(([patientId, patient]) => {
-        // 1. Group by Date (Already filtered by cleanPatientMapToDailyFirst)
-        // We just need to sort the remaining valid encounters newest to oldest
-        const sortedHistory = [...patient.mainEncounters].sort((a, b) => {
-            return new Date(b.appointmentDate) - new Date(a.appointmentDate);
-        });
 
-        if (sortedHistory.length === 0) return;
+         const getEncounterDate = (enc) => new Date(
+            enc.cvd?.screeningDate ??
+            enc.appointmentDate    ??
+            0
+        );
 
-        const getLatestValue = (field, type) => {
-            for (const enc of sortedHistory) {
+        // Sort by encounterId descending (higher = newer)
+        const sortedEncounters = [...patient.mainEncounters]
+            .sort((a, b) => getEncounterDate(b) - getEncounterDate(a));
+
+    const getLatestValue = (field, type) => {
+            for (const enc of sortedEncounters) {
                 const val = type == null ? enc[field] : enc[type]?.[field];
-                // Check for null, undefined, or empty string
-                if (val !== null && val !== undefined && val !== "") return val;
+                if (val !== null && val !== undefined) return val;
             }
             return null;
         };
 
         result[patientId] = {
+            // CVD
             patientDetails: patient?.patientDetails || null,
-            facilityId:      sortedHistory[0].facilityId,
-            // The display date is the Slot Start of the most recent valid encounter
-            screeningDate:   sortedHistory[0].appointmentDate, 
-
-            // Clinical Look-back (fills gaps from older appointments)
+            facilityId:      getLatestValue("facilityId", null),
             sysBP:           getLatestValue("sysBP", "cvd"),
             diaBP:           getLatestValue("diaBP", "cvd"),
             bmi:             getLatestValue("bmi", "cvd"),
             smoker:          getLatestValue("smoker", "cvd"),
+            screeningDate:   getLatestValue("screeningDate", "cvd") ??
+                getLatestValue("appointmentDate", null) ??
+                null,
             cholesterol:     getLatestValue("cholesterol", "cvd"),
             cholesterolUnit: getLatestValue("cholesterolUnit", "cvd"),
-            cvdRisk:         getLatestValue("cvdRisk", "cvd"),
+            cvdRisk:            getLatestValue("cvdRisk", "cvd"),
+
+            // Vitals
             glucose:         getLatestValue("glucose", "vitals"),
             glucoseUnit:     getLatestValue("glucoseUnit", "vitals"),
             glucoseType:     getLatestValue("glucoseType", "vitals"),
         };
     });
 
-    return result;
-};
+    return result
+}
 
 const fetchLocationList = async (ids, token, type) => {
     try {
@@ -407,42 +428,42 @@ const getPatientLocationDetails = async (patients, token) => {
         const facilityIds = [...new Set(patients.map(e => e.facilityId))];
 
         const [provinceList, areaCouncilList, islandList, villageList, orgResources] = await Promise.all([
-            fetchLocationList(provinceIds, token, "province"),
-            fetchLocationList(areaCouncilIds, token, "area-council"),
-            fetchLocationList(islandIds, token, "island"),
-            fetchLocationList(villageIds, token, "village"),
-            fetchResource("Organization", {
-                type: "health-facility",
-                _count: 2000,
-                _id: facilityIds.join(","),
-                "_sort": "-_id"
-            }, token)
-        ]);
-
-        // Build Lookup Maps (Objects) O(1)
-        const provinceMap    = Object.fromEntries(provinceList.map(e => [e.id, e.name]));
-        const councilMap     = Object.fromEntries(areaCouncilList.map(e => [e.id, e.name]));
-        const islandMap      = Object.fromEntries(islandList.map(e => [e.id, e.name]));
-        const villageMap     = Object.fromEntries(villageList.map(e => [e.id, e.name]));
-        const facilityMap    = Object.fromEntries((orgResources.entry || []).map(e => [e.resource.id, e.resource.name]));
-
-        // Optimized Mapping Loop
+        fetchLocationList(provinceIds, token, "province"),
+        fetchLocationList(areaCouncilIds, token, "area-council"),
+        fetchLocationList(islandIds, token, "island"),
+        fetchLocationList(villageIds, token, "village"),
+        fetchResource("Organization", {
+            type: "health-facility",
+            _count: 2000,
+            _id: facilityIds.join(","),
+            "_sort": "-_id"
+        }, token)
+    ]);
+     
+        const facilitiesList = orgResources.entry ? orgResources.entry.map(e => e.resource) : [];
         patients.forEach(patient => {
-            const addr = patient.patientDetails?.permanentAddress || {};
             
-            patient.province       = provinceMap[addr.state] || null;
-            patient.areaCouncil    = councilMap[addr.city] || null;
-            patient.island         = islandMap[addr.district] || null;
-            patient.village        = villageMap[addr.addressLine1] || null;
-            patient.healthFacility = facilityMap[patient.facilityId] || null;
-        });
+            const province = provinceList.find(e => e.id === patient.patientDetails.permanentAddress.state)
+            patient.province    = province?.name    || null;
+            const areaCouncil = areaCouncilList.find(e => e.id === patient.patientDetails.permanentAddress.city)
+           patient.areaCouncil = areaCouncil?.name || null;
+
+            const island = islandList.find(e => e.id === patient.patientDetails.permanentAddress.district)
+            patient.island = island?.name || null;
+
+            const village = villageList.find(e => e.id === patient.patientDetails.permanentAddress?.addressLine1)
+            patient.village = village?.name || null;
+
+            const facility = facilitiesList.find(e => patient.facilityId && e.id === patient.facilityId);
+            patient.healthFacility = facility?.name || null;
+        })
 
         return patients;
-    } catch (error) {
-        console.error("Error in getPatientLocationDetails:", error);
-        return Promise.reject(error);
     }
-};
+    catch(error) {
+        return Promise.reject(error)
+    }
+}
 
 const finalResponseStructure = (patients) => {
     return patients.map(e => ({
@@ -483,36 +504,6 @@ const finalResponseStructure = (patients) => {
     }))
 }
 
-const cleanPatientMapToDailyFirst = (patientMap, requestedFacilityIds) => {
-    Object.keys(patientMap).forEach(patientId => {
-        const patient = patientMap[patientId];
-        const dailyGroups = {};
-
-        // Group all encounters by the YYYY-MM-DD of the Slot
-        patient.mainEncounters.forEach(enc => {
-            if (!enc.appointmentDate) return;
-            const dateKey = enc.appointmentDate.slice(0, 10);
-            if (!dailyGroups[dateKey]) dailyGroups[dateKey] = [];
-            dailyGroups[dateKey].push(enc);
-        });
-
-        const validEncounters = [];
-
-        Object.values(dailyGroups).forEach(dayEncounters => {
-            // Sort Earliest to Latest
-            dayEncounters.sort((a, b) => new Date(a.appointmentDate) - new Date(b.appointmentDate));
-            const earliestEncounter = dayEncounters[0];
-
-            // Fix for Issue #5: Check if the earliest facility is in the allowed list
-            if (requestedFacilityIds.includes(String(earliestEncounter.facilityId))) {
-                validEncounters.push(earliestEncounter);
-            }
-        });
-
-        patient.mainEncounters = validEncounters;
-        if (patient.mainEncounters.length === 0) delete patientMap[patientId];
-    });
-};
 
 const getFacilityDashboard = async function (req, res) {
     try {
@@ -520,7 +511,6 @@ const getFacilityDashboard = async function (req, res) {
         const queryParams = req.query;
         queryParams._sort = queryParams._sort || "-_id";
         queryParams._count = TOTAL_COUNT;
-        const requestedFacilityIds = String(queryParams.facilityIds).split(",").map(String);
         const mainEncounterQuery = facilityMainEncounterQuery(queryParams);
         const mainEncounters = await fetchMainResourcesParallel("Encounter", mainEncounterQuery, token);
         if(!mainEncounters.entry) {
@@ -533,55 +523,18 @@ const getFacilityDashboard = async function (req, res) {
         }
         //  check if data is not empty
         let patientMap = {};
-        groupEncountersByPatient(patientMap, mainEncounters, "mainEncounters");
-       
-       // 2. Fetch Cross-Facility context
-        // This finds if these patients went elsewhere during the same date range
-        const patientIds = Object.keys(patientMap);
-        await fetchInBatches(patientIds, BATCH_SIZE, async (batchIds) => {
-            const crossResponse = await fetchResource("Encounter", {
-                type: MAIN_ENCOUNTER_TYPE,
-                "subject": batchIds.join(","),
-                "status": "finished,in-progress",
-                "appointment.slot.start:0": `ge${queryParams.startDate}`,
-                "appointment.slot.start:1": `le${queryParams.endDate}`,
-                "_count": TOTAL_COUNT * 2
-            }, token);
+        const mainEncounterIds = mainEncounters.entry ? mainEncounters.entry.map(e => e.resource.id) : [];
+        patientMap = groupEncountersByPatient(patientMap, mainEncounters, "mainEncounters");
+         const patientArray = await buildPatientArray(patientMap, mainEncounterIds, token);
 
-            if (crossResponse?.entry) {
-                // Add these "other" encounters to the same patientMap for comparison
-                groupEncountersByPatient(patientMap, crossResponse, "mainEncounters");
-            }
-        });
+        await getPatientDetails(
+                    Object.fromEntries(patientArray.map(p => [p.patientId, p])),
+                    token
+                );
 
-        // 3. Populate appointmentDate for EVERY encounter in the map
-        await fetchAppointmentDates(patientMap, token);
+        await getPatientLocationDetails(patientArray, token)
 
-        // --- STAGE 2: The Cleanup (The Call Site) ---
-        // We call it here so we only fetch clinical data for "Daily Winners"
-        cleanPatientMapToDailyFirst(patientMap, requestedFacilityIds);
-
-        // --- STAGE 3: Clinical Fetching ---
-        const validMainEncounterIds = [];
-        Object.values(patientMap).forEach(p => {
-            p.mainEncounters.forEach(e => validMainEncounterIds.push(e.encounterId));
-        });
-
-        if (validMainEncounterIds.length > 0) {
-            await Promise.all([
-                fetchCvdData(validMainEncounterIds, patientMap, token),
-                fetchVitalData(validMainEncounterIds, patientMap, token)
-            ]);
-        }
-        console.log("Completed clinical data fetch. Now deriving final data. Patient count: ", Object.keys(patientMap).length);
-        // --- STAGE 4: Derivation & Final Response ---
-        const derivedData = deriveFinalVtialCvdData(patientMap);
-        const patientArray = Object.entries(derivedData).map(([patientId, data]) => ({ patientId, ...data }));
-        await getPatientDetails(Object.fromEntries(patientArray.map(p => [p.patientId, p])), token);
-        await getPatientLocationDetails(patientArray, token);
-
-        const finalData = finalResponseStructure(patientArray);
-
+        const finalData = finalResponseStructure(patientArray); 
         return res.status(200).json({
             status: 1,
             message: "Facility dashboard data fetched",
@@ -659,71 +612,16 @@ const filterPatientsByDivision = (patientMap, divisionType, divisionIds) => {
     return patientMap;
 };
 
-const buildPatientArray = async (patientMap, queryParams, token) => {
+const buildPatientArray = async (patientMap, mainEncounterIds, token) => {
+    await Promise.all([
+        fetchCvdData(mainEncounterIds, patientMap, token),
+        fetchVitalData(mainEncounterIds, patientMap, token)
+    ]);
 
-    // We fetch every appointment for these patients in this date range
-    const patientIds = Object.keys(patientMap);
-    await fetchInBatches(patientIds, BATCH_SIZE, async (batchIds) => {
-        const crossRes = await fetchResource("Encounter", {
-            type: MAIN_ENCOUNTER_TYPE,
-            "subject": batchIds.join(","),
-            "status": "finished,in-progress",
-            "appointment.slot.start:0": `ge${queryParams.startDate}`,
-            "appointment.slot.start:1": `le${queryParams.endDate}`,
-            _count: TOTAL_COUNT * 2
-        }, token);
-        if (crossRes?.entry) groupEncountersByPatient(patientMap, crossRes, "mainEncounters");
-    });
-
-    // 3. Resolve dates for the new encounters we just added
     await fetchAppointmentDates(patientMap, token);
-
-    // 4. Enforce "One Appointment Per Day" (Earliest Wins)
-    // Note: In Division API, we don't filter by a single Facility ID,
-    // we just want the earliest one for that day to be the representative.
-    cleanPatientMapToDailyFirstInDivision(patientMap);
-
-    // 4. Fetch clinical data for survivors only
-    const validMainEncounterIds = [];
-    Object.values(patientMap).forEach(p => {
-        p.mainEncounters.forEach(e => validMainEncounterIds.push(e.encounterId));
-    });
-
-    if (validMainEncounterIds.length > 0) {
-        await Promise.all([
-            fetchCvdData(validMainEncounterIds, patientMap, token),
-            fetchVitalData(validMainEncounterIds, patientMap, token)
-        ]);
-    }
-
-    const result = deriveFinalVtialCvdData(patientMap);
+    const result        = deriveFinalVtialCvdData(patientMap);
+   
     return Object.entries(result).map(([patientId, data]) => ({ patientId, ...data }));
-};
-
-const cleanPatientMapToDailyFirstInDivision = (patientMap) => {
-    Object.keys(patientMap).forEach(patientId => {
-        const patient = patientMap[patientId];
-        const dailyGroups = {};
-
-        patient.mainEncounters.forEach(enc => {
-            if (!enc.appointmentDate) return;
-            const dateKey = enc.appointmentDate.slice(0, 10);
-            if (!dailyGroups[dateKey]) dailyGroups[dateKey] = [];
-            dailyGroups[dateKey].push(enc);
-        });
-
-        const validEncounters = [];
-
-        Object.values(dailyGroups).forEach(dayEncounters => {
-            // Sort by full Slot time ASC (Earliest first)
-            dayEncounters.sort((a, b) => new Date(a.appointmentDate) - new Date(b.appointmentDate));
-            
-            // Keep the absolute earliest one, discard the rest for that day
-            validEncounters.push(dayEncounters[0]);
-        });
-
-        patient.mainEncounters = validEncounters;
-    });
 };
 
 const getDivisionDashboard = async function (req, res) {
@@ -745,6 +643,7 @@ const getDivisionDashboard = async function (req, res) {
         }
         //  check if data is not empty
         let patientMap = {};
+        const mainEncounterIds = mainEncounters.entry ? mainEncounters.entry.map(e => e.resource.id) : []
         patientMap = groupEncountersByPatient(patientMap, mainEncounters, "mainEncounters");
         await getPatientDetails(patientMap, token);
 
@@ -753,7 +652,7 @@ const getDivisionDashboard = async function (req, res) {
             filterPatientsByDivision(patientMap, queryParams.divisionType, queryParams.divisionIds);
         }
         
-        const patientArray = await buildPatientArray(patientMap, queryParams, token);
+        const patientArray = await buildPatientArray(patientMap, mainEncounterIds, token);
 
         await getPatientLocationDetails(patientArray, token)
         

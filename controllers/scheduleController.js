@@ -19,7 +19,7 @@ let setScheduleData = async function (req, res) {
         const token = req.accessToken;
         if (!isCampaignPath) applyNonCampaignSideEffects(req);
         let resourceResult = [], errData = [];
-        const practitionerRoleResource = await fetchResource("PractitionerRole", { practitioner: req.decoded.userId, _total: "accurate" }, token);
+        const practitionerRoleResource = await fetchResource("PractitionerRole", { practitioner: req.decoded.userId, _total: "accurate", _sort: "_id" }, token);
         const roleId = practitionerRoleResource.entry[0].resource.id;
         const orgId = getOrgId(isCampaignPath, practitionerRoleResource);
         console.log("check orgId: ", orgId)

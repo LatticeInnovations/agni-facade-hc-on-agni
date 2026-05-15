@@ -36,7 +36,7 @@ let saveReferralData = async function (req, res) {
           };
         const token = req.accessToken;
         let resourceResult = [];
-        const practitionerRoleData = await fetchResource("PractitionerRole", {practitioner: req.decoded.userId, active: true}, token);
+        const practitionerRoleData = await fetchResource("PractitionerRole", {practitioner: req.decoded.userId, active: true, _sort: "_id"}, token);
         for (let referralData of req.body) {
             //  fetch appointment encounter
             const encounterData = await fetchMainEncounter(referralData, token)
@@ -167,6 +167,8 @@ const referralHospitals = async function (req, res) {
         let resStatus = 1;
         const token = req.accessToken;
         queryParams._total = "accurate"
+        queryParams._sort = queryParams._sort ? queryParams._sort  : "-_lastUpdated"
+        console.log("queryParams: ", queryParams)
         let resourceResult = [];
         const responseResult = await fetchResource("Organization", queryParams, token);
         const responseData = responseResult.entry || []

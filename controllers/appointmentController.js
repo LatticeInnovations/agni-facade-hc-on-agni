@@ -86,7 +86,7 @@ const processCampaignAppointments = async (reqBody, userId, token) => {
     const patientIds = reqBody.map(e => e.patientId);
     const appointmentResourceCheck = await fetchResource(
         "Appointment",
-        { "service-type": "screening-site", patient: patientIds.join(","), _total: "accurate" },
+        { "service-type": "screening-site", patient: patientIds.join(","), _total: "accurate", _count: 2000 },
         token
     );
     console.log("appointmentResourceCheck: ", appointmentResourceCheck);
@@ -130,7 +130,7 @@ function applyNonCampaignSideEffects(req) {
 
 const fetchPractitionerRoleResource = async (userId, token) => {
     // get PractitionerRole id of the organization sent by app and map it to the appointments
-    const roleResource = await fetchResource("PractitionerRole", { practitioner: userId, _total: "accurate" }, token);
+    const roleResource = await fetchResource("PractitionerRole", { practitioner: userId, _total: "accurate", _sort: "_id" , _count: 1000}, token);
     if (!roleResource.entry)
         throw new Error("PractitionerRole not found for the given organization.");
     return {roleId: roleResource.entry[0].resource.id, orgId: roleResource.entry[0].resource.organization.reference.split("/")[1]};
@@ -197,7 +197,7 @@ const fetchPatientResources = async (apptData, token) => {
     const patientIds = apptData.map(e => e.patientId);
     console.log(" patientIds.join(","): ",  patientIds.join(","))
     // get Patient mapped address ids for province, area council island and village
-    const patientResources = await fetchResource("Patient", { _ids: patientIds.join(","), _total: "accurate" }, token);
+    const patientResources = await fetchResource("Patient", { _ids: patientIds.join(","), _total: "accurate", _count: 10000 }, token);
     if (!patientResources.entry)
         throw new Error("Patients not found for the given appointment.");
     return patientResources.entry.map(e => e.resource);
@@ -254,7 +254,8 @@ const getRoleOrgObject = async (roleIds, token) => {
     if (validRoleIds.size > 0) {
         const entries = (await fetchResource("PractitionerRole", {
             _id: [...validRoleIds].join(","),  // use validRoleIds, not roleIds
-            _include: "PractitionerRole:organization"
+            _include: "PractitionerRole:organization",
+            _count: 5000
         }, token)).entry || [];
 
         for (const { resource } of entries) {

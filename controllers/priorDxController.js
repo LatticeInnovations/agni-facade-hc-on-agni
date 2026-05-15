@@ -338,6 +338,7 @@ async function handleExistingPriorDx({ priorDxData, priorDxEncounter, baseEncoun
     const existingEncounter = priorDxEncounter.entry[0].resource;
     const conditions = await fetchResource(RESOURCE_TYPES.CONDITION, {
         encounter: existingEncounter.id,
+        _count: 2000
     }, token);
 
     const encounterBundle = await createEncounterBundle(Encounter, {

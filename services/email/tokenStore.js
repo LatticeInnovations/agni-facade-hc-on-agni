@@ -1,29 +1,13 @@
-const redis = require("redis");
+const { client } = require("../redisConnect");
 
-const client = redis.createClient({
-  socket: {
-    host: "127.0.0.1",
-    port: 6379
-  }
-});
-
-client.on("error", (err) => {
-  console.error("Redis error:", err);
-});
-
-(async () => {
-  if (!client.isOpen) {
-    await client.connect();
-    console.log("Redis connected");
-  }
-})();
+const TOKEN_KEY = "FHIR_TOKEN";
 
 async function getToken() {
-  return await client.get("FHIR_TOKEN");
+  return await client.get(TOKEN_KEY);
 }
 
 async function saveToken(token) {
-  await client.set("FHIR_TOKEN", token, {
+  await client.set(TOKEN_KEY, token, {
     EX: 3600
   });
 }

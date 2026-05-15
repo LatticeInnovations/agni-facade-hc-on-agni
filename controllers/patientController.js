@@ -12,7 +12,6 @@ const { validateRequest } = require("../utils/validateRequest");
 const Observation = require("../class/BaseObservation");
 const heartcareUrls = require("../utils/heartcareSystemUrl")
 const { publishReportJob } = require("../middleware/reportPublisher");
-const { saveToken } = require("../services/email/tokenStore");
 //  save patient data
 let savePatientData = async function (req, res) {
     try {
