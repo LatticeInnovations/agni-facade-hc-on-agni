@@ -413,7 +413,7 @@ const patchAppointmentData = async function(req, res) {
       const validatedBody = validateRequest(req.body, appointmentPatchSchema, res);
       if (!validatedBody) return;
       
-      if(isCampaignPath) {
+      if(!isCampaignPath) {
         req.queueMeta = {
             data: req.data,
             entity: "appointments",
