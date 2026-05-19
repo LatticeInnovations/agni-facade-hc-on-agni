@@ -14,4 +14,4 @@ client.on("error", (err) => console.error("Redis error:", err));
   await client.connect();
 })();
 
-module.exports = client;
+module.exports = { client };
