@@ -1,4 +1,4 @@
-const  client  = require("../redisConnect");
+const  { client }  = require("../redisConnect");
 
 const TOKEN_KEY = "FHIR_TOKEN";
 

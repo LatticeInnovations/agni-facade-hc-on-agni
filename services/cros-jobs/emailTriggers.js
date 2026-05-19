@@ -1,6 +1,6 @@
 const cron = require("node-cron");
 const redis = require("redis");
-const  client  = require('../../services/redisConnect');
+const  { client }  = require('../../services/redisConnect');
 const { generateReport } = require("../email/reportService");
 
 async function processPendingReports() {
