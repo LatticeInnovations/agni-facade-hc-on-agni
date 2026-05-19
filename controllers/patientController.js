@@ -12,6 +12,7 @@ const { validateRequest } = require("../utils/validateRequest");
 const Observation = require("../class/BaseObservation");
 const heartcareUrls = require("../utils/heartcareSystemUrl")
 const { publishReportJob } = require("../middleware/reportPublisher");
+const {savePatientDataAddition} = require("../services/dasboardDataFalttenService");
 //  save patient data
 let savePatientData = async function (req, res) {
     try {
@@ -54,6 +55,8 @@ let savePatientData = async function (req, res) {
         if (response.status == 200 || response.status == 201) {
             let resourceResponse = setPatientSaveResponse(bundleData.bundle.entry, response.data.entry, "post");
             let responseData = [...resourceResponse, ...bundleData.errData];  
+            savePatientDataAddition(req.body, responseData);
+            console.log("what happended to response data: ")
             return res.status(201).json({ status: 1, message: "Patient data saved.", data: responseData })
         }
         else {

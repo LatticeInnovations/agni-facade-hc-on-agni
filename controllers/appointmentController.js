@@ -11,7 +11,7 @@ let apptStatus = require("../utils/appointmentStatus.json");
 const {buildFHIRResource, fetchResource, handleError, getTransformedResult, getAPIPath, getCampaignPractitionerRole} = require("../services/helperFunctions");
 let config = require("../config/nodeConfig");
 const urlList = require("../utils/heartcareSystemUrl");
-
+const  { addAppointmentData, patchAppointmentFlatData } = require("../services/dasboardDataFalttenService");
 
 
 let setAppointmentData = async function (req, res) {
@@ -27,8 +27,7 @@ let setAppointmentData = async function (req, res) {
         const { allResourceResults, errData } = isCampaignPath
         ? await processCampaignAppointments(req.body, req.decoded.userId, token)
         : await processNonCampaignAppointments(req.body, req.decoded.userId, token);
-       
-        console.info("=============>", allResourceResults, "<=========================");
+        console.log(req.body[0].orgId)
         let bundleData = await bundleStructure.getBundleJSON({ resourceResult: allResourceResults, errData })  
         console.info("main bundle transaction resource: ", bundleData)
 
@@ -43,6 +42,7 @@ let setAppointmentData = async function (req, res) {
         if (response.status == 200 || response.status == 201) {
             const resourceResponse = setAppointmentResponse(bundleData.bundle.entry, response.data.entry, "post");
             const responseData = [...resourceResponse, ...errData];
+            await addAppointmentData(req.body, isCampaignPath, responseData);
             res.status(201).json({ status: 1, message: "Appointment data saved.", data: responseData })
         }
         else {
@@ -413,7 +413,7 @@ const patchAppointmentData = async function(req, res) {
       const validatedBody = validateRequest(req.body, appointmentPatchSchema, res);
       if (!validatedBody) return;
       
-      if(isCampaignPath) {
+      if(!isCampaignPath) {
         req.queueMeta = {
             data: req.data,
             entity: "appointments",
@@ -426,6 +426,7 @@ const patchAppointmentData = async function(req, res) {
       let resourceResult = [], errData = [];        
       for (let inputData of reqInput) {
         let resourceSavedData = await fetchResource(resourceType, { "_id": inputData.appointmentId }, token)
+
         let encounterSavedData =  await fetchResource("Encounter", { "appointment": inputData.appointmentId }, token)
         if (resourceSavedData.entry.length != 1) {
             return res.status(422).json( { status: 0, message: "Appointment Id " + inputData.appointmentId + " does not exist."})
@@ -462,7 +463,7 @@ const patchAppointmentData = async function(req, res) {
     if (response.status == 200 || response.status == 201) {
         let resourceResponse = setAppointmentResponse(bundleData.bundle.entry, response.data.entry, "patch");
         let responseData = [...resourceResponse, ...errData];
-        console.info("===========>", responseData)
+        patchAppointmentFlatData(reqInput, isCampaignPath, responseData)
         return res.status(201).json({ status: 1, message: "Appointment data updated.", data: responseData })
     }
     else {
