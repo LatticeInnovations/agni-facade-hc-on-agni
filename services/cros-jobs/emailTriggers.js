@@ -1,20 +1,11 @@
 const cron = require("node-cron");
 const redis = require("redis");
-
+const  client  = require('../../services/redisConnect');
 const { generateReport } = require("../email/reportService");
-
-const redisClient = redis.createClient();
-
-async function initRedis() {
-  if (!redisClient.isOpen) {
-    await redisClient.connect();
-    console.log("Redis connected");
-  }
-}
 
 async function processPendingReports() {
 
-  const patients = await redisClient.sMembers("pending_reports");
+  const patients = await client.sMembers("pending_reports");
 
   console.log("Pending patients:", patients);
 
@@ -23,15 +14,15 @@ async function processPendingReports() {
     try {
 
       const key = `pending_reports:${patientId}`;
-      const fhirIds = await redisClient.sMembers(key);
+      const fhirIds = await client.sMembers(key);
 
       console.log(`Processing ${patientId}`, fhirIds);
 
       await generateReport(patientId, fhirIds);
 
       // cleanup after success
-      await redisClient.del(key);
-      await redisClient.sRem("pending_reports", patientId);
+      await client.del(key);
+      await client.sRem("pending_reports", patientId);
 
     } catch (err) {
 
@@ -58,9 +49,5 @@ function reportTrigger() {
 
   console.log("Report scheduler started");
 }
-
-initRedis().catch(err => {
-  console.error("Redis connection failed", err);
-});
 
 module.exports = { reportTrigger };
