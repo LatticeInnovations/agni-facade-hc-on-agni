@@ -99,22 +99,53 @@ async function buildAndSendReport(entries, patientId, encounterIds, forceType, e
 
 async function fetchWithRetry(patientId, maxRetries = 3, delayMs = 2000) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    console.log(`Fetching data (attempt ${attempt}/${maxRetries})...`);
-    const entries = await fetchEverything(patientId);
-    const observations = entries.filter(e => e.resource?.resourceType === "Observation");
-    const encounters = entries.filter(e => e.resource?.resourceType === "Encounter");
-    
-    if (observations.length > 0 || encounters.length > 0) {
-      console.log(`Data found: ${observations.length} observations, ${encounters.length} encounters`);
-      return entries;
-    }
-    
-    if (attempt < maxRetries) {
-      console.log(`No data found, retrying in ${delayMs}ms...`);
-      await new Promise(resolve => setTimeout(resolve, delayMs));
+    try {
+      console.log(`Fetching data (attempt ${attempt}/${maxRetries})...`);
+
+      const entries = await fetchEverything(patientId);
+
+      const observations = entries.filter(
+        e => e.resource?.resourceType === "Observation"
+      );
+
+      const encounters = entries.filter(
+        e => e.resource?.resourceType === "Encounter"
+      );
+
+      if (observations.length > 0 || encounters.length > 0) {
+        console.log(
+          `Data found: ${observations.length} observations, ${encounters.length} encounters`
+        );
+
+        return entries;
+      }
+
+      if (attempt < maxRetries) {
+        console.log(`No data found, retrying in ${delayMs}ms...`);
+
+        await new Promise(resolve =>
+          setTimeout(resolve, delayMs)
+        );
+      }
+
+    } catch (err) {
+
+      if (err.response?.status === 401) {
+        console.error("FHIR token invalid/expired");
+        throw err;
+      }
+
+      console.error("Fetch failed:", err.message);
+
+      if (attempt < maxRetries) {
+        await new Promise(resolve =>
+          setTimeout(resolve, delayMs)
+        );
+      } else {
+        throw err;
+      }
     }
   }
-  return await fetchEverything(patientId);
 }
 
 function groupEncountersByLocation(encounters) {

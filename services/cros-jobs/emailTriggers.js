@@ -1,44 +1,51 @@
 const cron = require("node-cron");
 const redis = require("redis");
-
+const  { client }  = require('../../services/redisConnect');
 const { generateReport } = require("../email/reportService");
 
-const redisClient = redis.createClient();
-
-async function initRedis() {
-  if (!redisClient.isOpen) {
-    await redisClient.connect();
-    console.log("Redis connected");
-  }
-}
+let isRunning = false;
 
 async function processPendingReports() {
 
-  const patients = await redisClient.sMembers("pending_reports");
+  if (isRunning) {
+    console.log("Previous report cycle still running");
+    return;
+  }
 
-  console.log("Pending patients:", patients);
+  isRunning = true;
 
-  for (const patientId of patients) {
+  try {
 
-    try {
+    const patients = await client.sMembers("pending_reports");
 
-      const key = `pending_reports:${patientId}`;
-      const fhirIds = await redisClient.sMembers(key);
+    console.log("Pending patients:", patients);
 
-      console.log(`Processing ${patientId}`, fhirIds);
+    for (const patientId of patients) {
 
-      await generateReport(patientId, fhirIds);
+      try {
 
-      // cleanup after success
-      await redisClient.del(key);
-      await redisClient.sRem("pending_reports", patientId);
+        const key = `pending_reports:${patientId}`;
+        const fhirIds = await client.sMembers(key);
 
-    } catch (err) {
+        console.log(`Processing ${patientId}`, fhirIds);
 
-      console.error("Report generation failed", err);
+        await generateReport(patientId, fhirIds);
 
+        await client.del(key);
+        await client.sRem("pending_reports", patientId);
+
+      } catch (err) {
+
+        console.error(
+          `Report generation failed for ${patientId}`,
+          err.message
+        );
+
+      }
     }
 
+  } finally {
+    isRunning = false;
   }
 }
 
@@ -58,9 +65,5 @@ function reportTrigger() {
 
   console.log("Report scheduler started");
 }
-
-initRedis().catch(err => {
-  console.error("Redis connection failed", err);
-});
 
 module.exports = { reportTrigger };
