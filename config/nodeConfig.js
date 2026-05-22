@@ -30,7 +30,10 @@ let config = function () {
             token: process.env.token,
             crvsBaseUrl: process.env.crvsBaseUrl,
             crvsUsername: process.env.crvsUsername,
-            crvsPassword: process.env.crvsPassword
+            crvsPassword: process.env.crvsPassword,
+            heartcareUrl: process.env.heartcare_url,
+            heartcareUsername: process.env.heartcare_username,
+            heartcarePassword: process.env.heartcare_password,
         };
 };
 module.exports = new config();
