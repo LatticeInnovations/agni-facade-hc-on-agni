@@ -75,7 +75,7 @@ async function fetchLocationsById(locationIds, token) {
     const map = new Map();
     const batchResults = await fetchInBatches(
         unique, BATCH_SIZES.LOCATION,
-        (batch) => fetchResource("Location", { _id: batch.join(",") }, token)
+        (batch) => fetchResource("Location", { _id: batch.join(","), _count: batch.length }, token)
     );
     for (const res of batchResults) {
         for (const entry of res.entry || []) {
