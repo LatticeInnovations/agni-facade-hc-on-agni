@@ -19,6 +19,11 @@ function getIdFromRef(ref) {
     return ref?.reference?.split("/")[1];
 }
 
+function toVUTDateString(dateStr) {
+    if (!dateStr) return null;
+    return new Date(dateStr).toLocaleDateString("en-GB", { timeZone: "Pacific/Efate" });
+}
+
 function calculateAge(birthDate) {
     if (!birthDate) return null;
     const today = new Date();
@@ -565,10 +570,11 @@ async function getScreeningSiteDashboard(req, res) {
             };
 
             const facilityName = facilityMap.get(patientId);
-            const screeningDate =
+            const rawScreeningDate =
                 screeningDateMap.get(enc.id) ||
                 enc.period?.start ||
                 null;
+            const screeningDate = toVUTDateString(rawScreeningDate);
             const record = {
                 ...buildRecord(
                     patient,
