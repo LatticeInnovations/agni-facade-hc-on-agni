@@ -412,12 +412,13 @@ const listScreeningSites = async (req, res) => {
             const toDate = site.getEndDate();
 
             let status = locationResource.status || "unknown";
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            const vutMs = Date.now() + 11 * 3600000;
+            const vut = new Date(vutMs);
+            const todayVUT = vut.getUTCFullYear() + '-' + String(vut.getUTCMonth() + 1).padStart(2, '0') + '-' + String(vut.getUTCDate()).padStart(2, '0');
 
-            if (toDate && new Date(toDate) < today) {
+            if (toDate && toDate < todayVUT) {
                 status = "closed";
-            } else if (fromDate && new Date(fromDate) > today) {
+            } else if (fromDate && fromDate > todayVUT) {
                 status = "upcoming";
             }
 
@@ -503,12 +504,13 @@ const getScreeningSite = async (req, res) => {
         const toDate = site.getEndDate();
 
         let status = locationResource.status || "unknown";
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const vutMs = Date.now() + 11 * 3600000;
+        const vut = new Date(vutMs);
+        const todayVUT = vut.getUTCFullYear() + '-' + String(vut.getUTCMonth() + 1).padStart(2, '0') + '-' + String(vut.getUTCDate()).padStart(2, '0');
 
-        if (toDate && new Date(toDate) < today) {
+        if (toDate && toDate < todayVUT) {
             status = "closed";
-        } else if (fromDate && new Date(fromDate) > today) {
+        } else if (fromDate && fromDate > todayVUT) {
             status = "upcoming";
         }
 
